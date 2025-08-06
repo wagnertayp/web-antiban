@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Números Enviados - Admin</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container py-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-database text-primary me-2"></i>
+                        Números Enviados
+                    </h1>
+                    <div class="d-flex gap-2">
+                        <a href="/" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Voltar
+                        </a>
+                    </div>
+                </div>
+                <p class="text-muted mb-0">Gerencie números que já receberam mensagens</p>
+            </div>
+        </div>
+
+        <!-- Statistics Card -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <h3 class="text-primary">{{ total_sent }}</h3>
+                        <p class="text-muted mb-0">Total de Números</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h3 class="text-info">{{ sent_numbers.total }}</h3>
+                        <p class="text-muted mb-0">Encontrados</p>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-danger" onclick="clearAllNumbers()">
+                            <i class="fas fa-trash me-2"></i>
+                            Limpar Todos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-10">
+                        <input type="text" 
+                               class="form-control" 
+                               name="search" 
+                               value="{{ search }}" 
+                               placeholder="Buscar por número, nome ou CPF...">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search me-2"></i>
+                            Buscar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Sent Numbers Table -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Números Enviados
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                {% if sent_numbers.items %}
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Número</th>
+                                <th>Nome</th>
+                                <th>CPF</th>
+                                <th>Primeiro Envio</th>
+                                <th>Último Envio</th>
+                                <th>Total Enviado</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for number in sent_numbers.items %}
+                            <tr>
+                                <td>
+                                    <span class="font-monospace">{{ number.phone_number }}</span>
+                                </td>
+                                <td>{{ number.lead_name or '-' }}</td>
+                                <td>
+                                    <span class="font-monospace">{{ number.lead_cpf or '-' }}</span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ number.first_sent_at.strftime('%d/%m/%Y %H:%M') if number.first_sent_at else '-' }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ number.last_sent_at.strftime('%d/%m/%Y %H:%M') if number.last_sent_at else '-' }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ number.total_sent }}</span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-outline-danger btn-sm" 
+                                            onclick="removeNumber({{ number.id }}, '{{ number.phone_number }}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <h5>Nenhum número encontrado</h5>
+                    <p class="text-muted">
+                        {% if search %}
+                            Nenhum número corresponde à sua busca.
+                        {% else %}
+                            Nenhum número foi enviado ainda.
+                        {% endif %}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if sent_numbers.pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if sent_numbers.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('admin_sent_numbers', page=sent_numbers.prev_num, search=search) }}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page_num in sent_numbers.iter_pages() %}
+                    {% if page_num %}
+                        {% if page_num != sent_numbers.page %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin_sent_numbers', page=page_num, search=search) }}">
+                                {{ page_num }}
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                        {% endif %}
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">…</span>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if sent_numbers.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('admin_sent_numbers', page=sent_numbers.next_num, search=search) }}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+
+    <!-- Alert Container -->
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 1050">
+        <div id="alertContainer"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function showAlert(message, type = 'success') {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertId = 'alert-' + Date.now();
+            
+            const alertHtml = `
+                <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            alertContainer.innerHTML = alertHtml;
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const alert = document.getElementById(alertId);
+                if (alert) {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }
+            }, 5000);
+        }
+
+        async function clearAllNumbers() {
+            if (!confirm('Tem certeza que deseja limpar TODOS os números enviados?\n\nEsta ação não pode ser desfeita e todos os números poderão receber mensagens novamente.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/clear-sent-numbers', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    showAlert(data.error || 'Erro ao limpar números', 'danger');
+                }
+            } catch (error) {
+                showAlert('Erro de conexão', 'danger');
+            }
+        }
+
+        async function removeNumber(numberId, phoneNumber) {
+            if (!confirm(`Tem certeza que deseja remover o número ${phoneNumber}?\n\nEle poderá receber mensagens novamente.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/remove-sent-number/${numberId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showAlert(data.error || 'Erro ao remover número', 'danger');
+                }
+            } catch (error) {
+                showAlert('Erro de conexão', 'danger');
+            }
+        }
+    </script>
+</body>
+</html>

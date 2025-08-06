@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Validate Button</title>
+</head>
+<body>
+    <textarea id="leadsInput" rows="3">5511999887766,João Silva,98765432109</textarea>
+    <button id="validateLeadsBtn">Validar Leads</button>
+    <div id="result"></div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded');
+        
+        const btn = document.getElementById('validateLeadsBtn');
+        console.log('Button found:', btn);
+        
+        if (btn) {
+            btn.addEventListener('click', async function() {
+                console.log('Button clicked');
+                const result = document.getElementById('result');
+                result.innerHTML = 'Testing...';
+                
+                const leadsText = document.getElementById('leadsInput').value.trim();
+                console.log('Leads text:', leadsText);
+                
+                try {
+                    const response = await fetch('/api/validate-leads', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ leads: leadsText })
+                    });
+                    
+                    const data = await response.json();
+                    console.log('Response:', data);
+                    result.innerHTML = JSON.stringify(data, null, 2);
+                } catch (error) {
+                    console.error('Error:', error);
+                    result.innerHTML = 'Error: ' + error.message;
+                }
+            });
+        } else {
+            console.error('Button not found!');
+        }
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+{
+  "name": "WhatsApp Business API System",
+  "description": "Advanced WhatsApp Business Cloud API management system with ultra-fast bulk messaging",
+  "keywords": ["python", "flask", "whatsapp", "api", "bulk-messaging"],
+  "website": "https://github.com/your-username/whatsapp-bulk-system",
+  "repository": "https://github.com/your-username/whatsapp-bulk-system",
+  "logo": "https://cdn.jsdelivr.net/npm/simple-icons@v3/icons/whatsapp.svg",
+  "success_url": "/",
+  "stack": "heroku-22",
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "standard-2x"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:standard-0"
+    }
+  ],
+  "env": {
+    "FLASK_ENV": {
+      "description": "Flask environment",
+      "value": "production"
+    },
+    "SESSION_SECRET": {
+      "description": "Secret key for Flask sessions",
+      "generator": "secret"
+    },
+    "WHATSAPP_ACCESS_TOKEN": {
+      "description": "WhatsApp Business API access token from Facebook Business Manager",
+      "required": true
+    },
+    "WHATSAPP_BUSINESS_ACCOUNT_ID": {
+      "description": "Business Manager ID (optional - will be auto-discovered if not provided)",
+      "required": false
+    },
+    "WEB_CONCURRENCY": {
+      "description": "Number of worker processes (auto-calculated based on dyno type)",
+      "value": "4"
+    },
+    "THREADS_PER_WORKER": {
+      "description": "Number of threads per worker (scales with dyno resources)",
+      "value": "8"
+    },
+    "TIMEOUT": {
+      "description": "Worker timeout in seconds (for long-running bulk operations)",
+      "value": "600"
+    },
+    "MAX_WORKERS": {
+      "description": "Maximum concurrent workers for ultra-speed processing",
+      "value": "5000"
+    },
+    "BATCH_SIZE": {
+      "description": "Messages per batch for optimal throughput",
+      "value": "1000"
+    },
+    "CONNECTION_POOL_SIZE": {
+      "description": "HTTP connection pool size for WhatsApp API",
+      "value": "2000"
+    }
+  },
+  "scripts": {
+    "postdeploy": "python -c \"from app import app, db; app.app_context().push(); db.create_all()\""
+  }
+}

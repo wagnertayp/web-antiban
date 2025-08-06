@@ -1,0 +1,47 @@
+{
+  "id": "1100293608691435",
+  "name": "modelo2",
+  "status": "APPROVED",
+  "category": "UTILITY",
+  "language": "en",
+  "components": [
+    {
+      "type": "HEADER",
+      "format": "TEXT",
+      "text": "Notificação Extrajudicial"
+    },
+    {
+      "type": "BODY",
+      "text": "Prezado (a) {{2}}, me chamo Damião Alves Vaz. Sou tabelião do Cartório 5º Ofício de Notas. Consta em nossos registros uma inconsistência relacionada à sua declaração de Imposto de Renda, vinculada ao CPF *{{1}}.*\n\nPara evitar restrições ou bloqueios nas próximas horas, orientamos que verifique sua situação e regularize imediatamente.\n\nAtenciosamente,  \nCartório 5º Ofício de Notas",
+      "example": {
+        "body_text": [
+          [
+            "065.370.801-77",
+            "Pedro Lima"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "FOOTER",
+      "text": "PROCESSO Nº: 0009-13.2025.0100-NE"
+    },
+    {
+      "type": "BUTTONS",
+      "buttons": [
+        {
+          "type": "URL",
+          "text": "Regularizar meu CPF",
+          "url": "https://www.intimacao.org/{{1}}",
+          "example": [
+            "https://www.intimacao.org/065.370.801-77"
+          ]
+        }
+      ]
+    }
+  ],
+  "quality_score": {
+    "score": "UNKNOWN",
+    "date": 1752574566
+  }
+}

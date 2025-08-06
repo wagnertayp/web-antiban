@@ -1,0 +1,12 @@
+
+Application Logs
+2025-07-29T03:59:31.609470+00:00 app[web.28]: 201.87.253.93 - - [29/Jul/2025:03:59:31 +0000] "POST /api/validate-leads HTTP/1.1" 200 10319 "https://disparador-85c599c32e28.herokuapp.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
+2025-07-29T03:59:31.609523+00:00 heroku[router]: at=info method=POST path="/api/validate-leads" host=disparador-85c599c32e28.herokuapp.com request_id=d74052c5-ee2f-4be1-66e6-90334b5b7875 fwd="201.87.253.93" dyno=web.28 connect=0ms service=23ms status=200 bytes=10319 protocol=http1.1 tls=true tls_version=unknown
+2025-07-29T04:00:05.426009+00:00 app[web.23]: INFO:root:🔑 TOKEN DA SESSÃO APLICADO: EAAHUCvWVsdgBPES189IbwO9TuAA71ktx1l5Dc2qgYgYjZAdPw...
+2025-07-29T04:00:05.426060+00:00 app[web.23]: INFO:root:🔄 Token forçadamente atualizado: EAAHUCvWVsdgBPES189IbwO9TuAA71ktx1l5Dc2qgYgYjZAdPw...
+2025-07-29T04:00:05.426141+00:00 app[web.23]: INFO:root:AUTO-DESCOBERTO: BM 2089992404820473 - 20 phones
+2025-07-29T04:00:05.426184+00:00 app[web.23]: INFO:root:Token atualizado - 20 phones disponíveis para seleção dinâmica (rate limit prevention ativo)
+2025-07-29T04:00:05.426217+00:00 app[web.23]: INFO:root:🚀 ABSOLUTE MAXIMUM VELOCITY MODE: 100000 workers, batch 50000, 333334 calls/sec
+2025-07-29T04:00:05.426306+00:00 app[web.23]: ERROR:root:Ultra-speed fixed error: cannot access local variable 'leads' where it is not associated with a value
+2025-07-29T04:00:05.427660+00:00 heroku[router]: at=info method=POST path="/api/ultra-speed" host=disparador-85c599c32e28.herokuapp.com request_id=07421459-369f-ada3-96fa-b93ab4df585c fwd="201.87.253.93" dyno=web.23 connect=0ms service=9ms status=500 bytes=51 protocol=http1.1 tls=true tls_version=unknown
+2025-07-29T04:00:05.431247+00:00 app[web.23]: 201.87.253.93 - - [29/Jul/2025:04:00:05 +0000] "POST /api/ultra-speed HTTP/1.1" 500 51 "https://disparador-85c599c32e28.herokuapp.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"

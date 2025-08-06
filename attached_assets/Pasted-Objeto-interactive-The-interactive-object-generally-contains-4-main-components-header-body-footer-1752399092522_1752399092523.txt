@@ -1,0 +1,77 @@
+Objeto interactive
+The interactive object generally contains 4 main components: header, body, footer, and action. Additionally, some of those components can contain one or more different objects:
+
+Inside header, you can nest media objects.
+Inside action, you can nest section and button objects.
+Name	Description
+type
+
+string	
+Required.
+
+The type of interactive message you want to send. Supported values:
+
+list: Use it for List Messages.
+button: Use it for Reply Buttons.
+product: Use it for Single-Product Messages.
+product_list: Use it for Multi-Product Messages.
+catalog_message: Use it for Catalog Messages.
+flow: Use it for Flows Messages.
+header
+
+object	
+Required for type product_list. Optional for other types.
+
+Header content displayed on top of a message. You cannot set a header if your interactive object is of product type.
+
+
+The header object contains the following fields:
+
+documentobject – Required if type is set to document. Contains the media object with the document.
+
+imageobject – Required if type is set to image. Contains the media object with the image.
+
+videoobject – Required if type is set to video. Contains the media object with the video.
+
+textstring – Required if type is set to text. Text for the header. Formatting allows emojis, but not markdown. Maximum length: 60 characters.
+
+typestring – Required. The header type you would like to use. Supported values are:
+
+text – for List Messages, Reply Buttons, and Multi-Product Messages.
+
+video – for Reply Buttons.
+
+image – for Reply Buttons.
+
+document – for Reply Buttons.
+
+body
+
+object	
+Optional for type product. Required for other message types.
+
+An object with the body of the message.
+
+
+The body object contains the following field:
+
+textstring – Required if body is present. The content of the message. Emojis and markdown are supported. Maximum length: 1024 characters.
+
+footer
+
+object	
+Optional.
+
+An object with the footer of the message.
+
+
+The footer object contains the following field:
+
+textstring – Required if footer is present. The footer content. Emojis, markdown, and links are supported. Maximum length: 60 characters.
+
+action
+
+object	
+Required.
+
+An action object with what you want the user to perform after reading the message. See action object for full information.

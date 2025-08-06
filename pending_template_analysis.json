@@ -1,0 +1,22 @@
+{
+  "name": "status_analysis_1752578695",
+  "previous_category": "UTILITY",
+  "parameter_format": "POSITIONAL",
+  "components": [
+    {
+      "type": "BODY",
+      "text": "Status analysis test {{1}}",
+      "example": {
+        "body_text": [
+          [
+            "test"
+          ]
+        ]
+      }
+    }
+  ],
+  "language": "en",
+  "status": "PENDING",
+  "category": "MARKETING",
+  "id": "2935270750009834"
+}

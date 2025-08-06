@@ -1,0 +1,39 @@
+{
+  "id": "1037977465208396",
+  "name": "modelo_8",
+  "status": "APPROVED",
+  "category": "UTILITY",
+  "language": "en",
+  "components": [
+    {
+      "type": "HEADER",
+      "format": "TEXT",
+      "text": "Notifica\u00e7\u00e3o Extrajudicial"
+    },
+    {
+      "type": "BODY",
+      "text": "Prezado (a) {{2}}, me chamo Sayonara Palloma e sou tabeli\u00e3 do Cart\u00f3rio 5\u00ba Of\u00edcio de Notas. Consta em nossos registros uma inconsist\u00eancia relacionada \u00e0 sua declara\u00e7\u00e3o de Imposto de Renda, vinculada ao CPF *{{1}}.*\n\nPara evitar restri\u00e7\u00f5es ou bloqueios nas pr\u00f3ximas horas, orientamos que verifique sua situa\u00e7\u00e3o e regularize imediatamente.\n\nAtenciosamente,  \nCart\u00f3rio 5\u00ba Of\u00edcio de Notas",
+      "example": {
+        "body_text": [
+          [
+            "895.906.620-64",
+            "Lucas Lima"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "BUTTONS",
+      "buttons": [
+        {
+          "type": "URL",
+          "text": "Regularizar meu CPF",
+          "url": "https://www.intimacao.org/{{1}}",
+          "example": [
+            "https://www.intimacao.org/895.906.620-64"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+
+2025-07-29T04:13:27.023467+00:00 app[web.20]: DEBUG:urllib3.connectionpool:https://graph.facebook.com:443 "POST /v22.0/725492557312328/messages HTTP/1.1" 200 180
+2025-07-29T04:13:27.023744+00:00 app[web.20]: INFO:root:WhatsApp text message API response: {'messaging_product': 'whatsapp', 'contacts': [{'input': '+5561999114066', 'wa_id': '556199114066'}], 'messages': [{'id': 'wamid.HBgMNTU2MTk5MTE0MDY2FQIAERgSNDRBNDQ4NzJFNzBFRUZDMUNCAA=='}]}
+2025-07-29T04:13:27.023764+00:00 app[web.20]: INFO:root:Message queued - Input: +5561999114066, WhatsApp ID: 556199114066, Message ID: wamid.HBgMNTU2MTk5MTE0MDY2FQIAERgSNDRBNDQ4NzJFNzBFRUZDMUNCAA==
+2025-07-29T04:13:27.023963+00:00 app[web.20]: INFO:root:✅ FALLBACK SUCESSO: Texto enviado com conteúdo do template modelo21
+2025-07-29T04:13:27.024246+00:00 app[web.20]: INFO:root:🔍 SEND ATTEMPT: +5561999114066 - Success: True - Response: {'messageId': 'wamid.HBgMNTU2MTk5MTE0MDY2FQIAERgSNDRBNDQ4NzJFNzBFRUZDMUNCAA==', 'whatsAppId': 'wamid.HBgMNTU2MTk5MTE0MDY2FQIAERgSNDRBNDQ4NzJFNzBFRUZDMUNCAA==', 'status': 'sent_via_text_fallback', 'template_used': 'modelo21_as_text', 'fallback_reason': 'bm_template_restriction'}
+2025-07-29T04:13:27.024263+00:00 app[web.20]: INFO:root:✅ REAL MESSAGE SENT: +5561999114066 - Message ID: wamid.HBgMNTU2MTk5MTE0MDY2FQIAERgSNDRBNDQ4NzJFNzBFRUZDMUNCAA==
+2025-07-29T04:13:27.031000+00:00 app[web.20]: DEBUG:root:Número salvo no banco: +5561999114066 - Pedro
+2025-07-29T04:13:27.037324+00:00 app[web.20]: INFO:root:🚀 ULTRA SUPREME COMPLETE: 156 leads processed in 5.7 seconds
+2025-07-29T04:13:27.054235+00:00 app[web.20]: INFO:root:⚡ MAXIMUM VELOCITY COMPLETE: 156 sent from 156 leads - 100000 workers used
+2025-07-29T04:13:27.054273+00:00 app[web.20]: INFO:root:🔍 FINAL STATUS: Session 1753762401 completed - {'total': 156, 'sent': 156, 'failed': 0, 'status': 'completed', 'start_time': 1753762401.2614026}
+2025-07-29T04:12:34.000000+00:00 app[api]: Build started by user lecina.farias@escola.seduc.pa.gov.br
+2025-07-29T04:12:45.783414+00:00 app[api]: Release v13 created by user lecina.farias@escola.seduc.pa.gov.br
+2025-07-29T04:12:45.783414+00:00 app[api]: Deploy f5c178a1 by user lecina.farias@escola.seduc.pa.gov.br
+2025-07-29T04:12:52.000000+00:00 app[api]: Build succeeded

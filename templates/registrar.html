@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar Números Cloud API - WhatsApp Business</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+            margin: 20px auto;
+            max-width: 1200px;
+        }
+        .header-section {
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            color: white;
+            border-radius: 20px 20px 0 0;
+            padding: 30px;
+            text-align: center;
+        }
+        .form-section {
+            padding: 30px;
+        }
+        .phone-card {
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        .phone-card.verified {
+            border-color: #28a745;
+            background: rgba(40, 167, 69, 0.05);
+        }
+        .phone-card.pending {
+            border-color: #ffc107;
+            background: rgba(255, 193, 7, 0.05);
+        }
+        .phone-card.error {
+            border-color: #dc3545;
+            background: rgba(220, 53, 69, 0.05);
+        }
+        .status-badge {
+            font-size: 0.8rem;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+        .loading-spinner {
+            display: none;
+        }
+        .progress-section {
+            display: none;
+            margin-top: 20px;
+        }
+        .btn-register {
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 30px;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn-register:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(37, 211, 102, 0.3);
+            color: white;
+        }
+        .phone-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-container">
+            <div class="header-section">
+                <h1><i class="fab fa-whatsapp me-3"></i>Registrar Números Cloud API</h1>
+                <p class="mb-0">Registre automaticamente números do WhatsApp Business na Cloud API</p>
+                <div class="mt-3">
+                    <div class="d-flex gap-2 justify-content-center">
+                        <span class="badge bg-light text-dark"><i class="fas fa-key me-1"></i>Token Próprio</span>
+                        <span class="badge bg-light text-dark"><i class="fas fa-users me-1"></i>Uso Compartilhado</span>
+                        <span class="badge bg-light text-dark"><i class="fas fa-rocket me-1"></i>Registro Automático</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <!-- Formulário de Busca -->
+                <div class="row mb-4">
+                    <div class="col-md-12 mb-3">
+                        <label for="access_token" class="form-label">
+                            <i class="fas fa-key me-2"></i>Token de Acesso WhatsApp Business API
+                        </label>
+                        <div class="input-group">
+                            <input type="password" 
+                                   class="form-control form-control-lg" 
+                                   id="access_token" 
+                                   placeholder="Cole seu token de acesso aqui...">
+                            <button class="btn btn-outline-secondary" type="button" onclick="toggleTokenVisibility()">
+                                <i class="fas fa-eye" id="toggleIcon"></i>
+                            </button>
+                        </div>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Token necessário para acessar a API do WhatsApp Business. Seu token não é armazenado no servidor.
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <label for="business_account_id" class="form-label">
+                            <i class="fas fa-building me-2"></i>Identificação da Conta WhatsApp Business
+                        </label>
+                        <input type="text" 
+                               class="form-control form-control-lg" 
+                               id="business_account_id" 
+                               placeholder="Ex: 639849885789886"
+                               value="{{ business_account_id or '' }}">
+                        <div class="form-text">ID da Business Manager onde estão os números</div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button class="btn btn-register w-100" onclick="buscarNumeros()">
+                            <i class="fas fa-search me-2"></i>Buscar Números
+                        </button>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mb-3">
+                    <h6 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Como Adicionar Novos Números</h6>
+                    <ol class="mb-0">
+                        <li>Adicione o número no <strong>Facebook Developer Console</strong> primeiro</li>
+                        <li>Copie o <strong>Phone ID</strong> do número adicionado</li>
+                        <li>Use "Solicitar SMS" com o Phone ID para receber código</li>
+                        <li>Use "Verificar SMS" com o código recebido para ativar</li>
+                    </ol>
+                    <hr class="my-2">
+                    <small><strong>Importante:</strong> Números não podem ser adicionados via API. Use o console web primeiro.</small>
+                </div>
+
+                <!-- Loading -->
+                <div class="loading-spinner text-center">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-3">Buscando números na Business Manager...</p>
+                </div>
+
+                <!-- Progress Section -->
+                <div class="progress-section">
+                    <h5><i class="fas fa-cogs me-2"></i>Progresso do Registro</h5>
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-text">Preparando...</div>
+                </div>
+
+                <!-- Lista de Números -->
+                <div id="phone-results" class="phone-list"></div>
+
+                <!-- Ações em Massa -->
+                <div id="mass-actions" class="mt-4" style="display: none;">
+                    <div class="d-flex gap-3 justify-content-center">
+                        <button class="btn btn-register btn-lg" onclick="registrarTodos()">
+                            <i class="fas fa-rocket me-2"></i>Registrar Todos na Cloud API
+                        </button>
+                        <button class="btn btn-outline-secondary btn-lg" onclick="verificarTodos()">
+                            <i class="fas fa-sync me-2"></i>Verificar Status
+                        </button>
+                        <button class="btn btn-warning btn-lg" onclick="solicitarSMS()">
+                            <i class="fas fa-sms me-2"></i>Solicitar SMS
+                        </button>
+                        <button class="btn btn-info btn-lg" onclick="verificarSMS()">
+                            <i class="fas fa-sms me-2"></i>Verificar SMS
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Instruções de Uso -->
+                <div id="instructions" class="mt-5">
+                    <div class="card border-info">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Como Usar Esta Ferramenta</h6>
+                        </div>
+                        <div class="card-body">
+                            <ol class="mb-0">
+                                <li><strong>Token de Acesso:</strong> Cole seu token do WhatsApp Business API no campo acima</li>
+                                <li><strong>Business Account ID:</strong> Insira o ID da sua conta WhatsApp Business</li>
+                                <li><strong>Buscar Números:</strong> Clique em "Buscar Números" para listar todos os números da conta</li>
+                                <li><strong>Registrar:</strong> Use os botões para registrar números individuais ou todos de uma vez</li>
+                            </ol>
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <i class="fas fa-shield-alt me-1"></i>
+                                    Seu token não é armazenado no servidor e é usado apenas para esta sessão
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentBusinessAccount = '';
+        let phoneNumbers = [];
+
+        function toggleTokenVisibility() {
+            const tokenInput = document.getElementById('access_token');
+            const toggleIcon = document.getElementById('toggleIcon');
+            
+            if (tokenInput.type === 'password') {
+                tokenInput.type = 'text';
+                toggleIcon.className = 'fas fa-eye-slash';
+            } else {
+                tokenInput.type = 'password';
+                toggleIcon.className = 'fas fa-eye';
+            }
+        }
+
+        async function buscarNumeros() {
+            const accessToken = document.getElementById('access_token').value.trim();
+            const businessAccountId = document.getElementById('business_account_id').value.trim();
+            
+            if (!accessToken) {
+                alert('Por favor, insira o Token de Acesso');
+                return;
+            }
+            
+            if (!businessAccountId) {
+                alert('Por favor, insira a Identificação da Conta WhatsApp Business');
+                return;
+            }
+
+            currentBusinessAccount = businessAccountId;
+            
+            // Mostrar loading
+            document.querySelector('.loading-spinner').style.display = 'block';
+            document.getElementById('phone-results').innerHTML = '';
+            document.getElementById('mass-actions').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/buscar-numeros', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        business_account_id: businessAccountId,
+                        access_token: accessToken
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    phoneNumbers = data.phones;
+                    exibirNumeros(data.phones);
+                    document.getElementById('mass-actions').style.display = 'block';
+                } else {
+                    exibirErro('Erro ao buscar números', data.error);
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                exibirErro('Erro de Comunicação', 'Falha na comunicação com o servidor. Verifique sua conexão e tente novamente.');
+            } finally {
+                document.querySelector('.loading-spinner').style.display = 'none';
+            }
+        }
+
+        function exibirErro(titulo, mensagem) {
+            const container = document.getElementById('phone-results');
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>${titulo}</h6>
+                    <p class="mb-0">${mensagem}</p>
+                    <hr>
+                    <div class="mb-0">
+                        <small><strong>Dicas:</strong></small>
+                        <ul class="small mb-0">
+                            <li>Verifique se o token foi copiado completamente</li>
+                            <li>Certifique-se que o Business Account ID está correto</li>
+                            <li>Confirme que o token tem permissões para WhatsApp Business</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
+        function solicitarSMS() {
+            const accessToken = document.getElementById('access_token').value.trim();
+            
+            if (!accessToken) {
+                alert('Por favor, preencha o Token de Acesso primeiro');
+                return;
+            }
+            
+            const phoneId = prompt('⚠️ ATENÇÃO: Números devem ser adicionados primeiro no Facebook Developer Console!\n\nDigite o Phone ID do número que já está na Business Manager:');
+            if (!phoneId) return;
+            
+            solicitarSMSAPI(phoneId, accessToken);
+        }
+
+        async function solicitarSMSAPI(phoneId, token) {
+            try {
+                const response = await fetch('/api/solicitar-sms', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone_id: phoneId,
+                        access_token: token
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(`✅ ${data.message}\n\n⚠️ IMPORTANTE: Anote o Phone ID: ${phoneId}\nVocê precisará dele para verificar o SMS.\n\nApós receber o SMS, clique em "Verificar SMS" e use:\n- Phone ID: ${phoneId}\n- Código SMS recebido`);
+                    // Recarregar a lista de números
+                    buscarNumeros();
+                } else {
+                    alert('❌ Erro ao solicitar SMS: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro na comunicação com o servidor');
+            }
+        }
+
+        function verificarSMS() {
+            const accessToken = document.getElementById('access_token').value.trim();
+            
+            if (!accessToken) {
+                alert('Por favor, preencha o Token de Acesso primeiro');
+                return;
+            }
+            
+            const phoneId = prompt('Digite o Phone ID do número que recebeu o SMS:');
+            if (!phoneId) return;
+            
+            const smsCode = prompt('Digite o código SMS recebido (6 dígitos):');
+            if (!smsCode) return;
+            
+            verificarSMSAPI(phoneId, smsCode, accessToken);
+        }
+
+        async function verificarSMSAPI(phoneId, smsCode, token) {
+            try {
+                const response = await fetch('/api/verificar-sms', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone_id: phoneId,
+                        sms_code: smsCode,
+                        access_token: token
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    // Recarregar a lista de números
+                    buscarNumeros();
+                } else {
+                    alert('❌ Erro: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro na comunicação com o servidor');
+            }
+        }
+
+        function exibirNumeros(phones) {
+            const container = document.getElementById('phone-results');
+            
+            if (phones.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-warning text-center">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Nenhum número encontrado nesta Business Manager
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `<h5 class="mb-3"><i class="fas fa-mobile-alt me-2"></i>Números Encontrados (${phones.length})</h5>`;
+            
+            phones.forEach((phone, index) => {
+                const statusClass = phone.platform === 'CLOUD_API' ? 'verified' : 'pending';
+                const statusIcon = phone.platform === 'CLOUD_API' ? 'fa-check-circle' : 'fa-clock';
+                const statusText = phone.platform === 'CLOUD_API' ? 'Registrado' : 'Pendente';
+                const statusBadge = phone.platform === 'CLOUD_API' ? 'bg-success' : 'bg-warning';
+
+                html += `
+                    <div class="phone-card ${statusClass}" id="phone-${index}">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <h6 class="mb-1">
+                                    <i class="fas fa-phone me-2"></i>${phone.display_phone_number}
+                                </h6>
+                                <small class="text-muted">ID: ${phone.id}</small>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-1">
+                                    <i class="fas fa-user me-2"></i>${phone.verified_name}
+                                </div>
+                                <div>
+                                    <span class="status-badge ${statusBadge}">
+                                        <i class="fas ${statusIcon} me-1"></i>${statusText}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div><strong>Status:</strong> ${phone.code_verification_status}</div>
+                                <div><strong>Qualidade:</strong> ${phone.quality_rating}</div>
+                                <div><strong>Platform:</strong> ${phone.platform}</div>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                ${phone.platform !== 'CLOUD_API' ? `
+                                    <button class="btn btn-sm btn-outline-success" onclick="registrarNumero(${index})">
+                                        <i class="fas fa-plus me-1"></i>Registrar
+                                    </button>
+                                ` : `
+                                    <span class="text-success">
+                                        <i class="fas fa-check-circle fa-2x"></i>
+                                    </span>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        async function registrarNumero(index) {
+            const accessToken = document.getElementById('access_token').value.trim();
+            const phone = phoneNumbers[index];
+            const phoneCard = document.getElementById(`phone-${index}`);
+            
+            if (!accessToken) {
+                alert('Token de acesso é obrigatório');
+                return;
+            }
+            
+            // Mostrar loading no card
+            phoneCard.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border spinner-border-sm text-success me-2"></div>
+                    Registrando ${phone.display_phone_number}...
+                </div>
+            `;
+
+            try {
+                const response = await fetch('/api/registrar-numero', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        phone_id: phone.id,
+                        phone_number: phone.display_phone_number,
+                        access_token: accessToken
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    phone.platform = 'CLOUD_API';
+                    phoneNumbers[index] = phone;
+                    exibirNumeros(phoneNumbers);
+                } else {
+                    alert(`Erro ao registrar ${phone.display_phone_number}: ${data.error}`);
+                    exibirNumeros(phoneNumbers);
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro na comunicação com o servidor');
+                exibirNumeros(phoneNumbers);
+            }
+        }
+
+        async function registrarTodos() {
+            const accessToken = document.getElementById('access_token').value.trim();
+            const numerosParaRegistrar = phoneNumbers.filter(phone => phone.platform !== 'CLOUD_API');
+            
+            if (!accessToken) {
+                alert('Token de acesso é obrigatório');
+                return;
+            }
+            
+            if (numerosParaRegistrar.length === 0) {
+                alert('Todos os números já estão registrados na Cloud API');
+                return;
+            }
+
+            if (!confirm(`Registrar ${numerosParaRegistrar.length} números na Cloud API?`)) {
+                return;
+            }
+
+            // Mostrar progress
+            const progressSection = document.querySelector('.progress-section');
+            const progressBar = document.querySelector('.progress-bar');
+            const progressText = document.querySelector('.progress-text');
+            
+            progressSection.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressText.textContent = 'Iniciando registro em massa...';
+
+            for (let i = 0; i < numerosParaRegistrar.length; i++) {
+                const phone = numerosParaRegistrar[i];
+                const progress = ((i + 1) / numerosParaRegistrar.length) * 100;
+                
+                progressBar.style.width = progress + '%';
+                progressText.textContent = `Registrando ${phone.display_phone_number} (${i + 1}/${numerosParaRegistrar.length})`;
+
+                try {
+                    const response = await fetch('/api/registrar-numero', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            phone_id: phone.id,
+                            phone_number: phone.display_phone_number,
+                            access_token: accessToken
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Atualizar status na lista
+                        const phoneIndex = phoneNumbers.findIndex(p => p.id === phone.id);
+                        if (phoneIndex !== -1) {
+                            phoneNumbers[phoneIndex].platform = 'CLOUD_API';
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Erro ao registrar ${phone.display_phone_number}:`, error);
+                }
+
+                // Pequena pausa entre registros
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            progressText.textContent = 'Registro concluído!';
+            
+            // Atualizar exibição
+            setTimeout(() => {
+                exibirNumeros(phoneNumbers);
+                progressSection.style.display = 'none';
+            }, 1000);
+        }
+
+        async function verificarTodos() {
+            await buscarNumeros();
+        }
+
+        // Auto-buscar se business_account_id estiver preenchido
+        window.addEventListener('load', function() {
+            const businessAccountId = document.getElementById('business_account_id').value;
+            if (businessAccountId.trim()) {
+                buscarNumeros();
+            }
+        });
+    </script>
+</body>
+</html>
