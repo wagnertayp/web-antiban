@@ -1487,9 +1487,9 @@ def ultra_speed_smart_distribution():
                         else:
                             phone = '+55' + phone
                     
-                    # Send message with randomized template via assigned phone
+                    # Send message with randomized template via assigned phone  
                     success = worker_whatsapp.send_template_message(
-                        phone, template_name, 'en', [nome, cpf], assigned_phone_id
+                        phone, template_name, 'en', [cpf, nome], assigned_phone_id
                     )
                     
                     with counter_lock:
