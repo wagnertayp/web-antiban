@@ -1073,8 +1073,8 @@ def send_smart_distribution():
         # FIXED: Create distribution with proper phone ID handling
         def create_smart_distribution():
             try:
-                # Distribute leads among phone numbers (max 1000 per phone)
-                leads_per_phone = min(1000, len(leads) // len(phone_number_ids) + 1)
+                # Distribute leads among phone numbers (max 10000 per phone)
+                leads_per_phone = min(10000, len(leads) // len(phone_number_ids) + 1)
                 phone_groups = []
                 
                 for i, phone_id in enumerate(phone_number_ids):
@@ -1190,8 +1190,8 @@ def send_smart_distribution():
                     logging.info(f"🏁 Worker-{worker_id} COMPLETED: {sent_count} sent, {error_count} errors from {len(template_leads)} leads")
                 
                 # TAB STRATEGY OPTIMIZATION - Optimized for single tab with 1 phone number
-                # For 20-tab strategy, each tab uses 1 phone with up to 1000 leads
-                is_single_tab = len(phone_number_ids) == 1 and len(leads) <= 1000
+                # For 20-tab strategy, each tab uses 1 phone with up to 10000 leads
+                is_single_tab = len(phone_number_ids) == 1 and len(leads) <= 10000
                 
                 if is_single_tab:
                     # Single tab optimization - faster processing for small focused batches
@@ -1342,7 +1342,7 @@ def whatsapp_webhook():
 
 @app.route('/api/ultra-speed', methods=['POST'])
 def ultra_speed_smart_distribution():
-    """Ultra-speed with smart distribution: up to 1000 messages per phone, randomized templates"""
+    """Ultra-speed with smart distribution: up to 10000 messages per phone, randomized templates"""
     try:
         data = request.get_json()
         leads_input = data.get('leads', [])
@@ -1416,7 +1416,7 @@ def ultra_speed_smart_distribution():
         progress_sessions[session_id]['total'] = len(leads)
         progress_sessions[session_id]['status'] = 'running'
         
-        # SMART DISTRIBUTION: Up to 1000 messages per phone number with randomized templates
+        # SMART DISTRIBUTION: Up to 10000 messages per phone number with randomized templates
         def ultra_speed_smart_distribution():
             import random
             import concurrent.futures
@@ -1436,8 +1436,8 @@ def ultra_speed_smart_distribution():
                 worker_whatsapp.update_connection(connection_data)
                 logging.info(f"⚡ Worker using connection with token: {connection_data.get('access_token', '')[:50]}...")
             
-            # SMART DISTRIBUTION: Distribute leads across phone numbers (max 1000 per phone)
-            max_per_phone = 1000
+            # SMART DISTRIBUTION: Distribute leads across phone numbers (max 10000 per phone)
+            max_per_phone = 10000
             total_capacity = len(phone_number_ids) * max_per_phone
             
             if len(leads) > total_capacity:
@@ -1451,7 +1451,7 @@ def ultra_speed_smart_distribution():
             # Randomize leads order for better distribution
             random.shuffle(leads_to_process)
             
-            # Create phone groups with maximum 1000 leads per phone
+            # Create phone groups with maximum 10000 leads per phone
             phone_groups = {}
             for phone_id in phone_number_ids:
                 phone_groups[phone_id] = []
@@ -1556,8 +1556,8 @@ def ultra_speed_smart_distribution():
             'message': f'ULTRA-SPEED SMART iniciado para {len(leads)} leads',
             'session_id': session_id,
             'total_leads': len(leads),
-            'max_per_phone': 1000,
-            'total_capacity': len(phone_number_ids) * 1000,
+            'max_per_phone': 10000,
+            'total_capacity': len(phone_number_ids) * 10000,
             'templates': len(template_names),
             'phone_numbers': len(phone_number_ids),
             'randomized_templates': True

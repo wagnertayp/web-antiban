@@ -26,7 +26,7 @@ Preferred communication style: Simple, everyday language.
 - **Lead Management**: Bulk import, validation (CPF, phone numbers), and duplicate filtering.
 - **Message Templating**: Personalized messages using variables ({nome}, {cpf}, {numero}), interactive buttons with URL personalization.
 - **Campaign Management**: Creation, real-time progress monitoring, and status tracking.
-- **Ultra-Speed Messaging**: Optimized for high-throughput, supporting parallel processing with automatic load balancing across multiple WhatsApp Phone Numbers.
+- **Ultra-Speed Messaging**: Optimized for high-throughput, supporting parallel processing with automatic load balancing across multiple WhatsApp Phone Numbers. **Each phone number supports up to 10,000 messages per batch** (increased from 1,000).
 - **Dynamic API Integration**: Automatic discovery and configuration of WhatsApp Business Manager IDs, Phone Number IDs, and available templates based on the provided access token.
 - **Robust Error Handling**: Intelligent fallback mechanisms (where applicable), automatic retries, and comprehensive logging.
 - **Deployment**: Optimized for Heroku with support for various dyno configurations.
