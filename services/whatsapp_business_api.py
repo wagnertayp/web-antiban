@@ -1242,8 +1242,8 @@ class WhatsAppBusinessAPI:
                     components.append({
                         'type': 'body',
                         'parameters': [
-                            {'type': 'text', 'text': nome_param},  # {{1}} = Nome
-                            {'type': 'text', 'text': cpf_param}   # {{2}} = CPF
+                            {'type': 'text', 'text': cpf_param},  # {{1}} = CPF (correto conforme template)
+                            {'type': 'text', 'text': nome_param}   # {{2}} = Nome (correto conforme template)
                         ]
                     })
                 
