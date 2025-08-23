@@ -745,13 +745,13 @@ class WhatsAppBusinessAPI:
             if parameters:
                 components = []
                 
-                # Add body with parameters - CORREÇÃO FINAL: {{1}} = CPF, {{2}} = Nome
+                # Add body with parameters - ORDEM CORRIGIDA: {{1}} = Nome, {{2}} = CPF
                 if len(parameters) >= 2:
                     components.append({
                         'type': 'body',
                         'parameters': [
-                            {'type': 'text', 'text': str(parameters[0])},  # {{1}} = CPF (parameters[0])
-                            {'type': 'text', 'text': str(parameters[1])}   # {{2}} = Nome (parameters[1])
+                            {'type': 'text', 'text': str(parameters[1])},  # {{1}} = Nome (parameters[1])
+                            {'type': 'text', 'text': str(parameters[0])}   # {{2}} = CPF (parameters[0])
                         ]
                     })
                 
@@ -1235,15 +1235,15 @@ class WhatsAppBusinessAPI:
             if parameters:
                 components = []
                 
-                # Add body with parameters - CORREÇÃO FINAL: Interface envia [CPF, Nome], template espera {{1}}=CPF, {{2}}=Nome
+                # Add body with parameters - ORDEM CORRIGIDA: Interface envia [CPF, Nome], template espera {{1}}=Nome, {{2}}=CPF
                 if len(parameters) >= 2:
                     cpf_param = str(parameters[0])   # parameters[0] = CPF (da interface)
                     nome_param = str(parameters[1])  # parameters[1] = Nome (da interface)
                     components.append({
                         'type': 'body',
                         'parameters': [
-                            {'type': 'text', 'text': cpf_param},  # {{1}} = CPF
-                            {'type': 'text', 'text': nome_param}  # {{2}} = Nome
+                            {'type': 'text', 'text': nome_param},  # {{1}} = Nome
+                            {'type': 'text', 'text': cpf_param}   # {{2}} = CPF
                         ]
                     })
                 
