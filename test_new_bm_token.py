@@ -13,7 +13,7 @@ import time
 logging.basicConfig(level=logging.INFO)
 
 # Configurações do novo BM
-ACCESS_TOKEN = "EAAUjHbSGk84BPRZA898niMAXLZBU5pOXUTPP9BuWNZCyb2TRZCj0cYgFo884MBihuapssDyi2zTzcy10EhT04UW1hWD1IECVBzkbo4ClEuyDUmzn6VWI1VA26oiQ8gvVUXPRN4DAPb9x8Ww73XcpTbqZCZBiZCcZBb9PZAJZBMnGO2PvZAO6H3s8GbwlTPJvDSeQuDWUft3KOZA71LjntsrDhkX6OMzS2tXCoUixRi6ZC0O4TDML0H56aCpBMvpoZD"
+ACCESS_TOKEN = "EAAUjHbSGk84BPZA4Fk5gpm3OEgowiR4sClnvTHZAvBNU4IAYMi8ec4QZBgpNtYNUWgDAeLZAoZAHviQTw75xdvHAQFHZBOEDZBTssFb06DZApZCCDQCtD7LteiEd7fudUnWBo9PKmCbB9kfNPxjMpuB24v4FLZAk91l22bCoHQBHqupKhzRRnO0v71Qottrowd5OCDUlrJPKvc5ZC1WNSKzp7RFSngxdRN5pMW8tyinH7t6zfDBqHLsVrNpeT4Y"
 BM_ID = "781046244494318"
 TEMPLATE_NAME = "ailanaa1"
 TARGET_PHONE = "5561999114066"
@@ -119,21 +119,21 @@ def send_template_message(phone_id, template_info):
                         template_components.append({
                             'type': 'body',
                             'parameters': [
-                                {'type': 'text', 'text': 'Cliente'},  # {{1}}
-                                {'type': 'text', 'text': '123.456.789-00'}   # {{2}}
+                                {'type': 'text', 'text': '06537080177'},  # {{1}} = CPF
+                                {'type': 'text', 'text': 'Pedro Silva'}   # {{2}} = Nome
                             ]
                         })
                     
-                elif comp_type == 'BUTTON':
-                    # Template tem botão com URL dinâmica
+                elif comp_type == 'BUTTONS':
+                    # Template tem botões com URL dinâmica
                     buttons = component.get('buttons', [])
-                    for button in buttons:
+                    for idx, button in enumerate(buttons):
                         if button.get('type') == 'URL':
                             template_components.append({
                                 'type': 'button',
                                 'sub_type': 'url',
-                                'index': 0,
-                                'parameters': [{'type': 'text', 'text': '123456789'}]
+                                'index': idx,
+                                'parameters': [{'type': 'text', 'text': '06537080177'}]  # CPF para o botão
                             })
             
             if template_components:
