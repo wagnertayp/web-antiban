@@ -1,0 +1,29 @@
+{
+  "template_name": "utilidade",
+  "target_number": "5561999114066",
+  "business_account_id": "746006914691827",
+  "total_phones": 3,
+  "successful_sends": 0,
+  "success_rate": 0.0,
+  "results": [
+    {
+      "phone_id": "15558149312",
+      "success": false,
+      "error": "Unsupported post request. Object with ID '15558149312' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+      "status_code": 400
+    },
+    {
+      "phone_id": "15674669530",
+      "success": false,
+      "error": "Unsupported post request. Object with ID '15674669530' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+      "status_code": 400
+    },
+    {
+      "phone_id": "18312831347",
+      "success": false,
+      "error": "Unsupported post request. Object with ID '18312831347' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+      "status_code": 400
+    }
+  ],
+  "timestamp": 1757944598
+}

@@ -1,0 +1,34 @@
+{
+  "template_name": "utilidade",
+  "target_number": "5561999114066",
+  "business_account_id": "746006914691827",
+  "total_attempts": 3,
+  "successful_sends": 3,
+  "success_rate": 100.0,
+  "phone_ids_used": [
+    "674928665709899",
+    "764229176768157",
+    "708355979030805"
+  ],
+  "detailed_results": [
+    {
+      "phone_id": "674928665709899",
+      "success": true,
+      "message_id": "wamid.HBgMNTU2MTk5MTE0MDY2FQIAERgSNUQwRDY5RjY4NUY0RUUzRkZEAA==",
+      "attempt": 1
+    },
+    {
+      "phone_id": "764229176768157",
+      "success": true,
+      "message_id": "wamid.HBgMNTU2MTk5MTE0MDY2FQIAERgSMjI4RjgzQjA3RDdDQzNFQzk1AA==",
+      "attempt": 2
+    },
+    {
+      "phone_id": "708355979030805",
+      "success": true,
+      "message_id": "wamid.HBgMNTU2MTk5MTE0MDY2FQIAERgSMEFGODJENjBGRTA5Q0FEODQyAA==",
+      "attempt": 3
+    }
+  ],
+  "timestamp": 1757944687
+}
