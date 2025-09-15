@@ -1596,5 +1596,203 @@ def get_progress(session_id):
         logging.error(f"Progress error: {e}")
         return jsonify({'error': 'Erro ao obter progresso'}), 500
 
+# PROXY MANAGEMENT ROUTES
+@app.route('/api/proxies', methods=['GET'])
+def get_proxies():
+    """Get all proxies"""
+    try:
+        from models import Proxy
+        proxies = Proxy.query.all()
+        
+        proxies_data = []
+        for proxy in proxies:
+            proxies_data.append({
+                'id': proxy.id,
+                'name': proxy.name,
+                'proxy_string': proxy.proxy_string,
+                'is_active': proxy.is_active,
+                'last_used': proxy.last_used.isoformat() if proxy.last_used else None,
+                'success_count': proxy.success_count,
+                'error_count': proxy.error_count,
+                'created_at': proxy.created_at.isoformat()
+            })
+        
+        return jsonify({
+            'success': True,
+            'proxies': proxies_data,
+            'total': len(proxies_data)
+        })
+    
+    except Exception as e:
+        logging.error(f"Error getting proxies: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/proxies', methods=['POST'])
+def add_proxy():
+    """Add new proxy"""
+    try:
+        from models import Proxy
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'error': 'Dados não fornecidos'}), 400
+        
+        name = data.get('name', '').strip()
+        proxy_string = data.get('proxy_string', '').strip()
+        
+        if not name or not proxy_string:
+            return jsonify({'success': False, 'error': 'Nome e proxy são obrigatórios'}), 400
+        
+        # Validate proxy format
+        parts = proxy_string.split(':')
+        if len(parts) < 4:
+            return jsonify({'success': False, 'error': 'Formato inválido. Use: host:port:user:pass'}), 400
+        
+        # Check if proxy already exists
+        existing = Proxy.query.filter_by(proxy_string=proxy_string).first()
+        if existing:
+            return jsonify({'success': False, 'error': 'Proxy já existe'}), 400
+        
+        # Create new proxy
+        proxy = Proxy()
+        proxy.name = name
+        proxy.proxy_string = proxy_string
+        proxy.is_active = True
+        
+        db.session.add(proxy)
+        db.session.commit()
+        
+        logging.info(f"Proxy adicionado: {name}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Proxy adicionado com sucesso',
+            'proxy': {
+                'id': proxy.id,
+                'name': proxy.name,
+                'proxy_string': proxy.proxy_string,
+                'is_active': proxy.is_active
+            }
+        })
+    
+    except Exception as e:
+        logging.error(f"Error adding proxy: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/proxies/<int:proxy_id>', methods=['PUT'])
+def update_proxy(proxy_id):
+    """Update proxy"""
+    try:
+        from models import Proxy
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'error': 'Dados não fornecidos'}), 400
+        
+        proxy = Proxy.query.get_or_404(proxy_id)
+        
+        name = data.get('name', '').strip()
+        proxy_string = data.get('proxy_string', '').strip()
+        is_active = data.get('is_active', True)
+        
+        if name:
+            proxy.name = name
+        
+        if proxy_string:
+            # Validate proxy format
+            parts = proxy_string.split(':')
+            if len(parts) < 4:
+                return jsonify({'success': False, 'error': 'Formato inválido. Use: host:port:user:pass'}), 400
+            proxy.proxy_string = proxy_string
+        
+        proxy.is_active = is_active
+        proxy.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        logging.info(f"Proxy atualizado: {proxy.name}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Proxy atualizado com sucesso',
+            'proxy': {
+                'id': proxy.id,
+                'name': proxy.name,
+                'proxy_string': proxy.proxy_string,
+                'is_active': proxy.is_active
+            }
+        })
+    
+    except Exception as e:
+        logging.error(f"Error updating proxy: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/proxies/<int:proxy_id>', methods=['DELETE'])
+def delete_proxy(proxy_id):
+    """Delete proxy"""
+    try:
+        from models import Proxy
+        proxy = Proxy.query.get_or_404(proxy_id)
+        
+        proxy_name = proxy.name
+        db.session.delete(proxy)
+        db.session.commit()
+        
+        logging.info(f"Proxy deletado: {proxy_name}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Proxy {proxy_name} deletado com sucesso'
+        })
+    
+    except Exception as e:
+        logging.error(f"Error deleting proxy: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/proxies/<int:proxy_id>/test', methods=['POST'])
+def test_proxy(proxy_id):
+    """Test proxy connection"""
+    try:
+        from models import Proxy
+        import requests
+        
+        proxy = Proxy.query.get_or_404(proxy_id)
+        proxy_dict = proxy.get_requests_proxy_dict()
+        
+        if not proxy_dict:
+            return jsonify({'success': False, 'error': 'Formato de proxy inválido'}), 400
+        
+        # Test proxy with a simple request
+        test_url = 'https://httpbin.org/ip'
+        
+        try:
+            response = requests.get(test_url, proxies=proxy_dict, timeout=10)
+            if response.status_code == 200:
+                result = response.json()
+                proxy.increment_success()
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Proxy funcionando corretamente',
+                    'ip': result.get('origin', 'N/A'),
+                    'response_time': response.elapsed.total_seconds()
+                })
+            else:
+                proxy.increment_error()
+                return jsonify({'success': False, 'error': f'HTTP {response.status_code}'}), 400
+                
+        except requests.exceptions.RequestException as e:
+            proxy.increment_error()
+            return jsonify({'success': False, 'error': f'Erro de conexão: {str(e)}'}), 400
+    
+    except Exception as e:
+        logging.error(f"Error testing proxy: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/proxy-manager')
+def proxy_manager():
+    """Proxy management page"""
+    return render_template('proxy_manager.html')
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

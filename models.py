@@ -45,12 +45,12 @@ class SentNumber(db.Model):
     @staticmethod  
     def add_sent_number(phone_number, lead_name=None, lead_cpf=None, message_id=None):
         """Add a phone number to the sent list"""
-        return SentNumber(
-            phone_number=phone_number,
-            lead_name=lead_name,
-            lead_cpf=lead_cpf,
-            message_id=message_id
-        )
+        sent_number = SentNumber()
+        sent_number.phone_number = phone_number
+        sent_number.lead_name = lead_name
+        sent_number.lead_cpf = lead_cpf
+        sent_number.message_id = message_id
+        return sent_number
 
 class Proxy(db.Model):
     id = db.Column(db.Integer, primary_key=True)
