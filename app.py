@@ -1131,7 +1131,13 @@ def send_smart_distribution():
         phone_number_ids = valid_phone_ids
         
         # ✨ SISTEMA DE ROTAÇÃO AUTOMÁTICA DE PROXIES ✨
-        proxy_distribution = proxy_service.distribute_leads_across_proxies(len(leads))
+        from services.proxy_service import get_proxy_service
+        proxy_svc = get_proxy_service()
+        if proxy_svc:
+            proxy_distribution = proxy_svc.distribute_leads_across_proxies(len(leads))
+        else:
+            logging.error("Proxy service not available")
+            return jsonify({'success': False, 'error': 'Proxy service not available'}), 500
         if proxy_distribution['success']:
             logging.info(f"🔄 ROTAÇÃO DE PROXIES ATIVADA: {proxy_distribution['total_proxies']} proxies para {len(leads)} leads")
             for proxy_info in proxy_distribution['proxies']:

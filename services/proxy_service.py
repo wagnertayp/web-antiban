@@ -283,10 +283,28 @@ class ProxyService:
             }
 
 # Global proxy service instance will be initialized in app.py
-proxy_service = None
+# Global proxy_service instance - use singleton pattern
+_proxy_service: Optional[ProxyService] = None
 
 def init_proxy_service(app=None, db=None):
     """Initialize proxy service with Flask app context"""
-    global proxy_service
-    proxy_service = ProxyService(app, db)
-    return proxy_service
+    global _proxy_service
+    _proxy_service = ProxyService(app, db)
+    logging.info("✅ Proxy service initialized successfully")
+    return _proxy_service
+
+def get_proxy_service() -> Optional[ProxyService]:
+    """Get the current proxy service instance"""
+    return _proxy_service
+
+def request_with_proxy(method: str, url: str, **kwargs):
+    """Make request with proxy if available, fallback to direct request"""
+    svc = get_proxy_service()
+    if svc:
+        return svc.make_request(method, url, **kwargs)
+    else:
+        logging.warning("Proxy service not available, making direct request")
+        return requests.request(method, url, **kwargs)
+
+# Backward compatibility - keep old reference for existing code
+proxy_service = None

@@ -4,7 +4,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from services.proxy_service import proxy_service
+import services.proxy_service as proxy_module
 
 class WhatsAppBusinessAPI:
     """Service for WhatsApp Business API (Facebook Cloud API) integration"""
@@ -234,7 +234,7 @@ class WhatsAppBusinessAPI:
             
             # Try to get WhatsApp Business Accounts directly
             try:
-                from services.proxy_service import proxy_service
+                import services.proxy_service as proxy_module
                 me_response = proxy_service.get(f"{self.base_url}/me", headers=headers, timeout=10)
                 if me_response.status_code == 200:
                     me_data = me_response.json()
@@ -283,7 +283,7 @@ class WhatsAppBusinessAPI:
             headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
             
             # Try to get business account from me endpoint
-            from services.proxy_service import proxy_service
+            import services.proxy_service as proxy_module
             me_response = proxy_service.get(f"{self.base_url}/me", headers=headers, timeout=10)
             if me_response.status_code != 200:
                 return None
@@ -522,6 +522,8 @@ class WhatsAppBusinessAPI:
             logging.info(f"Sending text message payload: {payload}")
             
             # Always use proxy service for consistent handling, but pass specific proxy for rotation
+            # Get proxy service instance at runtime to avoid import-time binding issues
+            proxy_service = proxy_module.get_proxy_service()
             if lead_index is not None and proxy_service is not None:
                 proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
                 # Use proxy service with specific proxy for consistent retry and error handling
@@ -787,6 +789,8 @@ class WhatsAppBusinessAPI:
             logging.info(f"Payload tentativa: {payload}")
             
             # Always use proxy service for consistent handling, but pass specific proxy for rotation
+            # Get proxy service instance at runtime to avoid import-time binding issues
+            proxy_service = proxy_module.get_proxy_service()
             if lead_index is not None and proxy_service is not None:
                 proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
                 # Use proxy service with specific proxy for consistent retry and error handling
@@ -942,6 +946,8 @@ class WhatsAppBusinessAPI:
             }
             
             # Always use proxy service for consistent handling, but pass specific proxy for rotation
+            # Get proxy service instance at runtime to avoid import-time binding issues
+            proxy_service = proxy_module.get_proxy_service()
             if lead_index is not None and proxy_service is not None:
                 proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
                 # Use proxy service with specific proxy for consistent retry and error handling
@@ -1301,6 +1307,8 @@ class WhatsAppBusinessAPI:
                 payload['template']['components'] = components
             
             # Always use proxy service for consistent handling, but pass specific proxy for rotation
+            # Get proxy service instance at runtime to avoid import-time binding issues
+            proxy_service = proxy_module.get_proxy_service()
             if lead_index is not None and proxy_service is not None:
                 proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
                 # Use proxy service with specific proxy for consistent retry and error handling
