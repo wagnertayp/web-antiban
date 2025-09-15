@@ -192,9 +192,9 @@ def connect_whatsapp():
     """Conecta com WhatsApp Business API usando token fornecido"""
     try:
         data = request.get_json()
-        access_token = data.get('access_token', '').strip()
-        business_manager_id = data.get('business_manager_id', '').strip()
-        proxy_connection = data.get('proxy_connection', '').strip()
+        access_token = (data.get('access_token') or '').strip()
+        business_manager_id = (data.get('business_manager_id') or '').strip()
+        proxy_connection = (data.get('proxy_connection') or '').strip()
         
         if not access_token:
             return jsonify({'success': False, 'message': 'Token de acesso é obrigatório'}), 400
