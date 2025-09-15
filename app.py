@@ -194,9 +194,43 @@ def connect_whatsapp():
         data = request.get_json()
         access_token = data.get('access_token', '').strip()
         business_manager_id = data.get('business_manager_id', '').strip()
+        proxy_connection = data.get('proxy_connection', '').strip()
         
         if not access_token:
             return jsonify({'success': False, 'message': 'Token de acesso é obrigatório'}), 400
+        
+        # Handle proxy connection if provided
+        if proxy_connection:
+            try:
+                from models import Proxy
+                
+                # Validate proxy format
+                parts = proxy_connection.split(':')
+                if len(parts) < 4:
+                    return jsonify({'success': False, 'message': 'Formato de proxy inválido. Use: host:port:user:password'}), 400
+                
+                # Check if proxy already exists, if not add it temporarily
+                existing_proxy = Proxy.query.filter_by(proxy_string=proxy_connection).first()
+                if not existing_proxy:
+                    # Add proxy temporarily for this connection
+                    temp_proxy = Proxy()
+                    temp_proxy.name = f"Conexão {datetime.utcnow().strftime('%H:%M')}"
+                    temp_proxy.proxy_string = proxy_connection
+                    temp_proxy.is_active = True
+                    
+                    db.session.add(temp_proxy)
+                    db.session.commit()
+                    
+                    logging.info(f"Proxy temporária adicionada para conexão: {proxy_connection[:20]}...")
+                else:
+                    # Activate existing proxy
+                    existing_proxy.is_active = True
+                    db.session.commit()
+                    logging.info(f"Proxy existente ativada: {existing_proxy.name}")
+                    
+            except Exception as e:
+                logging.error(f"Erro ao processar proxy: {str(e)}")
+                # Continue without proxy if there's an error
         
         headers = {
             'Authorization': f'Bearer {access_token}',

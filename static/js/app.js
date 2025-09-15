@@ -331,11 +331,20 @@ class WhatsAppSender {
                 this.generateTabUrls();
             });
         }
+        
+        // Test proxy button
+        const testProxyBtn = document.getElementById('testProxyBtn');
+        if (testProxyBtn) {
+            testProxyBtn.addEventListener('click', () => {
+                this.testProxy();
+            });
+        }
     }
 
     async connectWhatsApp() {
         const accessToken = document.getElementById('accessToken').value.trim();
         const businessManagerId = document.getElementById('businessManagerId').value.trim();
+        const proxyConnection = document.getElementById('proxyConnection').value.trim();
         
         if (!accessToken) {
             this.showAlert('Token de acesso é obrigatório', 'danger');
@@ -355,7 +364,8 @@ class WhatsAppSender {
                 },
                 body: JSON.stringify({
                     access_token: accessToken,
-                    business_manager_id: businessManagerId || null
+                    business_manager_id: businessManagerId || null,
+                    proxy_connection: proxyConnection || null
                 })
             });
             
@@ -951,6 +961,68 @@ class WhatsAppSender {
                 alertDiv.remove();
             }
         }, 5000);
+    }
+    
+    async testProxy() {
+        const proxyConnection = document.getElementById('proxyConnection').value.trim();
+        
+        if (!proxyConnection) {
+            this.showAlert('Digite uma proxy para testar', 'warning');
+            return;
+        }
+        
+        // Validate proxy format
+        const parts = proxyConnection.split(':');
+        if (parts.length < 4) {
+            this.showAlert('Formato inválido. Use: host:port:user:password', 'danger');
+            return;
+        }
+        
+        const testBtn = document.getElementById('testProxyBtn');
+        const originalText = testBtn.innerHTML;
+        testBtn.disabled = true;
+        testBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testando...';
+        
+        try {
+            // First add the proxy to database temporarily for testing
+            const addResponse = await fetch('/api/proxies', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: 'Teste Temporário',
+                    proxy_string: proxyConnection
+                })
+            });
+            
+            if (addResponse.ok) {
+                const addResult = await addResponse.json();
+                const proxyId = addResult.proxy.id;
+                
+                // Test the proxy
+                const testResponse = await fetch(`/api/proxies/${proxyId}/test`, {
+                    method: 'POST'
+                });
+                
+                const testResult = await testResponse.json();
+                
+                if (testResult.success) {
+                    this.showAlert(`✅ Proxy OK! IP: ${testResult.ip}, Tempo: ${(testResult.response_time * 1000).toFixed(0)}ms`, 'success');
+                } else {
+                    this.showAlert(`❌ Proxy com problemas: ${testResult.error}`, 'danger');
+                }
+                
+                // Remove temporary proxy
+                await fetch(`/api/proxies/${proxyId}`, { method: 'DELETE' });
+            } else {
+                this.showAlert('Erro ao adicionar proxy temporária para teste', 'danger');
+            }
+        } catch (error) {
+            console.error('Erro ao testar proxy:', error);
+            this.showAlert('Erro de conexão ao testar proxy', 'danger');
+        } finally {
+            testBtn.disabled = false;
+            testBtn.innerHTML = originalText;
+        }
     }
 }
 
