@@ -1042,8 +1042,11 @@ def stop_batch_processing():
 
 @app.route('/api/send-smart-distribution', methods=['POST'])
 def send_smart_distribution():
-    """Send messages with intelligent load balancing across phones and templates"""
+    """Send messages with intelligent load balancing across phones and templates with proxy rotation"""
     try:
+        # Import proxy service locally to avoid circular imports
+        from services.proxy_service import proxy_service
+        
         data = request.get_json()
         leads_text = data.get('leads', '')
         template_names = data.get('templates', [])
@@ -1093,6 +1096,16 @@ def send_smart_distribution():
         
         # Use valid phone IDs for the rest of the process
         phone_number_ids = valid_phone_ids
+        
+        # ✨ SISTEMA DE ROTAÇÃO AUTOMÁTICA DE PROXIES ✨
+        proxy_distribution = proxy_service.distribute_leads_across_proxies(len(leads))
+        if proxy_distribution['success']:
+            logging.info(f"🔄 ROTAÇÃO DE PROXIES ATIVADA: {proxy_distribution['total_proxies']} proxies para {len(leads)} leads")
+            for proxy_info in proxy_distribution['proxies']:
+                logging.info(f"   • {proxy_info['proxy_name']}: {proxy_info['leads_count']} leads")
+        else:
+            logging.warning(f"⚠️ Nenhuma proxy ativa detectada - continuando sem rotação de proxies")
+            logging.warning(f"    Motivo: {proxy_distribution['message']}")
         
         # CRÍTICO: Verificar token atual no ultra-speed
         current_token = os.getenv('WHATSAPP_ACCESS_TOKEN', '')
@@ -1163,8 +1176,8 @@ def send_smart_distribution():
                     worker_id = threading.current_thread().name[-4:]  # Get worker ID
                     logging.info(f"⚡ Worker-{worker_id} Phone {phone_id[:15]}... processing {len(template_leads)} leads with {template_name}")
                     
-                    # ULTRA-FAST PROCESSING - No delays, maximum parallel execution
-                    def send_single_message(lead):
+                    # ULTRA-FAST PROCESSING with PROXY ROTATION - No delays, maximum parallel execution
+                    def send_single_message(lead, lead_index=None):
                         try:
                             phone = lead['numero']
                             nome = lead['nome']
@@ -1179,10 +1192,10 @@ def send_smart_distribution():
                                 else:
                                     phone = '+55' + phone
                             
-                            # Send with template - optimized for speed with connection reuse
+                            # 🔄 Send with template using PROXY ROTATION - optimized for speed with connection reuse
                             try:
-                                success = whatsapp_service.send_template_message(
-                                    phone, template_name, [cpf, nome], phone_id
+                                success, result = whatsapp_service.send_template_message(
+                                    phone, template_name, [cpf, nome], phone_id, lead_index=lead_index
                                 )
                             except Exception as send_error:
                                 # Log error and continue - don't stop the entire batch
@@ -1190,10 +1203,10 @@ def send_smart_distribution():
                                 success = False
                             
                             if success:
-                                logging.info(f"⚡ Worker-{worker_id}: ✅ {nome} - {phone}")
+                                logging.info(f"⚡ Worker-{worker_id}: ✅ {nome} - {phone} (lead #{lead_index + 1 if lead_index is not None else '?'})")
                                 return True
                             else:
-                                logging.warning(f"⚡ Worker-{worker_id}: ❌ {nome} - {phone}")
+                                logging.warning(f"⚡ Worker-{worker_id}: ❌ {nome} - {phone} (lead #{lead_index + 1 if lead_index is not None else '?'})")
                                 return False
                                 
                         except Exception as e:
@@ -1204,9 +1217,12 @@ def send_smart_distribution():
                     phone_id = phone_group['phone_id']
                     logging.info(f"🔍 Worker-{worker_id} using phone ID: {phone_id}")
                     
-                    for lead in template_leads:
+                    # Calculate lead indexes for proxy rotation
+                    for i, lead in enumerate(template_leads):
                         try:
-                            if send_single_message(lead, phone_id):
+                            # Calculate global lead index for proxy rotation
+                            global_lead_index = leads.index(lead)
+                            if send_single_message(lead, global_lead_index):
                                 sent_count += 1
                             else:
                                 error_count += 1

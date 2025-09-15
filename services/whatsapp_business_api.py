@@ -4,6 +4,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from services.proxy_service import proxy_service
 
 class WhatsAppBusinessAPI:
     """Service for WhatsApp Business API (Facebook Cloud API) integration"""
@@ -55,8 +56,9 @@ class WhatsAppBusinessAPI:
             self._access_token = new_token
             logging.info(f"🔄 Token forçadamente atualizado: {new_token[:50]}...")
             
-            # DEBUG: Log the EXACT token being used
-            logging.info(f"🔍 EXACT TOKEN BEING USED: {new_token}")
+            # DEBUG: Log masked token for security
+            masked_token = new_token[:20] + "..." + new_token[-10:] if len(new_token) > 30 else new_token[:10] + "..."
+            logging.info(f"🔍 Token ativo (mascarado): {masked_token}")
         
         # Auto-detect Business Manager and Phone based on token
             
@@ -490,7 +492,7 @@ class WhatsAppBusinessAPI:
                 'error': f'Erro de conexão: {str(e)}'
             }
     
-    def send_text_message(self, phone: str, message: str, phone_number_id: str = None) -> Tuple[bool, Dict]:
+    def send_text_message(self, phone: str, message: str, phone_number_id: str = None, lead_index: int = None) -> Tuple[bool, Dict]:
         """Send simple text message"""
         if not self.is_configured():
             return False, {'error': 'WhatsApp Business API não configurada'}
@@ -519,7 +521,14 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"Sending text message payload: {payload}")
             
-            response = requests.post(url, json=payload, headers=self.headers, timeout=30)
+            # Always use proxy service for consistent handling, but pass specific proxy for rotation
+            if lead_index is not None:
+                proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
+                # Use proxy service with specific proxy for consistent retry and error handling
+                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=30, proxies=proxy_dict)
+            else:
+                # Use standard proxy service for single sends
+                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -635,7 +644,8 @@ class WhatsAppBusinessAPI:
             return None
     
     def send_template_message(self, phone: str, template_name: str, language_code: str = None, 
-                            parameters: Optional[List[str]] = None, phone_number_id: Optional[str] = None) -> Tuple[bool, Dict]:
+                            parameters: Optional[List[str]] = None, phone_number_id: Optional[str] = None,
+                            lead_index: int = None) -> Tuple[bool, Dict]:
         """
         Envia template message usando Phone Number ID específico dos 5 phones ativos
         Business Manager 580318035149016 - sem erro #135000
@@ -772,7 +782,14 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"Payload tentativa: {payload}")
             
-            response = requests.post(url, json=payload, headers=self.headers, timeout=30)
+            # Always use proxy service for consistent handling, but pass specific proxy for rotation
+            if lead_index is not None:
+                proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
+                # Use proxy service with specific proxy for consistent retry and error handling
+                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=30, proxies=proxy_dict)
+            else:
+                # Use standard proxy service for single sends
+                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -854,7 +871,8 @@ class WhatsAppBusinessAPI:
             return False, {'error': f'Erro de conexão: {str(e)}'}
     
     def send_template_message_with_button(self, phone: str, template_name: str, language_code: str = 'en', 
-                                        parameters: Optional[List[str]] = None, button_param: str = '') -> Tuple[bool, Dict]:
+                                        parameters: Optional[List[str]] = None, button_param: str = '', 
+                                        lead_index: int = None) -> Tuple[bool, Dict]:
         """Send template message with button parameter (like modelo_3)"""
         if not self.is_configured():
             return False, {'error': 'WhatsApp Business API não configurada'}
@@ -915,7 +933,14 @@ class WhatsAppBusinessAPI:
                 'template': template_payload
             }
             
-            response = requests.post(url, json=payload, headers=self.headers, timeout=30)
+            # Always use proxy service for consistent handling, but pass specific proxy for rotation
+            if lead_index is not None:
+                proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
+                # Use proxy service with specific proxy for consistent retry and error handling
+                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=30, proxies=proxy_dict)
+            else:
+                # Use standard proxy service for single sends
+                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -1204,7 +1229,7 @@ class WhatsAppBusinessAPI:
         ]
     
     def send_template_with_load_balancing(self, phone: str, template_name: str, language_code: str = 'en', 
-                                        parameters: Optional[List[str]] = None) -> Tuple[bool, Dict]:
+                                        parameters: Optional[List[str]] = None, lead_index: int = None) -> Tuple[bool, Dict]:
         """Send template message using load balancing across multiple phone numbers"""
         if not self.is_configured():
             return False, {'error': 'WhatsApp Business API não configurada'}
@@ -1263,7 +1288,14 @@ class WhatsAppBusinessAPI:
                 
                 payload['template']['components'] = components
             
-            response = requests.post(url, json=payload, headers=self.headers, timeout=30)
+            # Always use proxy service for consistent handling, but pass specific proxy for rotation
+            if lead_index is not None:
+                proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
+                # Use proxy service with specific proxy for consistent retry and error handling
+                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=30, proxies=proxy_dict)
+            else:
+                # Use standard proxy service for single sends
+                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
