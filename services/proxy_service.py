@@ -5,31 +5,48 @@ Proxy Service - Gerencia rotação e uso de proxies para requisições HTTP
 import logging
 import requests
 from typing import Optional, Dict, Any, List
-from models import Proxy
-from app import db
 
 class ProxyService:
-    def __init__(self):
+    def __init__(self, app=None, db=None):
         self.current_proxy = None
         self.rotation_index = 0
         self._active_proxies_cache = []
         self._last_cache_refresh = None
+        self.app = app
+        self.db = db
         
     def get_next_proxy(self) -> Optional[Dict]:
         """Get next proxy for rotation"""
         try:
-            proxy = Proxy.get_next_proxy()
-            if proxy:
-                self.current_proxy = proxy
-                proxy_dict = proxy.get_requests_proxy_dict()
-                if proxy_dict:
-                    logging.info(f"Using proxy: {proxy.name} ({proxy.proxy_string.split(':')[0]})")
-                    return proxy_dict
-            
-            # No proxies available, use direct connection
-            logging.warning("No proxies available, using direct connection")
-            self.current_proxy = None
-            return None
+            if self.app:
+                with self.app.app_context():
+                    from models import Proxy
+                    proxy = Proxy.get_next_proxy()
+                    if proxy:
+                        self.current_proxy = proxy
+                        proxy_dict = proxy.get_requests_proxy_dict()
+                        if proxy_dict:
+                            logging.info(f"Using proxy: {proxy.name} ({proxy.proxy_string.split(':')[0]})")
+                            return proxy_dict
+                    
+                    # No proxies available, use direct connection
+                    logging.warning("No proxies available, using direct connection")
+                    self.current_proxy = None
+                    return None
+            else:
+                # Fallback: try direct import (for when already in app context)
+                from models import Proxy
+                proxy = Proxy.get_next_proxy()
+                if proxy:
+                    self.current_proxy = proxy
+                    proxy_dict = proxy.get_requests_proxy_dict()
+                    if proxy_dict:
+                        logging.info(f"Using proxy: {proxy.name} ({proxy.proxy_string.split(':')[0]})")
+                        return proxy_dict
+                
+                logging.warning("No proxies available, using direct connection")
+                self.current_proxy = None
+                return None
             
         except Exception as e:
             logging.error(f"Error getting proxy: {str(e)}")
@@ -121,30 +138,32 @@ class ProxyService:
     def get_proxy_stats(self) -> Dict[str, Any]:
         """Get statistics about proxy usage"""
         try:
-            proxies = Proxy.query.all()
-            active_proxies = [p for p in proxies if p.is_active]
-            
-            total_success = sum(p.success_count for p in proxies)
-            total_errors = sum(p.error_count for p in proxies)
-            total_requests = total_success + total_errors
-            
-            success_rate = (total_success / total_requests * 100) if total_requests > 0 else 0
-            
-            return {
-                'total_proxies': len(proxies),
-                'active_proxies': len(active_proxies),
-                'total_requests': total_requests,
-                'total_success': total_success,
-                'total_errors': total_errors,
-                'success_rate': round(success_rate, 2),
-                'current_proxy': self.current_proxy.name if self.current_proxy else 'Direct Connection'
-            }
+            with current_app.app_context():
+                from models import Proxy
+                proxies = Proxy.query.all()
+                active_proxies = [p for p in proxies if p.is_active]
+                
+                total_success = sum(p.success_count for p in proxies)
+                total_errors = sum(p.error_count for p in proxies)
+                total_requests = total_success + total_errors
+                
+                success_rate = (total_success / total_requests * 100) if total_requests > 0 else 0
+                
+                return {
+                    'total_proxies': len(proxies),
+                    'active_proxies': len(active_proxies),
+                    'total_requests': total_requests,
+                    'total_success': total_success,
+                    'total_errors': total_errors,
+                    'success_rate': round(success_rate, 2),
+                    'current_proxy': self.current_proxy.name if self.current_proxy else 'Direct Connection'
+                }
             
         except Exception as e:
             logging.error(f"Error getting proxy stats: {str(e)}")
             return {}
     
-    def get_active_proxies(self) -> List[Proxy]:
+    def get_active_proxies(self):
         """Get all active proxies for rotation"""
         try:
             from datetime import datetime, timedelta
@@ -155,9 +174,18 @@ class ProxyService:
                 (now - self._last_cache_refresh).total_seconds() > 30 or
                 not self._active_proxies_cache):
                 
-                self._active_proxies_cache = Proxy.query.filter_by(is_active=True).all()
-                self._last_cache_refresh = now
-                logging.info(f"🔄 Cache de proxies atualizado: {len(self._active_proxies_cache)} proxies ativas")
+                if self.app:
+                    with self.app.app_context():
+                        from models import Proxy
+                        self._active_proxies_cache = Proxy.query.filter_by(is_active=True).all()
+                        self._last_cache_refresh = now
+                        logging.info(f"🔄 Cache de proxies atualizado: {len(self._active_proxies_cache)} proxies ativas")
+                else:
+                    # Fallback: try direct import (for when already in app context)
+                    from models import Proxy
+                    self._active_proxies_cache = Proxy.query.filter_by(is_active=True).all()
+                    self._last_cache_refresh = now
+                    logging.info(f"🔄 Cache de proxies atualizado: {len(self._active_proxies_cache)} proxies ativas")
             
             return self._active_proxies_cache
             
@@ -254,5 +282,11 @@ class ProxyService:
                 'distribution': {}
             }
 
-# Global proxy service instance
-proxy_service = ProxyService()
+# Global proxy service instance will be initialized in app.py
+proxy_service = None
+
+def init_proxy_service(app=None, db=None):
+    """Initialize proxy service with Flask app context"""
+    global proxy_service
+    proxy_service = ProxyService(app, db)
+    return proxy_service

@@ -67,6 +67,10 @@ from template_cloner import TemplateCloner
 whatsapp_service = WhatsAppBusinessAPI()
 message_service = MessageService(db, whatsapp_service, app)
 
+# Initialize proxy service with app context
+from services.proxy_service import init_proxy_service
+proxy_service = init_proxy_service(app, db)
+
 @app.route('/')
 def index():
     """Main page with the messaging interface"""
@@ -1243,7 +1247,6 @@ def send_smart_distribution():
                             return False
                     
                     # MAXIMUM SPEED - Process all leads with proper phone ID distribution
-                    phone_id = phone_group['phone_id']
                     logging.info(f"🔍 Worker-{worker_id} using phone ID: {phone_id}")
                     
                     # Calculate lead indexes for proxy rotation
