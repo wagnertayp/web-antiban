@@ -1280,18 +1280,18 @@ def send_smart_distribution():
                 is_single_tab = len(phone_number_ids) == 1 and len(leads) <= MAX_PER_PHONE
                 
                 if is_single_tab:
-                    # OPTIMIZED SINGLE TAB SPEED - Safe and fast workers
-                    base_workers = len(template_names) * 50  # 50 workers per template for safe speed
-                    max_workers = min(256, base_workers)  # Safe maximum workers
-                    logging.info(f"🎯 OPTIMIZED SINGLE TAB: {len(leads)} leads, 1 phone, {len(template_names)} templates")
+                    # LUDICROUS SINGLE TAB SPEED - Maximum workers for focused batches
+                    base_workers = len(template_names) * 200  # 200 workers per template for LUDICROUS speed
+                    max_workers = min(2000, base_workers)  # Maximum workers for ludicrous speed
+                    logging.info(f"🎯 LUDICROUS SINGLE TAB: {len(leads)} leads, 1 phone, {len(template_names)} templates")
                 else:
-                    # OPTIMIZED MULTI-TAB SPEED - Safe parallel processing
+                    # LUDICROUS MULTI-TAB SPEED - Absolute maximum processing
                     base_workers = len(phone_number_ids) * len(template_names)
-                    max_workers = min(256, base_workers * 50)  # 50x multiplier for safe speed
-                    logging.info(f"🚀 OPTIMIZED MULTI-TAB: {len(phone_number_ids)} phones, {len(template_names)} templates")
+                    max_workers = min(5000, base_workers * 200)  # 200x multiplier for LUDICROUS speed
+                    logging.info(f"🚀 LUDICROUS MULTI-TAB: {len(phone_number_ids)} phones, {len(template_names)} templates")
                 
-                logging.info(f"⚡ OPTIMIZED CONFIG: {base_workers} base workers → {max_workers} total workers")
-                logging.info(f"🚀 TARGET: ~{max_workers * 5} mensagens por minuto (SAFE SPEED)")
+                logging.info(f"⚡ LUDICROUS CONFIG: {base_workers} base workers → {max_workers} total workers")
+                logging.info(f"🚀 TARGET: ~{max_workers * 15} mensagens por minuto (LUDICROUS SPEED)")
                 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                     futures = []
@@ -1299,9 +1299,9 @@ def send_smart_distribution():
                     # Create multiple workers per template group for maximum speed
                     for group in phone_groups:
                         for template_group in group['template_groups']:
-                            # OPTIMIZED PARALLELISM - Batch leads for stability
+                            # LUDICROUS PARALLELISM - Each lead gets its own worker
                             template_leads = template_group['leads']
-                            micro_batch_size = 10  # SAFE: 10 leads per worker for stable performance
+                            micro_batch_size = 1  # LUDICROUS: 1 lead per worker for MAXIMUM speed
                             
                             # Create micro-batches for maximum parallelism
                             if len(template_leads) > micro_batch_size:
