@@ -23,7 +23,7 @@ def test_jose_carlos_template():
     
     # BM Jose Carlos - ID confirmado
     business_account_id = "639849885789886"
-    api_version = "v22.0"
+    api_version = "v23.0"
     base_url = f"https://graph.facebook.com/{api_version}"
     
     headers = {

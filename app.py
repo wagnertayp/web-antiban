@@ -212,7 +212,7 @@ def connect_whatsapp():
             
             for bm_id in known_bms:
                 try:
-                    test_url = f'https://graph.facebook.com/v22.0/{bm_id}/phone_numbers'
+                    test_url = f'https://graph.facebook.com/v23.0/{bm_id}/phone_numbers'
                     test_response = requests.get(test_url, headers=headers, timeout=10)
                     
                     if test_response.status_code == 200:
@@ -232,7 +232,7 @@ def connect_whatsapp():
         
         # 2. Buscar Phone Numbers
         logging.info(f"Buscando phone numbers da BM {discovered_bm_id}...")
-        phones_url = f'https://graph.facebook.com/v22.0/{discovered_bm_id}/phone_numbers'
+        phones_url = f'https://graph.facebook.com/v23.0/{discovered_bm_id}/phone_numbers'
         phones_response = requests.get(phones_url, headers=headers, timeout=15)
         
         phone_numbers = []
@@ -251,7 +251,7 @@ def connect_whatsapp():
         
         # 3. Buscar Templates
         logging.info(f"Buscando templates da BM {discovered_bm_id}...")
-        templates_url = f'https://graph.facebook.com/v22.0/{discovered_bm_id}/message_templates'
+        templates_url = f'https://graph.facebook.com/v23.0/{discovered_bm_id}/message_templates'
         templates_response = requests.get(templates_url, headers=headers, timeout=15)
         
         templates = []
@@ -336,7 +336,7 @@ def get_phone_numbers():
         # Se não tem BM na sessão, tentar descobrir automaticamente
         if not business_manager_id:
             # Descobrir Business Managers disponíveis
-            me_url = f'https://graph.facebook.com/v22.0/me?fields=businesses'
+            me_url = f'https://graph.facebook.com/v23.0/me?fields=businesses'
             me_response = requests.get(me_url, headers=headers, timeout=10)
             
             if me_response.status_code == 200:
@@ -351,7 +351,7 @@ def get_phone_numbers():
                     business_id = business.get('id')
                     
                     # Buscar phone numbers desta BM
-                    phones_url = f'https://graph.facebook.com/v22.0/{business_id}/phone_numbers'
+                    phones_url = f'https://graph.facebook.com/v23.0/{business_id}/phone_numbers'
                     phones_response = requests.get(phones_url, headers=headers, timeout=10)
                     
                     if phones_response.status_code == 200:
@@ -370,7 +370,7 @@ def get_phone_numbers():
         
         # Agora buscar phone numbers da BM
         if business_manager_id:
-            phones_url = f'https://graph.facebook.com/v22.0/{business_manager_id}/phone_numbers'
+            phones_url = f'https://graph.facebook.com/v23.0/{business_manager_id}/phone_numbers'
             phones_response = requests.get(phones_url, headers=headers, timeout=10)
             
             if phones_response.status_code == 200:
@@ -420,7 +420,7 @@ def discover_phones():
         }
         
         # Descobrir Business Managers disponíveis
-        me_url = f'https://graph.facebook.com/v22.0/me?fields=businesses'
+        me_url = f'https://graph.facebook.com/v23.0/me?fields=businesses'
         me_response = requests.get(me_url, headers=headers, timeout=10)
         
         if me_response.status_code == 200:
@@ -435,7 +435,7 @@ def discover_phones():
                 business_id = business.get('id')
                 
                 # Buscar phone numbers desta BM
-                phones_url = f'https://graph.facebook.com/v22.0/{business_id}/phone_numbers'
+                phones_url = f'https://graph.facebook.com/v23.0/{business_id}/phone_numbers'
                 phones_response = requests.get(phones_url, headers=headers, timeout=10)
                 
                 if phones_response.status_code == 200:
@@ -837,7 +837,7 @@ def get_templates():
             'Content-Type': 'application/json'
         }
         
-        templates_url = f'https://graph.facebook.com/v22.0/{business_account_id}/message_templates'
+        templates_url = f'https://graph.facebook.com/v23.0/{business_account_id}/message_templates'
         templates_response = requests.get(templates_url, headers=headers, timeout=15)
         
         if templates_response.status_code == 200:

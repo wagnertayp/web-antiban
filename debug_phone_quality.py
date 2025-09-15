@@ -20,7 +20,7 @@ headers = {
 def deep_phone_analysis():
     """Análise profunda dos phone numbers"""
     try:
-        url = f"https://graph.facebook.com/v22.0/{BM_ID}/phone_numbers"
+        url = f"https://graph.facebook.com/v23.0/{BM_ID}/phone_numbers"
         params = {
             'fields': 'id,display_phone_number,verified_name,code_verification_status,status,quality_rating,messaging_limit_tier,phone_number_type,certificate,is_pin_enabled'
         }
@@ -50,7 +50,7 @@ def deep_phone_analysis():
                 # Tentar obter mais detalhes
                 phone_id = phone.get('id')
                 try:
-                    detail_url = f"https://graph.facebook.com/v22.0/{phone_id}"
+                    detail_url = f"https://graph.facebook.com/v23.0/{phone_id}"
                     detail_params = {'fields': 'status,quality_rating,messaging_limit_tier,throughput'}
                     detail_response = requests.get(detail_url, headers=headers, params=detail_params, timeout=10)
                     
@@ -85,7 +85,7 @@ def test_brazilian_number():
             'text': {'body': 'Teste BR: Conectividade Brasil'}
         }
         
-        url = f"https://graph.facebook.com/v22.0/{phone_id}/messages"
+        url = f"https://graph.facebook.com/v23.0/{phone_id}/messages"
         response = requests.post(url, headers=headers, json=payload, timeout=30)
         
         logging.info(f"📞 Test BR Number - Status: {response.status_code}")
@@ -110,7 +110,7 @@ def test_brazilian_number():
 def check_business_account_limits():
     """Verificar limites da business account"""
     try:
-        url = f"https://graph.facebook.com/v22.0/{BM_ID}"
+        url = f"https://graph.facebook.com/v23.0/{BM_ID}"
         params = {
             'fields': 'id,name,business_verification_status,messaging_api_rate_limit'
         }

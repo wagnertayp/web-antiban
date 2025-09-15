@@ -19,7 +19,7 @@ class Ultimate135000Bypass:
         
     def method_1_protocol_override(self, template_name="replica_approved_1752680924"):
         """Method 1: Protocol-level override headers"""
-        url = f"https://graph.facebook.com/v22.0/{self.phone_id}/messages"
+        url = f"https://graph.facebook.com/v23.0/{self.phone_id}/messages"
         
         # Generate bypass signature
         timestamp = str(int(time.time()))
@@ -53,7 +53,7 @@ class Ultimate135000Bypass:
     def method_2_direct_api_manipulation(self, template_name="replica_approved_1752680924"):
         """Method 2: Direct API endpoint manipulation"""
         # Try alternative endpoint structure
-        url = f"https://graph.facebook.com/v22.0/{self.business_id}/messages"
+        url = f"https://graph.facebook.com/v23.0/{self.business_id}/messages"
         
         headers = {
             'Authorization': f'Bearer {self.access_token}',
@@ -77,7 +77,7 @@ class Ultimate135000Bypass:
     
     def method_3_legacy_webhook_simulation(self, template_name="replica_approved_1752680924"):
         """Method 3: Simulate legacy webhook approval"""
-        url = f"https://graph.facebook.com/v22.0/{self.phone_id}/messages"
+        url = f"https://graph.facebook.com/v23.0/{self.phone_id}/messages"
         
         headers = {
             'Authorization': f'Bearer {self.access_token}',
@@ -102,7 +102,7 @@ class Ultimate135000Bypass:
     
     def method_4_graph_api_bypass(self, template_name="replica_approved_1752680924"):
         """Method 4: Graph API level bypass"""
-        url = f"https://graph.facebook.com/v22.0/{self.phone_id}/messages"
+        url = f"https://graph.facebook.com/v23.0/{self.phone_id}/messages"
         
         # Base64 encode template name for obfuscation
         encoded_template = base64.b64encode(template_name.encode()).decode()
@@ -132,7 +132,7 @@ class Ultimate135000Bypass:
     
     def method_5_component_structure_fix(self, template_name="replica_approved_1752680924"):
         """Method 5: Fix component structure that might cause #135000"""
-        url = f"https://graph.facebook.com/v22.0/{self.phone_id}/messages"
+        url = f"https://graph.facebook.com/v23.0/{self.phone_id}/messages"
         
         headers = {
             'Authorization': f'Bearer {self.access_token}',
@@ -161,7 +161,7 @@ class Ultimate135000Bypass:
     def method_6_alternative_phone_discovery(self):
         """Method 6: Try to discover and use alternative phone numbers"""
         # Get all phone numbers associated with the business
-        url = f"https://graph.facebook.com/v22.0/{self.business_id}/phone_numbers"
+        url = f"https://graph.facebook.com/v23.0/{self.business_id}/phone_numbers"
         headers = {'Authorization': f'Bearer {self.access_token}'}
         
         response = requests.get(url, headers=headers)
@@ -182,7 +182,7 @@ class Ultimate135000Bypass:
     
     def _test_phone_id(self, phone_id, template_name="replica_approved_1752680924"):
         """Test template with specific phone ID"""
-        url = f"https://graph.facebook.com/v22.0/{phone_id}/messages"
+        url = f"https://graph.facebook.com/v23.0/{phone_id}/messages"
         headers = {
             'Authorization': f'Bearer {self.access_token}',
             'Content-Type': 'application/json'

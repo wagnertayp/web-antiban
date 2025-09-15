@@ -19,7 +19,7 @@ def test_bm_michele():
     
     # BM Michele - ID fornecido
     business_account_id = "1523966465251146"
-    api_version = "v22.0"
+    api_version = "v23.0"
     base_url = f"https://graph.facebook.com/{api_version}"
     
     headers = {

@@ -28,7 +28,7 @@ def verify_whatsapp_account():
     print("\n🔑 VERIFICANDO VALIDADE DO TOKEN...")
     try:
         me_response = requests.get(
-            "https://graph.facebook.com/v22.0/me", 
+            "https://graph.facebook.com/v23.0/me", 
             headers=headers, 
             timeout=10
         )
@@ -51,7 +51,7 @@ def verify_whatsapp_account():
     print(f"\n📊 VERIFICANDO BUSINESS ACCOUNT...")
     try:
         ba_response = requests.get(
-            f"https://graph.facebook.com/v22.0/{business_account_id}?fields=id,name,account_review_status,business_verification_status,currency,timezone_id",
+            f"https://graph.facebook.com/v23.0/{business_account_id}?fields=id,name,account_review_status,business_verification_status,currency,timezone_id",
             headers=headers,
             timeout=10
         )
@@ -79,7 +79,7 @@ def verify_whatsapp_account():
     
     try:
         phones_response = requests.get(
-            f"https://graph.facebook.com/v22.0/{business_account_id}/phone_numbers?fields=id,display_phone_number,verified_name,code_verification_status,status,quality_rating,messaging_limit_tier",
+            f"https://graph.facebook.com/v23.0/{business_account_id}/phone_numbers?fields=id,display_phone_number,verified_name,code_verification_status,status,quality_rating,messaging_limit_tier",
             headers=headers,
             timeout=15
         )
@@ -127,7 +127,7 @@ def verify_whatsapp_account():
     
     try:
         templates_response = requests.get(
-            f"https://graph.facebook.com/v22.0/{business_account_id}/message_templates?fields=id,name,status,category,language,quality_score,rejected_reason",
+            f"https://graph.facebook.com/v23.0/{business_account_id}/message_templates?fields=id,name,status,category,language,quality_score,rejected_reason",
             headers=headers,
             timeout=15
         )

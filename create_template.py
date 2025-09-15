@@ -31,7 +31,7 @@ def create_template():
         ]
     }
     
-    url = f"https://graph.facebook.com/v18.0/{business_account_id}/message_templates"
+    url = f"https://graph.facebook.com/v23.0/{business_account_id}/message_templates"
     
     headers = {
         'Authorization': f'Bearer {access_token}',

@@ -20,7 +20,7 @@ class PhoneIDDiscovery:
         print("🔍 Descobrindo Business Accounts...")
         
         # Método 1: Via user me
-        url = "https://graph.facebook.com/v22.0/me"
+        url = "https://graph.facebook.com/v23.0/me"
         headers = {'Authorization': f'Bearer {self.token}'}
         
         response = requests.get(url, headers=headers)
@@ -37,10 +37,10 @@ class PhoneIDDiscovery:
     def _search_accounts_systematically(self, user_id):
         """Buscar contas sistematicamente"""
         possible_endpoints = [
-            f"https://graph.facebook.com/v22.0/{user_id}/accounts",
-            f"https://graph.facebook.com/v22.0/{user_id}/business_users",
-            f"https://graph.facebook.com/v22.0/me/businesses",
-            f"https://graph.facebook.com/v22.0/me/accounts"
+            f"https://graph.facebook.com/v23.0/{user_id}/accounts",
+            f"https://graph.facebook.com/v23.0/{user_id}/business_users",
+            f"https://graph.facebook.com/v23.0/me/businesses",
+            f"https://graph.facebook.com/v23.0/me/accounts"
         ]
         
         business_accounts = []
@@ -92,7 +92,7 @@ class PhoneIDDiscovery:
     
     def _test_phone_id(self, phone_id):
         """Testar se um Phone ID é válido"""
-        url = f"https://graph.facebook.com/v22.0/{phone_id}/messages"
+        url = f"https://graph.facebook.com/v23.0/{phone_id}/messages"
         headers = {
             'Authorization': f'Bearer {self.token}',
             'Content-Type': 'application/json'
@@ -134,7 +134,7 @@ class PhoneIDDiscovery:
     
     def _get_phone_details(self, phone_id):
         """Obter detalhes do Phone Number"""
-        url = f"https://graph.facebook.com/v22.0/{phone_id}"
+        url = f"https://graph.facebook.com/v23.0/{phone_id}"
         headers = {'Authorization': f'Bearer {self.token}'}
         
         try:

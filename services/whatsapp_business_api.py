@@ -9,7 +9,7 @@ class WhatsAppBusinessAPI:
     """Service for WhatsApp Business API (Facebook Cloud API) integration"""
     
     def __init__(self):
-        self.api_version = 'v22.0'
+        self.api_version = 'v23.0'
         self.base_url = f'https://graph.facebook.com/{self.api_version}'
         
         # Initialize with empty credentials

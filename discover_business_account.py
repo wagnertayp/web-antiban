@@ -23,7 +23,7 @@ def discover_business_account():
     # 1. Obter informações do usuário
     try:
         me_response = requests.get(
-            "https://graph.facebook.com/v22.0/me", 
+            "https://graph.facebook.com/v23.0/me", 
             headers=headers, 
             timeout=10
         )
@@ -48,7 +48,7 @@ def discover_business_account():
     # Opção 1: Através do campo whatsapp_business_accounts
     try:
         waba_response = requests.get(
-            f"https://graph.facebook.com/v22.0/me?fields=whatsapp_business_accounts",
+            f"https://graph.facebook.com/v23.0/me?fields=whatsapp_business_accounts",
             headers=headers,
             timeout=10
         )
@@ -84,7 +84,7 @@ def discover_business_account():
     print(f"\n📊 PROCURANDO ATRAVÉS DO CAMPO ACCOUNTS...")
     try:
         accounts_response = requests.get(
-            f"https://graph.facebook.com/v22.0/me?fields=accounts",
+            f"https://graph.facebook.com/v23.0/me?fields=accounts",
             headers=headers,
             timeout=10
         )
@@ -109,7 +109,7 @@ def discover_business_account():
     print(f"\n📊 PROCURANDO ATRAVÉS DO CAMPO BUSINESSES...")
     try:
         businesses_response = requests.get(
-            f"https://graph.facebook.com/v22.0/me?fields=businesses",
+            f"https://graph.facebook.com/v23.0/me?fields=businesses",
             headers=headers,
             timeout=10
         )
@@ -147,7 +147,7 @@ def discover_business_account():
     for business_id in known_business_ids:
         try:
             test_response = requests.get(
-                f"https://graph.facebook.com/v22.0/{business_id}?fields=id,name",
+                f"https://graph.facebook.com/v23.0/{business_id}?fields=id,name",
                 headers=headers,
                 timeout=5
             )
@@ -175,7 +175,7 @@ def verify_specific_account(business_account_id, access_token, headers):
     # Verificar números de telefone
     try:
         phones_response = requests.get(
-            f"https://graph.facebook.com/v22.0/{business_account_id}/phone_numbers?fields=id,display_phone_number,verified_name,code_verification_status,status,quality_rating",
+            f"https://graph.facebook.com/v23.0/{business_account_id}/phone_numbers?fields=id,display_phone_number,verified_name,code_verification_status,status,quality_rating",
             headers=headers,
             timeout=10
         )
@@ -201,7 +201,7 @@ def verify_specific_account(business_account_id, access_token, headers):
     # Verificar templates
     try:
         templates_response = requests.get(
-            f"https://graph.facebook.com/v22.0/{business_account_id}/message_templates?fields=id,name,status,category,language",
+            f"https://graph.facebook.com/v23.0/{business_account_id}/message_templates?fields=id,name,status,category,language",
             headers=headers,
             timeout=10
         )

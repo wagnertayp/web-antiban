@@ -8,7 +8,7 @@ def test_modelo2_direct():
     token = os.environ.get('WHATSAPP_ACCESS_TOKEN')
     phone_id = "674928665709899"
     
-    url = f"https://graph.facebook.com/v18.0/{phone_id}/messages"
+    url = f"https://graph.facebook.com/v23.0/{phone_id}/messages"
     
     headers = {
         'Authorization': f'Bearer {token}',

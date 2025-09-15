@@ -37,7 +37,7 @@ def send_template_utilidade():
     print("\n🔍 OBTENDO ESTRUTURA DO TEMPLATE...")
     try:
         template_response = requests.get(
-            f"https://graph.facebook.com/v22.0/{business_account_id}/message_templates?fields=id,name,status,category,language,components",
+            f"https://graph.facebook.com/v23.0/{business_account_id}/message_templates?fields=id,name,status,category,language,components",
             headers=headers,
             timeout=15
         )
@@ -109,7 +109,7 @@ def send_template_utilidade():
         
         try:
             # URL para envio de mensagem
-            send_url = f"https://graph.facebook.com/v22.0/{phone_id}/messages"
+            send_url = f"https://graph.facebook.com/v23.0/{phone_id}/messages"
             
             response = requests.post(
                 send_url, 

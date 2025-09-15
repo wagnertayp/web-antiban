@@ -14,7 +14,7 @@ class TemplateManager:
     def __init__(self):
         self.access_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
         self.business_account_id = os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID')  # Need this for template creation
-        self.api_version = 'v18.0'
+        self.api_version = 'v23.0'
         self.base_url = f'https://graph.facebook.com/{self.api_version}'
         
         if self.access_token:

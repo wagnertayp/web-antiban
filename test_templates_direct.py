@@ -24,7 +24,7 @@ def test_templates_direct():
     print(f"🔍 Testando Business Manager ID: {business_id}")
     
     # Buscar todos os templates
-    url = f"https://graph.facebook.com/v22.0/{business_id}/message_templates?limit=50"
+    url = f"https://graph.facebook.com/v23.0/{business_id}/message_templates?limit=50"
     
     try:
         response = requests.get(url, headers=headers, timeout=15)
@@ -90,7 +90,7 @@ def test_phone_ids():
     
     print(f"\n📱 Testando Phone Numbers do Business Manager: {business_id}")
     
-    url = f"https://graph.facebook.com/v22.0/{business_id}/phone_numbers"
+    url = f"https://graph.facebook.com/v23.0/{business_id}/phone_numbers"
     
     try:
         response = requests.get(url, headers=headers, timeout=15)

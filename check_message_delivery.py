@@ -26,7 +26,7 @@ message_ids = [
 def check_message_status(message_id):
     """Verificar status de uma mensagem específica"""
     try:
-        url = f"https://graph.facebook.com/v22.0/{message_id}"
+        url = f"https://graph.facebook.com/v23.0/{message_id}"
         response = requests.get(url, headers=headers, timeout=15)
         
         logging.info(f"📋 Status Check - Message ID: {message_id[-20:]}")
@@ -58,7 +58,7 @@ def test_simple_message():
             'text': {'body': 'Teste de conectividade - mensagem simples'}
         }
         
-        url = f"https://graph.facebook.com/v22.0/{phone_id}/messages"
+        url = f"https://graph.facebook.com/v23.0/{phone_id}/messages"
         response = requests.post(url, headers=headers, json=payload, timeout=30)
         
         logging.info(f"📤 Simple Message Test - Status: {response.status_code}")
@@ -82,7 +82,7 @@ def check_phone_number_status():
     """Verificar status dos phone numbers"""
     try:
         bm_id = "781046244494318"
-        url = f"https://graph.facebook.com/v22.0/{bm_id}/phone_numbers"
+        url = f"https://graph.facebook.com/v23.0/{bm_id}/phone_numbers"
         response = requests.get(url, headers=headers, timeout=15)
         
         logging.info(f"📱 Phone Status Check - Status: {response.status_code}")
@@ -101,7 +101,7 @@ def check_phone_number_status():
                 
                 # Verificar mensagens recentes deste phone
                 try:
-                    messages_url = f"https://graph.facebook.com/v22.0/{phone_id}/messages"
+                    messages_url = f"https://graph.facebook.com/v23.0/{phone_id}/messages"
                     msg_response = requests.get(messages_url, headers=headers, timeout=10)
                     if msg_response.status_code == 200:
                         logging.info(f"   ✅ Phone {phone_id} - Messages endpoint accessible")

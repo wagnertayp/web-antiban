@@ -17,7 +17,7 @@ def debug_templates():
     
     try:
         # Get templates
-        response = requests.get(f"https://graph.facebook.com/v22.0/{bm_id}/message_templates", headers=headers)
+        response = requests.get(f"https://graph.facebook.com/v23.0/{bm_id}/message_templates", headers=headers)
         print(f"Status: {response.status_code}")
         
         if response.status_code == 200:

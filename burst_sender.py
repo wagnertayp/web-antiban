@@ -42,7 +42,7 @@ count_lock = threading.Lock()
 def send_text_message(phone: str, message: str, phone_id: str) -> Tuple[bool, str]:
     """Envia mensagem de texto via WhatsApp API"""
     try:
-        url = f"https://graph.facebook.com/v22.0/{phone_id}/messages"
+        url = f"https://graph.facebook.com/v23.0/{phone_id}/messages"
         headers = {
             'Authorization': f'Bearer {TOKEN}',
             'Content-Type': 'application/json'

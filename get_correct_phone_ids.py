@@ -24,7 +24,7 @@ def send_template_with_correct_ids():
     # 1. Obter os IDs reais dos phone numbers
     try:
         phones_response = requests.get(
-            f"https://graph.facebook.com/v22.0/{business_account_id}/phone_numbers?fields=id,display_phone_number,verified_name,code_verification_status,status,quality_rating,messaging_limit_tier",
+            f"https://graph.facebook.com/v23.0/{business_account_id}/phone_numbers?fields=id,display_phone_number,verified_name,code_verification_status,status,quality_rating,messaging_limit_tier",
             headers=headers,
             timeout=15
         )
@@ -96,7 +96,7 @@ def send_template_with_correct_ids():
         print(f"\n📱 Enviando via número {i} (ID: {phone_id})...")
         
         try:
-            send_url = f"https://graph.facebook.com/v22.0/{phone_id}/messages"
+            send_url = f"https://graph.facebook.com/v23.0/{phone_id}/messages"
             
             response = requests.post(
                 send_url,
