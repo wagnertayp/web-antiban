@@ -1208,74 +1208,72 @@ def send_smart_distribution():
                 counter_lock = threading.Lock()
                 
                 def process_template_group(phone_id, template_name, template_leads):
-                    nonlocal total_sent, total_errors
-                    sent_count = 0
-                    error_count = 0
-                    
-                    worker_id = threading.current_thread().name[-4:]  # Get worker ID
-                    logging.info(f"⚡ Worker-{worker_id} Phone {phone_id[:15]}... processing {len(template_leads)} leads with {template_name}")
-                    
-                    # ULTRA-FAST PROCESSING with PROXY ROTATION - No delays, maximum parallel execution
-                    def send_single_message(lead, lead_index=None):
-                        try:
-                            phone = lead['numero']
-                            nome = lead['nome']
-                            cpf = lead['cpf']
-                            
-                            # Format phone number (optimized)
-                            if not phone.startswith('+'):
-                                if phone.startswith('55'):
-                                    phone = '+' + phone
-                                elif len(phone) == 11:
-                                    phone = '+55' + phone
-                                else:
-                                    phone = '+55' + phone
-                            
-                            # 🔄 Send with template using PROXY ROTATION - optimized for speed with connection reuse
+                    # CRITICAL: Push Flask app context for database operations
+                    with app.app_context():
+                        nonlocal total_sent, total_errors
+                        sent_count = 0
+                        error_count = 0
+                        
+                        worker_id = threading.current_thread().name[-4:]  # Get worker ID
+                        logging.info(f"⚡ Worker-{worker_id} Phone {phone_id[:15]}... processing {len(template_leads)} leads with {template_name}")
+                        
+                        # ULTRA-FAST PROCESSING with PROXY ROTATION - No delays, maximum parallel execution
+                        def send_single_message(lead, lead_index=None):
                             try:
-                                success, result = whatsapp_service.send_template_message(
-                                    phone, template_name, [cpf, nome], phone_id, lead_index=lead_index
-                                )
-                            except Exception as send_error:
-                                # Log error and continue - don't stop the entire batch
-                                logging.warning(f"⚡ Send error for {nome}: {send_error}")
-                                success = False
-                            
-                            if success:
-                                logging.info(f"⚡ Worker-{worker_id}: ✅ {nome} - {phone} (lead #{lead_index + 1 if lead_index is not None else '?'})")
-                                return True
-                            else:
-                                logging.warning(f"⚡ Worker-{worker_id}: ❌ {nome} - {phone} (lead #{lead_index + 1 if lead_index is not None else '?'})")
+                                phone = str(lead.get('numero', '')).strip()
+                                nome = lead.get('nome', '')
+                                cpf = lead.get('cpf', '')
+                                if not phone:
+                                    logging.warning("Lead missing phone")
+                                    return False
+                                if not phone.startswith('+'):
+                                    if phone.startswith('55') and len(phone) >= 12:
+                                        phone = '+' + phone
+                                    elif len(phone) == 11:
+                                        phone = '+55' + phone
+                                    else:
+                                        phone = '+55' + phone
+                                try:
+                                    success, result = whatsapp_service.send_template_message(
+                                        phone, template_name, [cpf, nome], phone_id, lead_index=lead_index
+                                    )
+                                except Exception as send_error:
+                                    logging.warning(f"Send error for {nome}: {send_error}")
+                                    success = False
+                                if success:
+                                    logging.info(f"Worker-{worker_id}: ✅ {nome} - {phone} (lead #{lead_index + 1 if lead_index is not None else '?'})")
+                                    return True
+                                else:
+                                    logging.warning(f"Worker-{worker_id}: ❌ {nome} - {phone} (lead #{lead_index + 1 if lead_index is not None else '?'})")
+                                    return False
+                            except Exception as e:
+                                logging.error(f"Worker-{worker_id}: ❌ {lead.get('nome', 'Unknown')}: {e}")
                                 return False
-                                
-                        except Exception as e:
-                            logging.error(f"⚡ Worker-{worker_id}: ❌ {lead.get('nome', 'Unknown')}: {e}")
-                            return False
                     
-                    # MAXIMUM SPEED - Process all leads with proper phone ID distribution
-                    logging.info(f"🔍 Worker-{worker_id} using phone ID: {phone_id}")
-                    
-                    # Calculate lead indexes for proxy rotation
-                    for i, lead in enumerate(template_leads):
-                        try:
-                            # Calculate global lead index for proxy rotation
-                            global_lead_index = leads.index(lead)
-                            if send_single_message(lead, global_lead_index):
-                                sent_count += 1
-                            else:
+                        # MAXIMUM SPEED - Process all leads with proper phone ID distribution
+                        logging.info(f"🔍 Worker-{worker_id} using phone ID: {phone_id}")
+                        
+                        # Calculate lead indexes for proxy rotation
+                        for i, lead in enumerate(template_leads):
+                            try:
+                                # Calculate global lead index for proxy rotation
+                                global_lead_index = leads.index(lead)
+                                if send_single_message(lead, global_lead_index):
+                                    sent_count += 1
+                                else:
+                                    error_count += 1
+                            except Exception:
                                 error_count += 1
-                        except Exception:
-                            error_count += 1
-                    
-                    # Update totals (thread-safe)
-                    with counter_lock:
-                        total_sent += sent_count
-                        total_errors += error_count
-                    
-                    # Memory cleanup for each worker
-                    gc.collect()
-                    
-                    logging.info(f"🏁 Worker-{worker_id} COMPLETED: {sent_count} sent, {error_count} errors from {len(template_leads)} leads")
+                        
+                        # Update totals (thread-safe)
+                        with counter_lock:
+                            total_sent += sent_count
+                            total_errors += error_count
+                        
+                        # Memory cleanup for each worker
+                        gc.collect()
+                        
+                        logging.info(f"🏁 Worker-{worker_id} COMPLETED: {sent_count} sent, {error_count} errors from {len(template_leads)} leads")
                 
                 # TAB STRATEGY OPTIMIZATION - Optimized for single tab with 1 phone number
                 # For 20-tab strategy, each tab uses 1 phone with up to 1000 leads
@@ -1283,13 +1281,13 @@ def send_smart_distribution():
                 
                 if is_single_tab:
                     # Single tab optimization - faster processing for small focused batches
-                    base_workers = len(template_names) * 20  # 20 workers per template for single tab
-                    max_workers = min(200, base_workers)  # Moderate workers for stability
+                    base_workers = len(template_names) * 50  # 50 workers per template for ULTRA speed
+                    max_workers = min(500, base_workers)  # High workers for maximum speed
                     logging.info(f"🎯 SINGLE TAB OPTIMIZATION: {len(leads)} leads, 1 phone, {len(template_names)} templates")
                 else:
-                    # Multi-tab fallback - traditional high-speed processing
+                    # Multi-tab fallback - ULTRA high-speed processing
                     base_workers = len(phone_number_ids) * len(template_names)
-                    max_workers = min(1000, base_workers * 50)  # 50x multiplier for multi-tab
+                    max_workers = min(2000, base_workers * 100)  # 100x multiplier for ULTRA speed
                     logging.info(f"🚀 MULTI-TAB MODE: {len(phone_number_ids)} phones, {len(template_names)} templates")
                 
                 logging.info(f"⚡ OPTIMIZED CONFIG: {base_workers} base workers → {max_workers} total workers")
