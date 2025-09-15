@@ -1466,7 +1466,7 @@ def ultra_speed_smart_distribution():
         progress_sessions[session_id]['total'] = len(leads)
         progress_sessions[session_id]['status'] = 'running'
         
-        # SMART DISTRIBUTION: Up to 10000 messages per phone number with randomized templates
+        # SMART DISTRIBUTION: Up to 1000 messages per phone number with randomized templates
         def ultra_speed_smart_distribution():
             import random
             import concurrent.futures
@@ -1486,8 +1486,8 @@ def ultra_speed_smart_distribution():
                 worker_whatsapp.update_connection(connection_data)
                 logging.info(f"⚡ Worker using connection with token: {connection_data.get('access_token', '')[:50]}...")
             
-            # SMART DISTRIBUTION: Distribute leads across phone numbers (max 10000 per phone)
-            max_per_phone = 10000
+            # SMART DISTRIBUTION: Distribute leads across phone numbers (max 1000 per phone)
+            max_per_phone = 1000
             total_capacity = len(phone_number_ids) * max_per_phone
             
             if len(leads) > total_capacity:
@@ -1501,7 +1501,7 @@ def ultra_speed_smart_distribution():
             # Randomize leads order for better distribution
             random.shuffle(leads_to_process)
             
-            # Create phone groups with maximum 10000 leads per phone
+            # Create phone groups with maximum 1000 leads per phone
             phone_groups = {}
             for phone_id in phone_number_ids:
                 phone_groups[phone_id] = []
@@ -1606,8 +1606,8 @@ def ultra_speed_smart_distribution():
             'message': f'ULTRA-SPEED SMART iniciado para {len(leads)} leads',
             'session_id': session_id,
             'total_leads': len(leads),
-            'max_per_phone': 10000,
-            'total_capacity': len(phone_number_ids) * 10000,
+            'max_per_phone': 1000,
+            'total_capacity': len(phone_number_ids) * 1000,
             'templates': len(template_names),
             'phone_numbers': len(phone_number_ids),
             'randomized_templates': True
