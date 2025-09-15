@@ -4,6 +4,7 @@ Proxy Service - Gerencia rotação e uso de proxies para requisições HTTP
 
 import logging
 import requests
+from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 class ProxyService:
@@ -23,6 +24,9 @@ class ProxyService:
                     from models import Proxy
                     proxy = Proxy.get_next_proxy()
                     if proxy:
+                        # CRITICAL: Update proxy usage with proper Flask context
+                        proxy.last_used = datetime.utcnow()
+                        self.db.session.commit()
                         self.current_proxy = proxy
                         proxy_dict = proxy.get_requests_proxy_dict()
                         if proxy_dict:

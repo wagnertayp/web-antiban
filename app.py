@@ -102,7 +102,7 @@ def admin_sent_numbers():
             )
         
         # Order by most recent first
-        query = query.order_by(SentNumber.last_sent_at.desc())
+        query = query.order_by(SentNumber.sent_at.desc())
         
         # Paginate
         sent_numbers = query.paginate(

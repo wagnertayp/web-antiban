@@ -65,21 +65,18 @@ class Proxy(db.Model):
     
     @staticmethod
     def get_active_proxies():
-        """Get all active proxies"""
+        """Get all active proxies - MUST be called within Flask app context"""
         return Proxy.query.filter_by(is_active=True).all()
     
     @staticmethod
     def get_next_proxy():
-        """Get next proxy for rotation (round-robin)"""
+        """Get next proxy for rotation - MUST be called within Flask app context"""
         proxies = Proxy.get_active_proxies()
         if not proxies:
             return None
         
-        # Find least recently used proxy
-        proxy = min(proxies, key=lambda p: p.last_used or datetime.min)
-        proxy.last_used = datetime.utcnow()
-        db.session.commit()
-        return proxy
+        # Find least recently used proxy - DO NOT commit here, let service handle it
+        return min(proxies, key=lambda p: p.last_used or datetime.min)
     
     def parse_proxy_string(self):
         """Parse proxy string into components"""
