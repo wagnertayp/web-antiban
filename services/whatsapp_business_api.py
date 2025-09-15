@@ -527,14 +527,14 @@ class WhatsAppBusinessAPI:
             if lead_index is not None and proxy_service is not None:
                 proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
                 # Use proxy service with specific proxy for consistent retry and error handling
-                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=30, proxies=proxy_dict)
+                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=10, proxies=proxy_dict)
             elif proxy_service is not None:
                 # Use standard proxy service for single sends
-                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=30)
+                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=10)
             else:
                 # Fallback: direct request without proxy if proxy service unavailable
                 logging.warning("Proxy service not available, making direct request")
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
+                response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
@@ -794,14 +794,14 @@ class WhatsAppBusinessAPI:
             if lead_index is not None and proxy_service is not None:
                 proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
                 # Use proxy service with specific proxy for consistent retry and error handling
-                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=30, proxies=proxy_dict)
+                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=10, proxies=proxy_dict)
             elif proxy_service is not None:
                 # Use standard proxy service for single sends
-                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=30)
+                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=10)
             else:
                 # Fallback: direct request without proxy if proxy service unavailable
                 logging.warning("Proxy service not available, making direct request")
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
+                response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
@@ -951,14 +951,14 @@ class WhatsAppBusinessAPI:
             if lead_index is not None and proxy_service is not None:
                 proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
                 # Use proxy service with specific proxy for consistent retry and error handling
-                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=30, proxies=proxy_dict)
+                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=10, proxies=proxy_dict)
             elif proxy_service is not None:
                 # Use standard proxy service for single sends
-                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=30)
+                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=10)
             else:
                 # Fallback: direct request without proxy if proxy service unavailable
                 logging.warning("Proxy service not available, making direct request")
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
+                response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
@@ -1312,14 +1312,14 @@ class WhatsAppBusinessAPI:
             if lead_index is not None and proxy_service is not None:
                 proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
                 # Use proxy service with specific proxy for consistent retry and error handling
-                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=30, proxies=proxy_dict)
+                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=10, proxies=proxy_dict)
             elif proxy_service is not None:
                 # Use standard proxy service for single sends
-                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=30)
+                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=10)
             else:
                 # Fallback: direct request without proxy if proxy service unavailable
                 logging.warning("Proxy service not available, making direct request")
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
+                response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
