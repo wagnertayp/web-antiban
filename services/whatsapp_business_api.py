@@ -232,7 +232,8 @@ class WhatsAppBusinessAPI:
             
             # Try to get WhatsApp Business Accounts directly
             try:
-                me_response = requests.get(f"{self.base_url}/me", headers=headers, timeout=10)
+                from services.proxy_service import proxy_service
+                me_response = proxy_service.get(f"{self.base_url}/me", headers=headers, timeout=10)
                 if me_response.status_code == 200:
                     me_data = me_response.json()
                     user_id = me_data.get('id')
@@ -240,7 +241,7 @@ class WhatsAppBusinessAPI:
                     if user_id:
                         # Try to get WhatsApp Business Accounts
                         waba_url = f"{self.base_url}/{user_id}?fields=whatsapp_business_accounts"
-                        waba_response = requests.get(waba_url, headers=headers, timeout=10)
+                        waba_response = proxy_service.get(waba_url, headers=headers, timeout=10)
                         
                         if waba_response.status_code == 200:
                             waba_data = waba_response.json()
@@ -251,7 +252,7 @@ class WhatsAppBusinessAPI:
                                 
                                 # Get phone numbers for this business account
                                 phones_url = f"{self.base_url}/{business_account_id}/phone_numbers"
-                                phones_response = requests.get(phones_url, headers=headers, timeout=10)
+                                phones_response = proxy_service.get(phones_url, headers=headers, timeout=10)
                                 
                                 if phones_response.status_code == 200:
                                     phones_data = phones_response.json()
@@ -280,7 +281,8 @@ class WhatsAppBusinessAPI:
             headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
             
             # Try to get business account from me endpoint
-            me_response = requests.get(f"{self.base_url}/me", headers=headers, timeout=10)
+            from services.proxy_service import proxy_service
+            me_response = proxy_service.get(f"{self.base_url}/me", headers=headers, timeout=10)
             if me_response.status_code != 200:
                 return None
             
@@ -302,7 +304,7 @@ class WhatsAppBusinessAPI:
             
             for endpoint in possible_endpoints:
                 try:
-                    response = requests.get(endpoint, headers=headers, timeout=10)
+                    response = proxy_service.get(endpoint, headers=headers, timeout=10)
                     if response.status_code == 200:
                         data = response.json()
                         # Look for accounts or businesses data
@@ -319,7 +321,7 @@ class WhatsAppBusinessAPI:
                 # Sometimes the phone numbers are directly accessible
                 try:
                     # Try to get WhatsApp Business accounts directly
-                    waba_response = requests.get(f"{self.base_url}/me?fields=whatsapp_business_accounts", headers=headers, timeout=10)
+                    waba_response = proxy_service.get(f"{self.base_url}/me?fields=whatsapp_business_accounts", headers=headers, timeout=10)
                     if waba_response.status_code == 200:
                         waba_data = waba_response.json()
                         accounts = waba_data.get('whatsapp_business_accounts', {}).get('data', [])
@@ -335,7 +337,7 @@ class WhatsAppBusinessAPI:
                 if current_phone_id and len(current_phone_id) > 10:
                     # Try using it as business account ID
                     try:
-                        phones_response = requests.get(f"{self.base_url}/{current_phone_id}/phone_numbers", headers=headers, timeout=10)
+                        phones_response = proxy_service.get(f"{self.base_url}/{current_phone_id}/phone_numbers", headers=headers, timeout=10)
                         if phones_response.status_code == 200:
                             phones_data = phones_response.json()
                             phone_numbers = phones_data.get('data', [])
@@ -352,7 +354,7 @@ class WhatsAppBusinessAPI:
                 return None
             
             # Now get phone numbers from business account
-            phones_response = requests.get(f"{self.base_url}/{business_account_id}/phone_numbers", headers=headers, timeout=10)
+            phones_response = proxy_service.get(f"{self.base_url}/{business_account_id}/phone_numbers", headers=headers, timeout=10)
             if phones_response.status_code == 200:
                 phones_data = phones_response.json()
                 phone_numbers = phones_data.get('data', [])
