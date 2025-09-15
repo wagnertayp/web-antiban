@@ -14,6 +14,9 @@ from heroku_config import HerokuConfig
 # Global counter for real-time progress tracking
 message_counters = {}
 
+# WhatsApp Business API limit - cada número pode enviar máximo 1000 mensagens por disparo
+MAX_PER_PHONE = 1000
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
@@ -590,6 +593,12 @@ def send_messages():
         if not leads:
             return jsonify({'error': 'Nenhum lead válido fornecido'}), 400
         
+        # Aplicar limite de 1000 mensagens por número
+        if len(leads) > MAX_PER_PHONE:
+            return jsonify({
+                'error': f'Máximo de {MAX_PER_PHONE} mensagens por número. Lista contém {len(leads)} leads. Use o modo Smart Distribution para listas maiores.'
+            }), 400
+        
         if not template_name:
             return jsonify({'error': 'Nome do template é obrigatório'}), 400
             
@@ -643,21 +652,41 @@ def send_instant():
     """Send messages instantly without database storage"""
     try:
         data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'Dados não recebidos'}), 400
+            
         leads_input = data.get('leads', [])
-        template_name = data.get('template_name', '')
-        phone_number_id = data.get('phone_number_id', '')
+        template_name = data.get('template_name', '').strip()
+        phone_number_id = data.get('phone_number_id', '').strip()
         
-        # Parse leads if it's a string
-        if isinstance(leads_input, str):
+        # Initialize leads variable
+        leads = []
+        parse_errors = []
+        
+        # Parse leads based on input type
+        if isinstance(leads_input, str) and leads_input.strip():
+            # Input is a string - parse it
             from utils.validators import parse_leads
-            leads, parse_errors = parse_leads(leads_input)
+            leads, parse_errors = parse_leads(leads_input.strip())
             if parse_errors:
-                return jsonify({'error': f'Erros no parsing: {"; ".join(parse_errors)}'}), 400
-        else:
+                return jsonify({'error': f'Erros no parsing dos leads: {"; ".join(parse_errors)}'}), 400
+        elif isinstance(leads_input, list):
+            # Input is already a list - validate it
             leads = leads_input
+        else:
+            # Invalid input type
+            return jsonify({'error': 'Formato de leads inválido. Esperado: string ou lista'}), 400
         
-        if not leads:
+        # Final validation of leads
+        if not leads or len(leads) == 0:
             return jsonify({'error': 'Nenhum lead válido fornecido'}), 400
+        
+        # Aplicar limite de 1000 mensagens por número
+        if len(leads) > MAX_PER_PHONE:
+            return jsonify({
+                'error': f'Máximo de {MAX_PER_PHONE} mensagens por número. Lista contém {len(leads)} leads. Use o modo Smart Distribution para listas maiores.'
+            }), 400
         
         if not template_name:
             return jsonify({'error': 'Nome do template é obrigatório'}), 400
@@ -1002,7 +1031,7 @@ def send_mega_batch():
         time.sleep(0.5)
         
         # Calcular batch size dinamicamente
-        batch_size = 50 if len(leads) > 10000 else 20
+        batch_size = 50 if len(leads) > MAX_PER_PHONE else 20
         
         return jsonify({
             'success': True,
@@ -1120,8 +1149,8 @@ def send_smart_distribution():
         # FIXED: Create distribution with proper phone ID handling
         def create_smart_distribution():
             try:
-                # Distribute leads among phone numbers (max 10000 per phone)
-                leads_per_phone = min(10000, len(leads) // len(phone_number_ids) + 1)
+                # Distribute leads among phone numbers (max 1000 per phone)
+                leads_per_phone = min(MAX_PER_PHONE, len(leads) // len(phone_number_ids) + 1)
                 phone_groups = []
                 
                 for i, phone_id in enumerate(phone_number_ids):
@@ -1240,8 +1269,8 @@ def send_smart_distribution():
                     logging.info(f"🏁 Worker-{worker_id} COMPLETED: {sent_count} sent, {error_count} errors from {len(template_leads)} leads")
                 
                 # TAB STRATEGY OPTIMIZATION - Optimized for single tab with 1 phone number
-                # For 20-tab strategy, each tab uses 1 phone with up to 10000 leads
-                is_single_tab = len(phone_number_ids) == 1 and len(leads) <= 10000
+                # For 20-tab strategy, each tab uses 1 phone with up to 1000 leads
+                is_single_tab = len(phone_number_ids) == 1 and len(leads) <= MAX_PER_PHONE
                 
                 if is_single_tab:
                     # Single tab optimization - faster processing for small focused batches
@@ -1392,7 +1421,7 @@ def whatsapp_webhook():
 
 @app.route('/api/ultra-speed', methods=['POST'])
 def ultra_speed_smart_distribution():
-    """Ultra-speed with smart distribution: up to 10000 messages per phone, randomized templates"""
+    """Ultra-speed with smart distribution: up to 1000 messages per phone, randomized templates"""
     try:
         data = request.get_json()
         leads_input = data.get('leads', [])
@@ -1487,7 +1516,7 @@ def ultra_speed_smart_distribution():
                 logging.info(f"⚡ Worker using connection with token: {connection_data.get('access_token', '')[:50]}...")
             
             # SMART DISTRIBUTION: Distribute leads across phone numbers (max 1000 per phone)
-            max_per_phone = 1000
+            max_per_phone = MAX_PER_PHONE
             total_capacity = len(phone_number_ids) * max_per_phone
             
             if len(leads) > total_capacity:
@@ -1606,8 +1635,8 @@ def ultra_speed_smart_distribution():
             'message': f'ULTRA-SPEED SMART iniciado para {len(leads)} leads',
             'session_id': session_id,
             'total_leads': len(leads),
-            'max_per_phone': 1000,
-            'total_capacity': len(phone_number_ids) * 1000,
+            'max_per_phone': MAX_PER_PHONE,
+            'total_capacity': len(phone_number_ids) * MAX_PER_PHONE,
             'templates': len(template_names),
             'phone_numbers': len(phone_number_ids),
             'randomized_templates': True
