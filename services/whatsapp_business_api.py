@@ -803,6 +803,10 @@ class WhatsAppBusinessAPI:
                 logging.warning("Proxy service not available, making direct request")
                 response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
             
+            # CRITICAL: Log ALL HTTP responses for debugging
+            logging.info(f"🌐 HTTP STATUS: {response.status_code}")
+            logging.info(f"🌐 HTTP HEADERS: {dict(response.headers)}")
+            
             if response.status_code == 200:
                 data = response.json()
                 message_id = data.get('messages', [{}])[0].get('id', '')
@@ -833,6 +837,21 @@ class WhatsAppBusinessAPI:
                     'template_used': template_name,
                     'contacts': contacts,
                     'api_response': data
+                }
+            elif response.status_code == 401:
+                # CRITICAL: Handle 401 Unauthorized explicitly
+                error_data = response.json() if response.content else {}
+                error_message = error_data.get('error', {}).get('message', 'Token de acesso inválido')
+                logging.error(f"🔐 ERRO 401 CRITICAL: TOKEN INVÁLIDO - {error_message}")
+                logging.error(f"🔐 TOKEN ATUAL: {self._access_token[:20] if self._access_token else 'None'}...")
+                
+                return False, {
+                    'error': f'TOKEN INVÁLIDO (401): {error_message}',
+                    'error_code': 401,
+                    'error_type': 'AUTHENTICATION_ERROR',
+                    'action_required': 'RENOVAR TOKEN DE ACESSO',
+                    'template_name': template_name,
+                    'phone_number_id': used_phone_id
                 }
             else:
                 error_data = response.json() if response.content else {}
@@ -879,7 +898,16 @@ class WhatsAppBusinessAPI:
                 }
                 
         except requests.exceptions.RequestException as e:
-            logging.error(f"Erro de conexão ao enviar template aprovado: {str(e)}")
+            logging.error(f"💥 EXCEPTION TEMPLATE: {str(e)}")
+            # Check if it's a 401 error in the exception
+            if "401" in str(e) or "Unauthorized" in str(e):
+                logging.error(f"🔐 EXCEPTION 401 DETECTED: TOKEN PROBLEM - {str(e)}")
+                return False, {
+                    'error': f'TOKEN INVÁLIDO (Exception): {str(e)}',
+                    'error_code': 401,
+                    'error_type': 'AUTHENTICATION_EXCEPTION',
+                    'action_required': 'VERIFICAR TOKEN DE ACESSO'
+                }
             return False, {'error': f'Erro de conexão: {str(e)}'}
     
     def send_template_message_with_button(self, phone: str, template_name: str, language_code: str = 'en', 
