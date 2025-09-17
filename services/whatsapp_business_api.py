@@ -805,7 +805,68 @@ class WhatsAppBusinessAPI:
             
             if response.status_code == 200:
                 data = response.json()
+                
+                # CRITICAL FIX: Check for API errors even in HTTP 200 responses
+                # WhatsApp API can return errors like #132001, #135000 within successful HTTP responses
+                if 'error' in data:
+                    error_message = data.get('error', {}).get('message', 'Unknown API error')
+                    error_code = data.get('error', {}).get('code')
+                    logging.error(f"❌ API ERROR IN 200 RESPONSE - Error #{error_code}: {error_message}")
+                    
+                    # Handle specific API errors even in HTTP 200
+                    if error_code == 132001:
+                        logging.error(f"❌ TEMPLATE NOT FOUND: Template '{template_name}' não existe ou linguagem '{language_code}' incorreta")
+                        return False, {
+                            'error': f'Template {template_name} não encontrado (#{error_code}): {error_message}',
+                            'error_code': error_code,
+                            'business_manager_id': self._business_account_id,
+                            'template_name': template_name,
+                            'language_code': language_code,
+                            'phone_number_id': used_phone_id
+                        }
+                    elif error_code == 135000:
+                        logging.warning(f"⚠️ ERRO #135000 DETECTADO EM HTTP 200 - TENTANDO FALLBACK PARA MENSAGEM DE TEXTO")
+                        
+                        # Construir mensagem baseada no template e parâmetros
+                        if parameters and len(parameters) >= 2:
+                            cpf = str(parameters[0])
+                            nome = str(parameters[1])
+                            fallback_message = f"Olá {nome},\n\nVocê possui pendências financeiras no CPF {cpf}.\n\nPara consultar detalhes e negociar, acesse: https://example.com/{cpf}\n\nAtenciosamente,\nEquipe"
+                            
+                            # Enviar como mensagem de texto
+                            text_success, text_result = self.send_text_message(phone, fallback_message, used_phone_id)
+                            
+                            if text_success:
+                                logging.info(f"✅ FALLBACK SUCESSO: Mensagem enviada como texto após erro #135000 em HTTP 200")
+                                return True, {
+                                    'messageId': text_result.get('messageId', ''),
+                                    'whatsAppId': text_result.get('whatsAppId', ''),
+                                    'status': 'sent_as_text',
+                                    'template_used': f"{template_name}_fallback",
+                                    'fallback_reason': 'Template error #135000 in HTTP 200 - sent as text message',
+                                    'contacts': text_result.get('contacts', [])
+                                }
+                    
+                    # For other API errors in HTTP 200, return failure
+                    return False, {
+                        'error': f'API Error in HTTP 200 response (#{error_code}): {error_message}',
+                        'error_code': error_code,
+                        'business_manager_id': self._business_account_id,
+                        'template_name': template_name,
+                        'language_code': language_code,
+                        'phone_number_id': used_phone_id
+                    }
+                
+                # SUCCESS: No errors in response, proceed with normal success logic
                 message_id = data.get('messages', [{}])[0].get('id', '')
+                
+                # Only log success if we actually have a message ID
+                if not message_id:
+                    logging.error(f"❌ NO MESSAGE ID in successful response - something went wrong")
+                    return False, {
+                        'error': 'No message ID returned in successful response',
+                        'api_response': data
+                    }
                 
                 # CRITICAL DEBUGGING: Log complete API response
                 logging.info(f"🔍 COMPLETE API RESPONSE: {data}")
@@ -838,6 +899,9 @@ class WhatsAppBusinessAPI:
                 error_data = response.json() if response.content else {}
                 error_message = error_data.get('error', {}).get('message', response.text)
                 error_code = error_data.get('error', {}).get('code')
+                
+                # Log ALL errors (including HTTP 404 which means template doesn't exist)
+                logging.error(f"❌ TEMPLATE FAILED: {template_name} ({language_code}) - Error #{error_code}: {error_message}")
                 
                 # ERRO #135000: Tentar fallback para mensagem de texto (CONFIRMADO que esta BM também tem o problema)
                 if error_code == 135000:

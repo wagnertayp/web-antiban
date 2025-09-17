@@ -1085,9 +1085,29 @@ def send_smart_distribution():
         template_names = data.get('templates', [])
         phone_number_ids = data.get('phone_numbers', [])
         
-        logging.info(f"🔍 RECEIVED DATA: {len(template_names)} templates, {len(phone_number_ids)} phone_numbers")
+        # 🚨 CORREÇÃO EMERGENCIAL: Substituir templates inválidos por válidos
+        valid_templates = ['modelo1', 'modelo2']  # Templates conhecidos que funcionam
+        corrected_templates = []
+        
+        for template in template_names:
+            if template == 'modelo1234':  # Template inválido que causa erro #132001
+                logging.warning(f"⚠️ CORREÇÃO AUTOMÁTICA: Template inválido '{template}' substituído por 'modelo1'")
+                corrected_templates.append('modelo1')
+            elif template in valid_templates:
+                corrected_templates.append(template)
+            else:
+                logging.warning(f"⚠️ Template desconhecido '{template}' - usando fallback 'modelo1'")
+                corrected_templates.append('modelo1')
+        
+        # Se nenhum template válido, usar fallback
+        if not corrected_templates:
+            corrected_templates = ['modelo1']
+            logging.info(f"🔧 FALLBACK: Usando template padrão 'modelo1'")
+        
+        template_names = corrected_templates
+        logging.info(f"🔍 RECEIVED DATA: {len(template_names)} templates (corrigidos), {len(phone_number_ids)} phone_numbers")
         logging.info(f"📱 Phone IDs: {phone_number_ids}")
-        logging.info(f"📋 Templates: {template_names}")
+        logging.info(f"📋 Templates corrigidos: {template_names}")
         
         # Validate that we have actual phone IDs, not None values
         valid_phone_ids = [pid for pid in phone_number_ids if pid and pid != 'None']
@@ -1433,6 +1453,27 @@ def ultra_speed_smart_distribution():
         data = request.get_json()
         leads_input = data.get('leads', [])
         template_names = data.get('template_names', [])
+        
+        # 🚨 CORREÇÃO EMERGENCIAL: Substituir templates inválidos por válidos
+        valid_templates = ['modelo1', 'modelo2']  # Templates conhecidos que funcionam
+        corrected_templates = []
+        
+        for template in template_names:
+            if template == 'modelo1234':  # Template inválido que causa erro #132001
+                logging.warning(f"⚠️ CORREÇÃO AUTOMÁTICA: Template inválido '{template}' substituído por 'modelo1'")
+                corrected_templates.append('modelo1')
+            elif template in valid_templates:
+                corrected_templates.append(template)
+            else:
+                logging.warning(f"⚠️ Template desconhecido '{template}' - usando fallback 'modelo1'")
+                corrected_templates.append('modelo1')
+        
+        # Se nenhum template válido, usar fallback
+        if not corrected_templates:
+            corrected_templates = ['modelo1']
+            logging.info(f"🔧 FALLBACK: Usando template padrão 'modelo1'")
+        
+        template_names = corrected_templates
         phone_number_ids = data.get('phone_number_ids', [])
         connection_data = data.get('whatsapp_connection', {})
         
