@@ -408,6 +408,26 @@ class WhatsAppBusinessAPI:
         self._phone_number_id = phone_number_id
         logging.info(f"Phone Number ID set to: {phone_number_id}")
     
+    def set_connection(self, access_token: str, business_manager_id: str, phone_ids: list):
+        """Set connection data directly from UI discovery - bypasses token fallbacks"""
+        self._access_token = access_token
+        self._business_account_id = business_manager_id
+        self._available_phones = phone_ids
+        self._phone_number_id = phone_ids[0] if phone_ids else None
+        self._has_error_135000 = False
+        
+        # Update headers
+        self._headers = {
+            'Authorization': f'Bearer {self._access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Update environment for workers
+        os.environ['WHATSAPP_ACCESS_TOKEN'] = access_token
+        
+        logging.info(f"🎯 CONNECTION SET DIRECTLY: BM {business_manager_id}, {len(phone_ids)} phones, primary phone: {self._phone_number_id}")
+        logging.info(f"🔗 BYPASSING TOKEN FALLBACKS - Using UI-discovered credentials")
+    
     def is_configured(self) -> bool:
         """Check if WhatsApp Business API is properly configured"""
         # Always refresh credentials before checking
@@ -803,9 +823,11 @@ class WhatsAppBusinessAPI:
                 logging.warning("Proxy service not available, making direct request")
                 response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
             
-            # CRITICAL: Log ALL HTTP responses for debugging
+            # CRITICAL: Log ALL HTTP responses for debugging + URL for tracing
+            logging.info(f"🌐 HTTP POST: {url}")
             logging.info(f"🌐 HTTP STATUS: {response.status_code}")
             logging.info(f"🌐 HTTP HEADERS: {dict(response.headers)}")
+            logging.info(f"🌐 PAYLOAD SENT: {payload}")
             
             if response.status_code == 200:
                 data = response.json()
