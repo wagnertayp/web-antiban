@@ -60,7 +60,7 @@ from services.message_service import MessageService
 # from mega_batch_simple import mega_batch  # Temporarily disabled
 from webhook_handler import WhatsAppWebhookHandler
 # from ultra_mega_batch import ultra_mega_batch  # Temporarily disabled
-from utils.validators import validate_cpf, format_phone_number, parse_leads
+from utils.validators import validate_cpf, format_phone_number, parse_leads, parse_leads_with_whatsapp_verification
 from template_cloner import TemplateCloner
 
 # Initialize services
@@ -520,7 +520,7 @@ def discover_phones():
 
 @app.route('/api/validate-leads', methods=['POST'])
 def validate_leads():
-    """Validate leads format and return parsed data - NO DATABASE"""
+    """Validate leads format and return parsed data with optional WhatsApp verification"""
     try:
         data = request.get_json()
         
@@ -529,31 +529,87 @@ def validate_leads():
             return jsonify({'error': 'Nenhum dado recebido'}), 400
             
         leads_text = data.get('leads', '').strip()
+        verify_whatsapp = data.get('verify_whatsapp', False)
         
         if not leads_text:
             logging.error("Empty leads text")
             return jsonify({'error': 'Lista de leads não pode estar vazia'}), 400
         
-        logging.info(f"Processing {len(leads_text.split())} lines of leads data")
+        logging.info(f"Processing {len(leads_text.split())} lines of leads data (WhatsApp verification: {verify_whatsapp})")
         
-        # Parse leads from input (sem filtro de banco)
-        leads, errors = parse_leads(leads_text)
+        if verify_whatsapp:
+            # Use WhatsApp verification function
+            logging.info("🔍 Iniciando validação com verificação de WhatsApp...")
+            
+            # Check if WhatsApp service is configured
+            if not whatsapp_service or not whatsapp_service.is_configured():
+                logging.warning("⚠️ WhatsApp service não configurado, usando validação padrão")
+                # Fall back to standard validation with warning
+                leads, errors = parse_leads(leads_text)
+                
+                return jsonify({
+                    'leads': leads,
+                    'errors': errors,
+                    'total_valid': len(leads),
+                    'total_errors': len(errors),
+                    'original_count': len(leads) + len(errors),
+                    'filtered_count': 0,
+                    'already_sent': [],
+                    'summary': f"⚠️ {len(leads)} leads validados (WhatsApp service não configurado)",
+                    'whatsapp_verification': {
+                        'total_numbers_checked': 0,
+                        'numbers_removed': 0,
+                        'numbers_without_whatsapp': [],
+                        'verification_errors': ['WhatsApp Business API não configurada - verificação ignorada']
+                    }
+                })
+            
+            # Use WhatsApp verification
+            result = parse_leads_with_whatsapp_verification(leads_text, whatsapp_service)
+            
+            # Calculate counts for WhatsApp verification
+            whatsapp_info = result['whatsapp_verification']
+            total_checked = whatsapp_info.get('total_numbers_checked', 0)
+            numbers_removed = whatsapp_info.get('numbers_removed', 0)
+            
+            # Enhanced summary for WhatsApp verification
+            summary_message = f"✅ {len(result['valid_leads'])} leads com WhatsApp ativo prontos para envio."
+            if numbers_removed > 0:
+                summary_message += f" ({numbers_removed} números removidos por não ter WhatsApp)"
+            
+            logging.info(f"VALIDAÇÃO WHATSAPP: {len(result['valid_leads'])} leads com WhatsApp ativo, {len(result['validation_errors'])} erros, {numbers_removed} removidos")
+            
+            return jsonify({
+                'leads': result['valid_leads'],
+                'errors': result['validation_errors'],
+                'total_valid': len(result['valid_leads']),
+                'total_errors': len(result['validation_errors']),
+                'original_count': len(result['valid_leads']) + len(result['validation_errors']) + numbers_removed,
+                'filtered_count': numbers_removed,
+                'already_sent': [],
+                'summary': summary_message,
+                'whatsapp_verification': result['whatsapp_verification']
+            })
         
-        # Summary simples sem banco de dados
-        summary_message = f"✅ {len(leads)} leads válidos prontos para envio."
-        
-        logging.info(f"VALIDAÇÃO LEADS: {len(leads)} leads válidos, {len(errors)} erros encontrados")
-        
-        return jsonify({
-            'leads': leads,
-            'errors': errors,
-            'total_valid': len(leads),
-            'total_errors': len(errors),
-            'original_count': len(leads) + len(errors),
-            'filtered_count': 0,
-            'already_sent': [],
-            'summary': summary_message
-        })
+        else:
+            # Standard validation (maintain exact current behavior)
+            leads, errors = parse_leads(leads_text)
+            
+            # Summary simples sem banco de dados
+            summary_message = f"✅ {len(leads)} leads válidos prontos para envio."
+            
+            logging.info(f"VALIDAÇÃO PADRÃO: {len(leads)} leads válidos, {len(errors)} erros encontrados")
+            
+            return jsonify({
+                'leads': leads,
+                'errors': errors,
+                'total_valid': len(leads),
+                'total_errors': len(errors),
+                'original_count': len(leads) + len(errors),
+                'filtered_count': 0,
+                'already_sent': [],
+                'summary': summary_message
+            })
     
     except Exception as e:
         logging.error(f"Error validating leads: {str(e)}")
