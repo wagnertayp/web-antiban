@@ -60,7 +60,7 @@ from services.message_service import MessageService
 # from mega_batch_simple import mega_batch  # Temporarily disabled
 from webhook_handler import WhatsAppWebhookHandler
 # from ultra_mega_batch import ultra_mega_batch  # Temporarily disabled
-from utils.validators import validate_cpf, format_phone_number, parse_leads, parse_leads_with_whatsapp_verification
+from utils.validators import validate_cpf, format_phone_number, parse_leads
 from template_cloner import TemplateCloner
 
 # Initialize services
@@ -520,7 +520,7 @@ def discover_phones():
 
 @app.route('/api/validate-leads', methods=['POST'])
 def validate_leads():
-    """Validate leads format and return parsed data with optional WhatsApp verification"""
+    """Validate leads format and return parsed data - NO DATABASE"""
     try:
         data = request.get_json()
         
@@ -529,117 +529,31 @@ def validate_leads():
             return jsonify({'error': 'Nenhum dado recebido'}), 400
             
         leads_text = data.get('leads', '').strip()
-        verify_whatsapp = data.get('verify_whatsapp', False)
         
         if not leads_text:
             logging.error("Empty leads text")
             return jsonify({'error': 'Lista de leads não pode estar vazia'}), 400
         
-        logging.info(f"Processing {len(leads_text.split())} lines of leads data (WhatsApp verification: {verify_whatsapp})")
+        logging.info(f"Processing {len(leads_text.split())} lines of leads data")
         
-        if verify_whatsapp:
-            # Use WhatsApp verification function
-            logging.info("🔍 Iniciando validação com verificação de WhatsApp...")
-            
-            # Check if WhatsApp service is configured
-            if not whatsapp_service or not whatsapp_service.is_configured():
-                logging.warning("⚠️ WhatsApp service não configurado, usando validação padrão")
-                # Fall back to standard validation with warning
-                leads, errors = parse_leads(leads_text)
-                
-                return jsonify({
-                    'leads': leads,
-                    'errors': errors,
-                    'total_valid': len(leads),
-                    'total_errors': len(errors),
-                    'original_count': len(leads) + len(errors),
-                    'filtered_count': 0,
-                    'already_sent': [],
-                    'summary': f"⚠️ {len(leads)} leads validados (WhatsApp service não configurado)",
-                    'whatsapp_verification': {
-                        'total_numbers_checked': 0,
-                        'numbers_removed': 0,
-                        'numbers_without_whatsapp': [],
-                        'verification_errors': ['WhatsApp Business API não configurada - verificação ignorada']
-                    }
-                })
-            
-            # Use WhatsApp verification with fallback
-            try:
-                result = parse_leads_with_whatsapp_verification(leads_text, whatsapp_service)
-                
-                # Calculate counts for WhatsApp verification
-                whatsapp_info = result['whatsapp_verification']
-                total_checked = whatsapp_info.get('total_numbers_checked', 0)
-                numbers_removed = whatsapp_info.get('numbers_removed', 0)
-                
-                # Enhanced summary for WhatsApp verification
-                summary_message = f"✅ {len(result['valid_leads'])} leads com WhatsApp ativo prontos para envio."
-                if numbers_removed > 0:
-                    summary_message += f" ({numbers_removed} números removidos por não ter WhatsApp)"
-                
-                logging.info(f"VALIDAÇÃO WHATSAPP: {len(result['valid_leads'])} leads com WhatsApp ativo, {len(result['validation_errors'])} erros, {numbers_removed} removidos")
-                
-                return jsonify({
-                    'leads': result['valid_leads'],
-                    'errors': result['validation_errors'],
-                    'total_valid': len(result['valid_leads']),
-                    'total_errors': len(result['validation_errors']),
-                    'original_count': len(result['valid_leads']) + len(result['validation_errors']) + numbers_removed,
-                    'filtered_count': numbers_removed,
-                    'already_sent': [],
-                    'summary': summary_message,
-                    'whatsapp_verification': result['whatsapp_verification']
-                })
-                
-            except Exception as e:
-                logging.warning(f"Falha na verificação WhatsApp, usando validação padrão: {e}")
-                
-                # Fallback to standard validation
-                leads, errors = parse_leads(leads_text)
-                
-                # Summary with fallback indication
-                fallback_summary = f"⚠️ {len(leads)} leads validados (falha na verificação WhatsApp - usando validação padrão)"
-                
-                logging.info(f"VALIDAÇÃO FALLBACK: {len(leads)} leads válidos, {len(errors)} erros (WhatsApp verification failed)")
-                
-                # Return with compatible structure including whatsapp_verification with error
-                return jsonify({
-                    'leads': leads,
-                    'errors': errors,
-                    'total_valid': len(leads),
-                    'total_errors': len(errors),
-                    'original_count': len(leads) + len(errors),
-                    'filtered_count': 0,
-                    'already_sent': [],
-                    'summary': fallback_summary,
-                    'whatsapp_verification': {
-                        'total_numbers_checked': 0,
-                        'numbers_removed': 0,
-                        'numbers_without_whatsapp': [],
-                        'verification_errors': [f'Erro na verificação WhatsApp: {str(e)}']
-                    }
-                })
+        # Parse leads from input (sem filtro de banco)
+        leads, errors = parse_leads(leads_text)
         
-        else:
-            # Standard validation (maintain exact current behavior)
-            leads, errors = parse_leads(leads_text)
-            
-            # Summary simples sem banco de dados
-            summary_message = f"✅ {len(leads)} leads válidos prontos para envio."
-            
-            logging.info(f"VALIDAÇÃO PADRÃO: {len(leads)} leads válidos, {len(errors)} erros encontrados")
-            
-            return jsonify({
-                'leads': leads,
-                'errors': errors,
-                'total_valid': len(leads),
-                'total_errors': len(errors),
-                'original_count': len(leads) + len(errors),
-                'filtered_count': 0,
-                'already_sent': [],
-                'summary': summary_message
-            })
+        # Summary simples sem banco de dados
+        summary_message = f"✅ {len(leads)} leads válidos prontos para envio."
+        
+        logging.info(f"VALIDAÇÃO LEADS: {len(leads)} leads válidos, {len(errors)} erros encontrados")
+        
+        return jsonify({
+            'leads': leads,
+            'errors': errors,
+            'total_valid': len(leads),
+            'total_errors': len(errors),
+            'original_count': len(leads) + len(errors),
+            'filtered_count': 0,
+            'already_sent': [],
+            'summary': summary_message
+        })
     
     except Exception as e:
         logging.error(f"Error validating leads: {str(e)}")
@@ -1366,18 +1280,18 @@ def send_smart_distribution():
                 is_single_tab = len(phone_number_ids) == 1 and len(leads) <= MAX_PER_PHONE
                 
                 if is_single_tab:
-                    # EXTREME SINGLE TAB SPEED - Maximum workers for focused batches
-                    base_workers = len(template_names) * 100  # 100 workers per template for EXTREME speed
-                    max_workers = min(1000, base_workers)  # Maximum workers for blazing speed
-                    logging.info(f"🎯 EXTREME SINGLE TAB: {len(leads)} leads, 1 phone, {len(template_names)} templates")
+                    # Single tab optimization - faster processing for small focused batches
+                    base_workers = len(template_names) * 50  # 50 workers per template for ULTRA speed
+                    max_workers = min(500, base_workers)  # High workers for maximum speed
+                    logging.info(f"🎯 SINGLE TAB OPTIMIZATION: {len(leads)} leads, 1 phone, {len(template_names)} templates")
                 else:
-                    # EXTREME MULTI-TAB SPEED - Absolute maximum processing
+                    # Multi-tab fallback - ULTRA high-speed processing
                     base_workers = len(phone_number_ids) * len(template_names)
-                    max_workers = min(3000, base_workers * 150)  # 150x multiplier for EXTREME speed
-                    logging.info(f"🚀 EXTREME MULTI-TAB: {len(phone_number_ids)} phones, {len(template_names)} templates")
+                    max_workers = min(2000, base_workers * 100)  # 100x multiplier for ULTRA speed
+                    logging.info(f"🚀 MULTI-TAB MODE: {len(phone_number_ids)} phones, {len(template_names)} templates")
                 
-                logging.info(f"⚡ EXTREME CONFIG: {base_workers} base workers → {max_workers} total workers")
-                logging.info(f"🚀 TARGET: ~{max_workers * 10} mensagens por minuto (EXTREME SPEED)")
+                logging.info(f"⚡ OPTIMIZED CONFIG: {base_workers} base workers → {max_workers} total workers")
+                logging.info(f"🎯 TARGET: ~{max_workers * 5} mensagens por minuto (tab-optimized)")
                 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                     futures = []
@@ -1385,9 +1299,9 @@ def send_smart_distribution():
                     # Create multiple workers per template group for maximum speed
                     for group in phone_groups:
                         for template_group in group['template_groups']:
-                            # EXTREME PARALLELISM - Each lead gets its own worker
+                            # Split each template group into MAXIMUM micro-batches for parallel processing
                             template_leads = template_group['leads']
-                            micro_batch_size = 1  # EXTREME: 1 lead per worker for MAXIMUM speed
+                            micro_batch_size = 1  # 1 lead per worker for ABSOLUTE maximum speed
                             
                             # Create micro-batches for maximum parallelism
                             if len(template_leads) > micro_batch_size:
