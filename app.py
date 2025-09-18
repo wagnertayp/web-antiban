@@ -564,32 +564,62 @@ def validate_leads():
                     }
                 })
             
-            # Use WhatsApp verification
-            result = parse_leads_with_whatsapp_verification(leads_text, whatsapp_service)
-            
-            # Calculate counts for WhatsApp verification
-            whatsapp_info = result['whatsapp_verification']
-            total_checked = whatsapp_info.get('total_numbers_checked', 0)
-            numbers_removed = whatsapp_info.get('numbers_removed', 0)
-            
-            # Enhanced summary for WhatsApp verification
-            summary_message = f"✅ {len(result['valid_leads'])} leads com WhatsApp ativo prontos para envio."
-            if numbers_removed > 0:
-                summary_message += f" ({numbers_removed} números removidos por não ter WhatsApp)"
-            
-            logging.info(f"VALIDAÇÃO WHATSAPP: {len(result['valid_leads'])} leads com WhatsApp ativo, {len(result['validation_errors'])} erros, {numbers_removed} removidos")
-            
-            return jsonify({
-                'leads': result['valid_leads'],
-                'errors': result['validation_errors'],
-                'total_valid': len(result['valid_leads']),
-                'total_errors': len(result['validation_errors']),
-                'original_count': len(result['valid_leads']) + len(result['validation_errors']) + numbers_removed,
-                'filtered_count': numbers_removed,
-                'already_sent': [],
-                'summary': summary_message,
-                'whatsapp_verification': result['whatsapp_verification']
-            })
+            # Use WhatsApp verification with fallback
+            try:
+                result = parse_leads_with_whatsapp_verification(leads_text, whatsapp_service)
+                
+                # Calculate counts for WhatsApp verification
+                whatsapp_info = result['whatsapp_verification']
+                total_checked = whatsapp_info.get('total_numbers_checked', 0)
+                numbers_removed = whatsapp_info.get('numbers_removed', 0)
+                
+                # Enhanced summary for WhatsApp verification
+                summary_message = f"✅ {len(result['valid_leads'])} leads com WhatsApp ativo prontos para envio."
+                if numbers_removed > 0:
+                    summary_message += f" ({numbers_removed} números removidos por não ter WhatsApp)"
+                
+                logging.info(f"VALIDAÇÃO WHATSAPP: {len(result['valid_leads'])} leads com WhatsApp ativo, {len(result['validation_errors'])} erros, {numbers_removed} removidos")
+                
+                return jsonify({
+                    'leads': result['valid_leads'],
+                    'errors': result['validation_errors'],
+                    'total_valid': len(result['valid_leads']),
+                    'total_errors': len(result['validation_errors']),
+                    'original_count': len(result['valid_leads']) + len(result['validation_errors']) + numbers_removed,
+                    'filtered_count': numbers_removed,
+                    'already_sent': [],
+                    'summary': summary_message,
+                    'whatsapp_verification': result['whatsapp_verification']
+                })
+                
+            except Exception as e:
+                logging.warning(f"Falha na verificação WhatsApp, usando validação padrão: {e}")
+                
+                # Fallback to standard validation
+                leads, errors = parse_leads(leads_text)
+                
+                # Summary with fallback indication
+                fallback_summary = f"⚠️ {len(leads)} leads validados (falha na verificação WhatsApp - usando validação padrão)"
+                
+                logging.info(f"VALIDAÇÃO FALLBACK: {len(leads)} leads válidos, {len(errors)} erros (WhatsApp verification failed)")
+                
+                # Return with compatible structure including whatsapp_verification with error
+                return jsonify({
+                    'leads': leads,
+                    'errors': errors,
+                    'total_valid': len(leads),
+                    'total_errors': len(errors),
+                    'original_count': len(leads) + len(errors),
+                    'filtered_count': 0,
+                    'already_sent': [],
+                    'summary': fallback_summary,
+                    'whatsapp_verification': {
+                        'total_numbers_checked': 0,
+                        'numbers_removed': 0,
+                        'numbers_without_whatsapp': [],
+                        'verification_errors': [f'Erro na verificação WhatsApp: {str(e)}']
+                    }
+                })
         
         else:
             # Standard validation (maintain exact current behavior)
