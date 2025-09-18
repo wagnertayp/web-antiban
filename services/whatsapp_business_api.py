@@ -667,10 +667,10 @@ class WhatsAppBusinessAPI:
             used_phone_id = phone_number_id or self.phone_number_id
             url = f"{self.base_url}/{used_phone_id}/messages"
             
-            # FORÇA DETECÇÃO PARA TEMPLATES MODELO_* - SEMPRE PORTUGUÊS BRASILEIRO
+            # FORÇA DETECÇÃO PARA TEMPLATES MODELO_* - SEMPRE INGLÊS
             if template_name.lower().startswith('modelo'):
-                language_code = 'pt_BR'
-                logging.info(f"🇧🇷 FORÇADO PT_BR: Template '{template_name}' detectado como português brasileiro")
+                language_code = 'en_US'
+                logging.info(f"🇺🇸 FORÇADO EN_US: Template '{template_name}' detectado como inglês")
             # AUTO-DETECT LANGUAGE CODE - BUSCA DINÂMICA NA API
             elif not language_code or len(language_code) > 10 or ' ' in language_code:
                 # Tentar buscar linguagem real do template via API
@@ -715,15 +715,15 @@ class WhatsAppBusinessAPI:
                         if template_name in template_languages:
                             language_code = template_languages[template_name]
                         elif template_name.lower().startswith('modelo'):
-                            language_code = 'pt_BR'
+                            language_code = 'en_US'
                         else:
                             language_code = 'en'
                         logging.info(f"🔧 LANGUAGE FALLBACK MANUAL: '{language_code}' para template {template_name}")
                 except Exception as e:
                     logging.warning(f"⚠️ Erro ao buscar linguagem do template: {e}")
-                    # SMART DEFAULT: Templates que começam com "modelo" são em português brasileiro
+                    # SMART DEFAULT: Templates que começam com "modelo" são em inglês
                     if template_name.lower().startswith('modelo'):
-                        language_code = 'pt_BR'
+                        language_code = 'en_US'
                     else:
                         language_code = 'en'
                     logging.info(f"🔧 LANGUAGE PADRÃO APLICADO: '{language_code}' para template {template_name}")
