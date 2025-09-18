@@ -10,7 +10,7 @@ def update_and_send():
     """Atualizar token e enviar mensagem"""
     
     # Novo token fornecido pelo usuário
-    new_token = "EAAKrs5Jx6qgBPQDDZAtl1tdpFsZB0MGcJZAK3FbjwzqqgN89bFtJlV50ScTkZCwnYsZBkoTy35nkCqFc3tgeAh6KMpSd4eySftGrGnmo6rXrnUdZAMDX53NJwiZAyJGecAlf0aoxS5wwjpOuaCC2CA7Wwa9g7uuTPWogNAcyohI3a5xy8ipBZBaE4yZA1DYGutcbZCcMo8abQ41I1Q08Iw5TWPZBKIlU3oZC2mMdwB1dXluitQZDZD"
+    new_token = "EAAKrs5Jx6qgBPfeaK7WytbhiewOmUJFMWo0WrFyqpXngb2St5btTZAJY3MZAGcWvQ0y00rIs95m0PBdAkfa0q5ZAPsOjEhqGcB7FPxDCfyZAuai0IAqMTCkNtZCJA8h1zfZCNV4H6YEZCNbx6rZBvMyZCaNvl5sAPhH8Jq1rwvVXumOZA53OHvEqz8k5OrHIqUGZBDCwieOZBFtJOSxijuJHIJPmL2uSFktI4rfDJ51MSNOAywZDZD"
     
     # Atualizar variável de ambiente
     os.environ['WHATSAPP_ACCESS_TOKEN'] = new_token
