@@ -1085,19 +1085,15 @@ def send_smart_distribution():
         template_names = data.get('templates', [])
         phone_number_ids = data.get('phone_numbers', [])
         
-        # 🚨 CORREÇÃO EMERGENCIAL: Substituir templates inválidos por válidos
-        valid_templates = ['modelo1', 'modelo2']  # Templates conhecidos que funcionam
+        # 🚨 CORREÇÃO EMERGENCIAL: Substituir apenas template "modelo1234" conhecido como inválido
         corrected_templates = []
         
         for template in template_names:
             if template == 'modelo1234':  # Template inválido que causa erro #132001
                 logging.warning(f"⚠️ CORREÇÃO AUTOMÁTICA: Template inválido '{template}' substituído por 'modelo1'")
                 corrected_templates.append('modelo1')
-            elif template in valid_templates:
-                corrected_templates.append(template)
             else:
-                logging.warning(f"⚠️ Template desconhecido '{template}' - usando fallback 'modelo1'")
-                corrected_templates.append('modelo1')
+                corrected_templates.append(template)  # Permitir outros templates incluindo modelo432
         
         # Se nenhum template válido, usar fallback
         if not corrected_templates:
@@ -1454,19 +1450,15 @@ def ultra_speed_smart_distribution():
         leads_input = data.get('leads', [])
         template_names = data.get('template_names', [])
         
-        # 🚨 CORREÇÃO EMERGENCIAL: Substituir templates inválidos por válidos
-        valid_templates = ['modelo1', 'modelo2']  # Templates conhecidos que funcionam
+        # 🚨 CORREÇÃO EMERGENCIAL: Substituir apenas template "modelo1234" conhecido como inválido
         corrected_templates = []
         
         for template in template_names:
             if template == 'modelo1234':  # Template inválido que causa erro #132001
                 logging.warning(f"⚠️ CORREÇÃO AUTOMÁTICA: Template inválido '{template}' substituído por 'modelo1'")
                 corrected_templates.append('modelo1')
-            elif template in valid_templates:
-                corrected_templates.append(template)
             else:
-                logging.warning(f"⚠️ Template desconhecido '{template}' - usando fallback 'modelo1'")
-                corrected_templates.append('modelo1')
+                corrected_templates.append(template)  # Permitir outros templates incluindo modelo432
         
         # Se nenhum template válido, usar fallback
         if not corrected_templates:
