@@ -1085,25 +1085,9 @@ def send_smart_distribution():
         template_names = data.get('templates', [])
         phone_number_ids = data.get('phone_numbers', [])
         
-        # 🚨 CORREÇÃO EMERGENCIAL: Substituir apenas template "modelo1234" conhecido como inválido
-        corrected_templates = []
-        
-        for template in template_names:
-            if template == 'modelo1234':  # Template inválido que causa erro #132001
-                logging.warning(f"⚠️ CORREÇÃO AUTOMÁTICA: Template inválido '{template}' substituído por 'modelo1'")
-                corrected_templates.append('modelo1')
-            else:
-                corrected_templates.append(template)  # Permitir outros templates incluindo modelo432
-        
-        # Se nenhum template válido, usar fallback
-        if not corrected_templates:
-            corrected_templates = ['modelo1']
-            logging.info(f"🔧 FALLBACK: Usando template padrão 'modelo1'")
-        
-        template_names = corrected_templates
-        logging.info(f"🔍 RECEIVED DATA: {len(template_names)} templates (corrigidos), {len(phone_number_ids)} phone_numbers")
+        logging.info(f"🔍 RECEIVED DATA: {len(template_names)} templates, {len(phone_number_ids)} phone_numbers")
         logging.info(f"📱 Phone IDs: {phone_number_ids}")
-        logging.info(f"📋 Templates corrigidos: {template_names}")
+        logging.info(f"📋 Templates: {template_names}")
         
         # Validate that we have actual phone IDs, not None values
         valid_phone_ids = [pid for pid in phone_number_ids if pid and pid != 'None']
@@ -1296,18 +1280,18 @@ def send_smart_distribution():
                 is_single_tab = len(phone_number_ids) == 1 and len(leads) <= MAX_PER_PHONE
                 
                 if is_single_tab:
-                    # LUDICROUS SINGLE TAB SPEED - Maximum workers for focused batches
-                    base_workers = len(template_names) * 200  # 200 workers per template for LUDICROUS speed
-                    max_workers = min(2000, base_workers)  # Maximum workers for ludicrous speed
-                    logging.info(f"🎯 LUDICROUS SINGLE TAB: {len(leads)} leads, 1 phone, {len(template_names)} templates")
+                    # EXTREME SINGLE TAB SPEED - Maximum workers for focused batches
+                    base_workers = len(template_names) * 100  # 100 workers per template for EXTREME speed
+                    max_workers = min(1000, base_workers)  # Maximum workers for blazing speed
+                    logging.info(f"🎯 EXTREME SINGLE TAB: {len(leads)} leads, 1 phone, {len(template_names)} templates")
                 else:
-                    # LUDICROUS MULTI-TAB SPEED - Absolute maximum processing
+                    # EXTREME MULTI-TAB SPEED - Absolute maximum processing
                     base_workers = len(phone_number_ids) * len(template_names)
-                    max_workers = min(5000, base_workers * 200)  # 200x multiplier for LUDICROUS speed
-                    logging.info(f"🚀 LUDICROUS MULTI-TAB: {len(phone_number_ids)} phones, {len(template_names)} templates")
+                    max_workers = min(3000, base_workers * 150)  # 150x multiplier for EXTREME speed
+                    logging.info(f"🚀 EXTREME MULTI-TAB: {len(phone_number_ids)} phones, {len(template_names)} templates")
                 
-                logging.info(f"⚡ LUDICROUS CONFIG: {base_workers} base workers → {max_workers} total workers")
-                logging.info(f"🚀 TARGET: ~{max_workers * 15} mensagens por minuto (LUDICROUS SPEED)")
+                logging.info(f"⚡ EXTREME CONFIG: {base_workers} base workers → {max_workers} total workers")
+                logging.info(f"🚀 TARGET: ~{max_workers * 10} mensagens por minuto (EXTREME SPEED)")
                 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                     futures = []
@@ -1315,9 +1299,9 @@ def send_smart_distribution():
                     # Create multiple workers per template group for maximum speed
                     for group in phone_groups:
                         for template_group in group['template_groups']:
-                            # LUDICROUS PARALLELISM - Each lead gets its own worker
+                            # EXTREME PARALLELISM - Each lead gets its own worker
                             template_leads = template_group['leads']
-                            micro_batch_size = 1  # LUDICROUS: 1 lead per worker for MAXIMUM speed
+                            micro_batch_size = 1  # EXTREME: 1 lead per worker for MAXIMUM speed
                             
                             # Create micro-batches for maximum parallelism
                             if len(template_leads) > micro_batch_size:
@@ -1449,23 +1433,6 @@ def ultra_speed_smart_distribution():
         data = request.get_json()
         leads_input = data.get('leads', [])
         template_names = data.get('template_names', [])
-        
-        # 🚨 CORREÇÃO EMERGENCIAL: Substituir apenas template "modelo1234" conhecido como inválido
-        corrected_templates = []
-        
-        for template in template_names:
-            if template == 'modelo1234':  # Template inválido que causa erro #132001
-                logging.warning(f"⚠️ CORREÇÃO AUTOMÁTICA: Template inválido '{template}' substituído por 'modelo1'")
-                corrected_templates.append('modelo1')
-            else:
-                corrected_templates.append(template)  # Permitir outros templates incluindo modelo432
-        
-        # Se nenhum template válido, usar fallback
-        if not corrected_templates:
-            corrected_templates = ['modelo1']
-            logging.info(f"🔧 FALLBACK: Usando template padrão 'modelo1'")
-        
-        template_names = corrected_templates
         phone_number_ids = data.get('phone_number_ids', [])
         connection_data = data.get('whatsapp_connection', {})
         
