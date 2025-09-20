@@ -420,6 +420,11 @@ class WhatsAppBusinessAPI:
         try:
             # Use provided phone_number_id or default
             used_phone_id = phone_number_id or self.phone_number_id
+            logging.info(f"📱 Enviando mensagem: phone_number_id={phone_number_id}, self.phone_number_id={self.phone_number_id}, used_phone_id={used_phone_id}")
+            
+            if not used_phone_id:
+                return False, {'error': 'Phone Number ID não especificado'}
+            
             url = f"{self.base_url}/{used_phone_id}/messages"
             
             # Format phone number (remove country code if present for international format)
