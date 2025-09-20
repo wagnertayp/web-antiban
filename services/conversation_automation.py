@@ -278,7 +278,7 @@ class ConversationAutomation:
             if content_lower in ['sim', 'yes', 's', '1', 'confirm_name_yes', '✅ sim']:
                 # Nome confirmado - extrair primeiro nome dos dados salvos
                 import json
-                client_data = json.loads(conv_state.state_data) if conv_state.state_data else {}
+                client_data = json.loads(conv_state.client_data) if conv_state.client_data else {}
                 full_name = client_data.get('nome', 'Usuário')
                 first_name = full_name.split()[0] if full_name else 'Usuário'
                 

@@ -272,7 +272,18 @@ class WhatsAppWebhookHandler:
             # Buscar ou criar conversa
             conversation = Conversation.get_or_create(contact.id, phone_number_id)
             
-            # Criar mensagem
+            # ✅ PROTEÇÃO ANTI-DUPLICAÇÃO: Verificar se mensagem já existe
+            existing_message = None
+            if whatsapp_message_id:
+                existing_message = ChatMessage.query.filter_by(
+                    whatsapp_message_id=whatsapp_message_id
+                ).first()
+            
+            if existing_message:
+                logging.info(f"⚠️ Mensagem duplicada ignorada: {whatsapp_message_id}")
+                return  # Não processar webhook duplicado
+            
+            # Criar mensagem (apenas se não existe)
             message = ChatMessage.create_inbound(
                 conversation_id=conversation.id,
                 whatsapp_message_id=whatsapp_message_id,
