@@ -699,6 +699,52 @@ class ConversationAutomation:
             logging.error(f"Erro ao processar perguntas PENDING: {str(e)}")
             return False
     
+    def _build_conversation_context(self, conversation_id: int) -> list:
+        """Construir contexto da conversa para IA com as últimas mensagens"""
+        try:
+            from models import ChatMessage
+            
+            # Buscar últimas 10 mensagens da conversa (5 pares pergunta/resposta)
+            messages = ChatMessage.query.filter_by(
+                conversation_id=conversation_id
+            ).order_by(ChatMessage.created_at.desc()).limit(10).all()
+            
+            # Reverter ordem para cronológica (mais antiga primeiro)
+            messages.reverse()
+            
+            conversation_history = []
+            
+            for msg in messages:
+                # Filtrar apenas mensagens relevantes (texto, não status)
+                if msg.message_type == 'text' and msg.content and msg.content.strip():
+                    # Limpar prefixos do sistema
+                    content = msg.content
+                    if content.startswith('🤖 IA: '):
+                        content = content[7:]  # Remove prefix "🤖 IA: "
+                    
+                    # Mapear direção para role da IA
+                    if msg.direction == 'inbound':
+                        role = 'user'
+                    else:
+                        role = 'assistant'
+                    
+                    # Filtrar mensagens que não são conversacionais (botões, sistemas, etc)
+                    if not any(x in content.lower() for x in [
+                        'finalizar cadastro', 'gancho #', '🎣', 'whatsapp',
+                        'sistema', 'status', 'webhook', 'button', '❌', '✅'
+                    ]):
+                        conversation_history.append({
+                            "role": role,
+                            "content": content.strip()
+                        })
+            
+            logging.info(f"📚 Contexto construído: {len(conversation_history)} mensagens para conversation_id={conversation_id}")
+            return conversation_history[-6:]  # Últimas 6 mensagens para não sobrecarregar
+            
+        except Exception as e:
+            logging.error(f"Erro ao construir contexto da conversa: {str(e)}")
+            return []  # Retorna lista vazia em caso de erro
+    
     def _process_openai_question(self, conv_state, conversation_id: int, message_content: str, phone_number_id: str) -> bool:
         """Processar pergunta do usuário usando OpenAI (texto ou áudio)"""
         try:
@@ -718,6 +764,7 @@ class ConversationAutomation:
                     "Para continuar conversando e esclarecer mais dúvidas, "
                     "vamos finalizar seu cadastro agora. "
                     "Com o cadastro ativo, teremos um canal direto para suporte!\n\n"
+                    "O processo final é via PIX (R$ 64,90) - rápido e seguro.\n\n"
                     "Vamos prosseguir? 🚀"
                 )
                 
@@ -748,16 +795,22 @@ class ConversationAutomation:
                 # Obter URL de download da mídia e transcrever + responder
                 media_download_url = self._get_media_download_url(last_message.media_url, phone_number_id)
                 if media_download_url:
+                    # Buscar histórico da conversa para contexto do áudio também
+                    conversation_history = self._build_conversation_context(conversation_id)
+                    
                     ai_response = ShopeeDeliveryAssistant.get_response_from_audio(
                         media_download_url,
                         self.whatsapp_api._access_token,
-                        []  # conversation_history simplificado
+                        conversation_history
                     )
                 else:
                     ai_response = "Desculpe, não consegui processar o áudio. Pode me escrever sua dúvida?"
             else:
-                # Processar como texto normal
-                ai_response = ShopeeDeliveryAssistant.get_response(message_content, [])
+                # Buscar histórico da conversa para contexto
+                conversation_history = self._build_conversation_context(conversation_id)
+                
+                # Processar como texto normal com contexto
+                ai_response = ShopeeDeliveryAssistant.get_response(message_content, conversation_history)
             
             # 🐛 DEBUG: Verificar resposta da IA antes de enviar
             logging.info(f"🔍 DEBUG ai_response: '{ai_response}' (tipo: {type(ai_response)})")
