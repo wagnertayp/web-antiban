@@ -758,14 +758,16 @@ class ConversationAutomation:
             if current_ai_count >= AI_MESSAGE_LIMIT:
                 logging.info(f"🚫 LIMITE DE IA ATINGIDO ({AI_MESSAGE_LIMIT} mensagens) para {conv_state.phone_number}")
                 
-                # Resposta de fallback sem usar IA
+                # Resposta de fallback personalizada sem usar IA
                 fallback_message = (
-                    "Obrigada pelas perguntas! 😊\n\n"
-                    "Para continuar conversando e esclarecer mais dúvidas, "
-                    "vamos finalizar seu cadastro agora. "
-                    "Com o cadastro ativo, teremos um canal direto para suporte!\n\n"
-                    "O processo final é via PIX (R$ 64,90) - rápido e seguro.\n\n"
-                    "Vamos prosseguir? 🚀"
+                    "Vamos te colocar para começar o mais rápido possível sem complicação. Seu cadastro está quase pronto; só falta a ativação final e é super rápida.\n\n"
+                    "Para liberar sua escala Só falta:\n"
+                    "- Kit EPI + Cartão Salário\n\n"
+                    "Detalhes importantes:\n"
+                    "- Horário 100% flexível: você escolhe quando trabalhar.\n"
+                    "- Não precisa de experiência: ensinamos tudo em um treinamento online rapidinho.\n"
+                    "- Ganhos médios gerais: R$ 500 a R$ 750 por dia, conforme seu ritmo.\n\n"
+                    "Quando realizar o pagamento me envia o comprovante que eu já ativo seu acesso para amanhã. Pode deixar comigo! Sou a Zilma, vou te acompanhar até ficar tudo certinho."
                 )
                 
                 success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, fallback_message)
