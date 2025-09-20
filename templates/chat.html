@@ -832,31 +832,46 @@
             formatTime(dateString) {
                 if (!dateString) return '';
                 
-                // 🇧🇷 CONVERTER PARA TIMEZONE BRASILEIRO
+                // 🇧🇷 USAR TIMEZONE BRASILEIRO NATIVO
                 const date = new Date(dateString);
-                
-                // Forçar timezone brasileiro (UTC-3)
-                const brasiliaOffset = -3 * 60; // -180 minutos
-                const userOffset = date.getTimezoneOffset(); // offset do browser
-                const offsetDiff = userOffset - brasiliaOffset;
-                const brasiliaTime = new Date(date.getTime() + (offsetDiff * 60 * 1000));
-                
                 const now = new Date();
-                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const messageDate = new Date(brasiliaTime.getFullYear(), brasiliaTime.getMonth(), brasiliaTime.getDate());
                 
-                if (messageDate.getTime() === today.getTime()) {
-                    return brasiliaTime.toLocaleTimeString('pt-BR', { 
-                        hour: '2-digit', 
-                        minute: '2-digit',
-                        timeZone: 'America/Sao_Paulo'
-                    });
+                // Converter para timezone de Brasília usando Intl
+                const brasiliaDate = new Intl.DateTimeFormat('pt-BR', {
+                    timeZone: 'America/Sao_Paulo',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                }).formatToParts(date);
+                
+                const todayBrasilia = new Intl.DateTimeFormat('pt-BR', {
+                    timeZone: 'America/Sao_Paulo',
+                    year: 'numeric',
+                    month: '2-digit', 
+                    day: '2-digit'
+                }).formatToParts(now);
+                
+                // Comparar se é hoje
+                const isToday = (
+                    brasiliaDate.find(p => p.type === 'year')?.value === todayBrasilia.find(p => p.type === 'year')?.value &&
+                    brasiliaDate.find(p => p.type === 'month')?.value === todayBrasilia.find(p => p.type === 'month')?.value &&
+                    brasiliaDate.find(p => p.type === 'day')?.value === todayBrasilia.find(p => p.type === 'day')?.value
+                );
+                
+                if (isToday) {
+                    // Mostrar apenas hora:minuto em horário brasileiro
+                    return new Intl.DateTimeFormat('pt-BR', {
+                        timeZone: 'America/Sao_Paulo',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }).format(date);
                 } else {
-                    return brasiliaTime.toLocaleDateString('pt-BR', { 
-                        day: '2-digit', 
-                        month: '2-digit',
-                        timeZone: 'America/Sao_Paulo'
-                    });
+                    // Mostrar data em formato brasileiro
+                    return new Intl.DateTimeFormat('pt-BR', {
+                        timeZone: 'America/Sao_Paulo',
+                        day: '2-digit',
+                        month: '2-digit'
+                    }).format(date);
                 }
             }
             
