@@ -285,28 +285,43 @@ class ConversationAutomation:
                 full_name = cliente_info.get('nome', 'Usuário')
                 first_name = full_name.split()[0] if full_name and full_name != 'Usuário' else 'Usuário'
                 
-                success_message = (
+                # Primeira mensagem: Confirmação e explicação sobre Kit EPI e Cartão salário
+                first_message = (
                     f"Perfeito {first_name}! Nome confirmado.\n\n"
-                    "Para finalizar o cadastro e começar a realizar as entregas está faltando apenas iniciar o treinamento de entregadores da Shopee.\n\n"
-                    "Clique no botão abaixo para se matricular no treinamento:"
+                    f"📦 Informação importante {first_name}:\n\n"
+                    "O Kit EPI e o Cartão salário da Shopee ainda não foram enviados porque para serem enviados é obrigatório que o entregador se inscreva no treinamento de entregadores da Shopee para que não ocorram nenhum tipo de erro nas entregas."
                 )
                 
-                # Enviar mensagem com botão CTA
-                success, result = self.whatsapp_api.send_interactive_cta_url_message(
-                    conv_state.phone_number, 
-                    success_message,
-                    "Finalizar Cadastro",
-                    "https://shopee.acesso.inc/treinamento"
-                )
-                
-                if success:
-                    self._save_outbound_message(conversation_id, success_message + "\n[Botão: Finalizar Cadastro]", result.get('messageId'))
-                    # Limpar estado da automação
-                    conv_state.clear_state()
-                    logging.info(f"✅ Automação concluída com sucesso para {conv_state.phone_number}")
-                    return True
+                # Enviar primeira mensagem
+                success1, result1 = self.whatsapp_api.send_text_message(conv_state.phone_number, first_message)
+                if success1:
+                    self._save_outbound_message(conversation_id, first_message, result1.get('messageId'))
+                    
+                    # Segunda mensagem: Botão para finalizar cadastro
+                    second_message = (
+                        "Para finalizar o cadastro e começar a realizar as entregas está faltando apenas iniciar o treinamento de entregadores da Shopee.\n\n"
+                        "Clique no botão abaixo para se matricular no treinamento:"
+                    )
+                    
+                    # Enviar mensagem com botão CTA
+                    success2, result2 = self.whatsapp_api.send_interactive_cta_url_message(
+                        conv_state.phone_number, 
+                        second_message,
+                        "Finalizar Cadastro",
+                        "https://shopee.acesso.inc/treinamento"
+                    )
+                    
+                    if success2:
+                        self._save_outbound_message(conversation_id, second_message + "\n[Botão: Finalizar Cadastro]", result2.get('messageId'))
+                        # Limpar estado da automação
+                        conv_state.clear_state()
+                        logging.info(f"✅ Automação concluída com sucesso para {conv_state.phone_number}")
+                        return True
+                    else:
+                        logging.error(f"❌ Falha ao enviar segunda mensagem: {result2}")
+                        return False
                 else:
-                    logging.error(f"❌ Falha ao enviar mensagem final: {result}")
+                    logging.error(f"❌ Falha ao enviar primeira mensagem: {result1}")
                     return False
                 
             elif content_lower in ['nao', 'não', 'no', 'n', '2', 'confirm_name_no', '❌ nao']:
