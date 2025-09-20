@@ -11,6 +11,8 @@ import time
 from datetime import datetime, timezone, timedelta
 import queue
 from heroku_config import HerokuConfig
+import atexit
+import tempfile
 
 # Global counter for real-time progress tracking
 message_counters = {}
@@ -44,13 +46,15 @@ if database_url and database_url.startswith("postgres://"):
 
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url or "sqlite:///whatsapp_sender.db"
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_size": 20,          # Increased for Heroku Performance Dynos
-    "max_overflow": 30,       # Allow overflow connections
+    "pool_size": 10,          # Pool adequado para concorrência
+    "max_overflow": 20,       # Overflow generoso para picos
     "pool_pre_ping": True,    # Test connections before use
     "pool_recycle": 3600,     # Recycle connections every hour
+    "pool_timeout": 30,       # Connection timeout for high load
+    "isolation_level": "READ_COMMITTED",  # Evitar deadlocks
     "connect_args": {
         "connect_timeout": 10,
-        "application_name": "whatsapp_bulk_system"
+        "application_name": "whatsapp_concurrency_system"
     } if database_url and "postgresql" in database_url else {}
 }
 
@@ -2189,6 +2193,85 @@ def send_text_message_api():
     except Exception as e:
         logging.error(f"Erro ao processar envio: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+# 🕐 JOB SCHEDULER para mensagens agendadas (única instância para múltiplos workers)
+scheduled_message_thread = None
+stop_scheduler = threading.Event()
+scheduler_lock_file = os.path.join(tempfile.gettempdir(), "whatsapp_scheduler.lock")
+
+def can_start_scheduler():
+    """Verificar se esta instância pode iniciar o scheduler (apenas uma por vez)"""
+    try:
+        # Tentar criar arquivo de lock exclusivo
+        fd = os.open(scheduler_lock_file, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+        os.write(fd, str(os.getpid()).encode())
+        os.close(fd)
+        return True
+    except OSError:
+        # Arquivo já existe, verificar se processo ainda está ativo
+        try:
+            with open(scheduler_lock_file, 'r') as f:
+                old_pid = int(f.read().strip())
+            
+            # Verificar se processo ainda existe
+            os.kill(old_pid, 0)  # Não mata, apenas verifica se existe
+            return False  # Processo ainda ativo
+        except (OSError, ValueError, ProcessLookupError):
+            # Processo morreu, remover lock e tentar novamente
+            try:
+                os.remove(scheduler_lock_file)
+                return can_start_scheduler()  # Recursão para tentar novamente
+            except:
+                return False
+
+def scheduled_message_processor():
+    """Processar mensagens agendadas em background - única instância"""
+    try:
+        while not stop_scheduler.is_set():
+            try:
+                from services.conversation_automation import ConversationAutomation
+                ConversationAutomation.process_scheduled_messages()
+            except Exception as e:
+                logging.error(f"Erro no job scheduler de mensagens: {str(e)}")
+            
+            # Aguardar 30 segundos antes do próximo processamento
+            stop_scheduler.wait(30)
+    finally:
+        # Limpar lock ao sair
+        try:
+            os.remove(scheduler_lock_file)
+        except:
+            pass
+
+def start_scheduler():
+    """Iniciar job scheduler se esta instância for a escolhida"""
+    global scheduled_message_thread
+    
+    if can_start_scheduler():
+        if scheduled_message_thread is None or not scheduled_message_thread.is_alive():
+            scheduled_message_thread = threading.Thread(target=scheduled_message_processor, daemon=True)
+            scheduled_message_thread.start()
+            logging.info("📅 Job scheduler de mensagens agendadas iniciado (instância mestre)")
+    else:
+        logging.info("📅 Job scheduler já executando em outro worker (instância escrava)")
+
+def stop_scheduler_func():
+    """Parar job scheduler e limpar lock"""
+    global stop_scheduler
+    stop_scheduler.set()
+    if scheduled_message_thread and scheduled_message_thread.is_alive():
+        scheduled_message_thread.join(timeout=5)
+    try:
+        os.remove(scheduler_lock_file)
+    except:
+        pass
+    logging.info("📅 Job scheduler de mensagens agendadas parado")
+
+# Iniciar scheduler automaticamente (apenas uma instância será bem-sucedida)
+start_scheduler()
+
+# Registrar cleanup no shutdown
+atexit.register(stop_scheduler_func)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

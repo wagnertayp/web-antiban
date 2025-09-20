@@ -3,11 +3,75 @@ import requests
 import logging
 import time
 import random
+import threading
+import json
+import tempfile
+import fcntl
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from collections import defaultdict
 # 🔐 PROXY REATIVADO - Proteção contra ban da Meta
 import services.proxy_service as proxy_module
+
+class SharedRateLimiter:
+    """🛡️ Rate limiter compartilhado entre processos/workers com file locking atômico"""
+    _rate_file_path = Path(tempfile.gettempdir()) / "whatsapp_rate_limiter.json"
+    
+    @classmethod
+    def check_and_wait(cls, phone_number_id: str):
+        """Verificar rate limit e aguardar se necessário (atômico entre processos)"""
+        current_time = time.time()
+        wait_time = 0
+        
+        # File locking atômico para evitar race conditions entre workers
+        try:
+            # Abrir arquivo com lock exclusivo
+            with open(cls._rate_file_path, 'a+') as f:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                
+                # Ler dados atuais (início do arquivo)
+                f.seek(0)
+                try:
+                    content = f.read()
+                    rate_data = json.loads(content) if content.strip() else {}
+                except (json.JSONDecodeError, ValueError):
+                    rate_data = {}
+                
+                # Obter último envio para este phone_id
+                last_send = rate_data.get(phone_number_id, 0)
+                
+                # Calcular delay necessário (0.3-0.8s entre mensagens)
+                time_since_last = current_time - last_send
+                min_delay = random.uniform(0.3, 0.8)
+                
+                wait_time = max(0, min_delay - time_since_last)
+                
+                # Atualizar timestamp
+                rate_data[phone_number_id] = current_time + wait_time
+                
+                # Limpar dados antigos (> 1 hora)
+                cutoff = current_time - 3600
+                rate_data = {k: v for k, v in rate_data.items() if v > cutoff}
+                
+                # Escrever dados atualizados atomicamente
+                f.seek(0)
+                f.truncate()
+                json.dump(rate_data, f)
+                f.flush()
+                
+                # Lock liberado automaticamente ao sair do context
+                
+        except Exception as e:
+            logging.warning(f"Falha no rate limiter compartilhado: {e}")
+            # Fallback para delay mínimo se file locking falhar
+            wait_time = random.uniform(0.3, 0.8)
+        
+        # Sleep fora do lock
+        if wait_time > 0:
+            logging.info(f"🔄 Rate limit atômico phone {phone_number_id}: {wait_time:.1f}s")
+            time.sleep(wait_time)
 
 class WhatsAppBusinessAPI:
     """Service for WhatsApp Business API (Facebook Cloud API) integration"""
@@ -27,10 +91,11 @@ class WhatsAppBusinessAPI:
         # 🔒 Track credential source (session vs environment) - Solução Replit
         self._credentials_from_session = False
         
-        # 🛡️ PROTEÇÃO ANTI-BAN - Controle de velocidade
-        self._last_message_time = 0
-        self._message_count_minute = 0
-        self._minute_start = 0
+        # 🛡️ PROTEÇÃO ANTI-BAN - Rate limiting por phone_number_id (thread-safe)
+        self._rate_limiter_lock = threading.Lock()
+        self._phone_last_message = defaultdict(float)  # phone_id -> timestamp
+        self._phone_message_count = defaultdict(int)   # phone_id -> count
+        self._phone_minute_start = defaultdict(float)  # phone_id -> minute start
         
         # Initialize optimized HTTP session for maximum speed
         self.session = requests.Session()
@@ -57,22 +122,10 @@ class WhatsAppBusinessAPI:
         else:
             logging.warning("WhatsApp Business API credentials not found in environment variables")
     
-    def _anti_ban_protection(self):
-        """🛡️ PROTEÇÃO PROXY ROTATIVO - Focada em mudança de IP"""
-        current_time = time.time()
-        
-        # Delay mínimo entre mensagens: 0.5-1.5 segundos (otimizado para velocidade)
-        time_since_last = current_time - self._last_message_time
-        min_delay = random.uniform(0.5, 1.5)  # Delay mais rápido, proxy é a proteção principal
-        
-        if time_since_last < min_delay:
-            wait_time = min_delay - time_since_last
-            logging.info(f"🔄 Delay proxy: {wait_time:.1f}s (garantindo nova rotação de IP)")
-            time.sleep(wait_time)
-        
-        # Atualizar apenas timestamp
-        self._last_message_time = time.time()
-        
+    def _anti_ban_protection_per_phone(self, phone_number_id: str):
+        """🛡️ PROTEÇÃO POR NÚMERO - Rate limiting compartilhado entre workers"""
+        # Usar novo sistema de rate limiting compartilhado
+        SharedRateLimiter.check_and_wait(phone_number_id)
         logging.info(f"🔄 Proxy rotativo ativo - IP mudará nesta mensagem")
 
     def _get_randomized_headers(self):
@@ -94,10 +147,14 @@ class WhatsAppBusinessAPI:
         
         return base_headers
 
-    def _send_via_proxy_only(self, url: str, payload: dict):
-        """🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN"""
-        # 🛡️ PROTEÇÃO ANTI-BAN OBRIGATÓRIA
-        self._anti_ban_protection()
+    def _send_via_proxy_only(self, url: str, payload: dict, phone_number_id: str = None):
+        """🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN POR NÚMERO"""
+        # 🛡️ PROTEÇÃO ANTI-BAN POR NÚMERO (thread-safe)
+        if phone_number_id:
+            self._anti_ban_protection_per_phone(phone_number_id)
+        else:
+            # Fallback para proteção global mínima se phone_id não fornecido
+            time.sleep(random.uniform(0.1, 0.3))
         
         # 🎭 HEADERS RANDOMIZADOS OBRIGATÓRIOS
         randomized_headers = self._get_randomized_headers()
@@ -543,7 +600,7 @@ class WhatsAppBusinessAPI:
             
             # 🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN
             try:
-                response = self._send_via_proxy_only(url, payload)
+                response = self._send_via_proxy_only(url, payload, self._phone_number_id)
             except requests.exceptions.ConnectionError as e:
                 logging.error(f"Erro de conexão: {str(e)}")
                 return False, {'error': f'Erro de conexão: {str(e)}'}
@@ -801,7 +858,7 @@ class WhatsAppBusinessAPI:
             
             # 🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN
             try:
-                response = self._send_via_proxy_only(url, payload)
+                response = self._send_via_proxy_only(url, payload, self._phone_number_id)
             except requests.exceptions.ConnectionError as e:
                 logging.error(f"Erro de conexão: {str(e)}")
                 return False, {'error': f'Erro de conexão: {str(e)}'}
@@ -950,7 +1007,7 @@ class WhatsAppBusinessAPI:
             
             # 🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN
             try:
-                response = self._send_via_proxy_only(url, payload)
+                response = self._send_via_proxy_only(url, payload, self._phone_number_id)
             except requests.exceptions.ConnectionError as e:
                 logging.error(f"Erro de conexão: {str(e)}")
                 return False, {'error': f'Erro de conexão: {str(e)}'}
@@ -1036,7 +1093,7 @@ class WhatsAppBusinessAPI:
             
             # Send via proxy pipeline
             url_endpoint = f"{self.base_url}/{self.phone_number_id}/messages"
-            response = self._send_via_proxy_only(url_endpoint, payload)
+            response = self._send_via_proxy_only(url_endpoint, payload, self._phone_number_id)
             
             if response.status_code == 200:
                 data = response.json()
@@ -1354,7 +1411,7 @@ class WhatsAppBusinessAPI:
             
             # 🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN
             try:
-                response = self._send_via_proxy_only(url, payload)
+                response = self._send_via_proxy_only(url, payload, self._phone_number_id)
             except requests.exceptions.ConnectionError as e:
                 logging.error(f"Erro de conexão: {str(e)}")
                 return False, {'error': f'Erro de conexão: {str(e)}'}

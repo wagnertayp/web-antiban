@@ -303,3 +303,101 @@ class Proxy(db.Model):
         """Increment error counter"""
         self.error_count += 1
         db.session.commit()
+
+class ScheduledMessage(db.Model):
+    """Modelo para mensagens agendadas - sistema persistente para alta concorrência"""
+    id = db.Column(db.Integer, primary_key=True)
+    phone_number = db.Column(db.String(20), nullable=False, index=True)
+    conversation_id = db.Column(db.Integer, db.ForeignKey('conversation.id'), nullable=False)
+    whatsapp_phone_id = db.Column(db.String(50), nullable=False)  # Para envio correto
+    first_name = db.Column(db.String(100), nullable=False)
+    message_type = db.Column(db.String(50), default='urgency_alert')
+    message_content = db.Column(db.Text, nullable=False)
+    scheduled_for = db.Column(db.DateTime, nullable=False, index=True)
+    status = db.Column(db.String(20), default='pending')  # pending, processing, sent, failed
+    created_at = db.Column(db.DateTime, default=brasilia_now)
+    sent_at = db.Column(db.DateTime)
+    error_message = db.Column(db.Text)
+    
+    # Índice único para prevenir duplicação de agendamentos
+    __table_args__ = (
+        db.UniqueConstraint('phone_number', 'conversation_id', 'message_type', name='_scheduled_message_unique'),
+    )
+    
+    @staticmethod
+    def schedule_urgency_message(phone_number: str, conversation_id: int, first_name: str, whatsapp_phone_id: str, delay_minutes: int = 3):
+        """Agendar mensagem de urgência para ser enviada depois de X minutos"""
+        from datetime import timedelta
+        
+        # Calcular horário de envio
+        send_time = brasilia_now() + timedelta(minutes=delay_minutes)
+        
+        # Criar conteúdo da mensagem
+        message_content = (
+            f"⚠️ *URGENTE {first_name}!*\n\n"
+            f"🔥 As vagas de entregador da Shopee na sua região estão se esgotando rapidamente!\n\n"
+            f"📋 Apenas os entregadores que se inscreverem no curso de treinamento serão chamados para trabalhar.\n\n"
+            f"⏰ *ATENÇÃO:* Se você não realizar o pagamento do treinamento, poderá perder sua vaga definitivamente a qualquer momento!\n\n"
+            f"🚨 Não deixe essa oportunidade passar!"
+        )
+        
+        try:
+            # Criar registro de agendamento (com proteção contra duplicata)
+            scheduled = ScheduledMessage(
+                phone_number=phone_number,
+                conversation_id=conversation_id,
+                whatsapp_phone_id=whatsapp_phone_id,
+                first_name=first_name,
+                message_type='urgency_alert',
+                message_content=message_content,
+                scheduled_for=send_time
+            )
+            
+            db.session.add(scheduled)
+            db.session.commit()
+            
+            logging.info(f"📅 Mensagem de urgência agendada para {phone_number} às {send_time.strftime('%H:%M:%S')}")
+            return scheduled
+            
+        except db.IntegrityError:
+            # Já existe agendamento para este usuário
+            db.session.rollback()
+            logging.info(f"⚠️ Agendamento já existe para {phone_number}")
+            return None
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Erro ao agendar mensagem para {phone_number}: {str(e)}")
+            return None
+    
+    @staticmethod
+    def get_and_claim_pending_messages():
+        """Buscar e reivindicar mensagens pendentes atomicamente (previne duplicação)"""
+        now = brasilia_now()
+        # Selecionar mensagens pendentes e marcar como processing atomicamente
+        messages = db.session.query(ScheduledMessage).filter(
+            ScheduledMessage.status == 'pending',
+            ScheduledMessage.scheduled_for <= now
+        ).with_for_update(skip_locked=True).limit(50).all()
+        
+        # Marcar como processing imediatamente
+        for msg in messages:
+            msg.status = 'processing'
+        
+        if messages:
+            db.session.commit()
+            
+        return messages
+    
+    def mark_as_sent(self, message_id: str = None):
+        """Marcar mensagem como enviada"""
+        self.status = 'sent'
+        self.sent_at = brasilia_now()
+        if message_id:
+            self.error_message = f"WhatsApp ID: {message_id}"
+        db.session.commit()
+    
+    def mark_as_failed(self, error: str):
+        """Marcar mensagem como falha"""
+        self.status = 'failed'
+        self.error_message = error
+        db.session.commit()

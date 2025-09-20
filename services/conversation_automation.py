@@ -255,7 +255,7 @@ class ConversationAutomation:
             url = f"{self.whatsapp_api.base_url}/{self.whatsapp_api.phone_number_id}/messages"
             
             # Enviar via pipeline de proxy
-            response = self.whatsapp_api._send_via_proxy_only(url, payload)
+            response = self.whatsapp_api._send_via_proxy_only(url, payload, self.whatsapp_api.phone_number_id)
             
             if response.status_code == 200:
                 data = response.json()
@@ -317,10 +317,15 @@ class ConversationAutomation:
                     if success2:
                         self._save_outbound_message(conversation_id, second_message + "\n[Botão: Finalizar Cadastro]", result2.get('messageId'))
                         
-                        # Agendar mensagem de urgência para 3 minutos depois (apenas se não foi agendada)
-                        if not hasattr(conv_state, '_urgency_scheduled') or not conv_state._urgency_scheduled:
-                            self._schedule_urgency_message(conv_state.phone_number, conversation_id, first_name)
-                            conv_state._urgency_scheduled = True
+                        # Agendar mensagem de urgência para 3 minutos depois (sistema persistente)
+                        from models import ScheduledMessage
+                        ScheduledMessage.schedule_urgency_message(
+                            conv_state.phone_number, 
+                            conversation_id, 
+                            first_name,
+                            self.whatsapp_api.phone_number_id,
+                            delay_minutes=3
+                        )
                         
                         # Limpar estado da automação
                         conv_state.clear_state()
@@ -470,44 +475,61 @@ class ConversationAutomation:
         
         return phone
     
-    def _schedule_urgency_message(self, phone_number: str, conversation_id: int, first_name: str):
-        """Agendar mensagem de urgência para ser enviada em 3 minutos"""
-        # Capturar phone_number_id atual para garantir thread-safety
-        current_phone_id = self.whatsapp_api.phone_number_id
-        
-        def send_delayed_message():
-            try:
-                # Aguardar 3 minutos (180 segundos)
-                time.sleep(180)
+    @staticmethod
+    def process_scheduled_messages():
+        """Processar mensagens agendadas pendentes - executar periodicamente"""
+        try:
+            from models import ScheduledMessage
+            from services.whatsapp_business_api import WhatsAppBusinessAPI
+            from app import app
+            
+            with app.app_context():
+                # Buscar e reivindicar mensagens pendentes atomicamente
+                pending_messages = ScheduledMessage.get_and_claim_pending_messages()
                 
-                # Mensagem de urgência sobre vagas acabando
-                urgency_message = (
-                    f"⚠️ *URGENTE {first_name}!*\n\n"
-                    f"🔥 As vagas de entregador da Shopee na sua região estão se esgotando rapidamente!\n\n"
-                    f"📋 Apenas os entregadores que se inscreverem no curso de treinamento serão chamados para trabalhar.\n\n"
-                    f"⏰ *ATENÇÃO:* Se você não realizar o pagamento do treinamento, poderá perder sua vaga definitivamente a qualquer momento!\n\n"
-                    f"🚨 Não deixe essa oportunidade passar!"
-                )
+                if not pending_messages:
+                    return
                 
-                # Definir phone_number_id específico para esta thread
-                if current_phone_id:
-                    self.whatsapp_api.set_phone_number_id(current_phone_id)
+                logging.info(f"📋 Processando {len(pending_messages)} mensagens agendadas...")
                 
-                # Enviar mensagem
-                success, result = self.whatsapp_api.send_text_message(phone_number, urgency_message)
+                # Inicializar WhatsApp API para envio
+                whatsapp_api = WhatsAppBusinessAPI()
                 
-                if success:
-                    # Salvar mensagem no banco
-                    self._save_outbound_message(conversation_id, urgency_message, result.get('messageId'))
-                    logging.info(f"✅ Mensagem de urgência enviada para {phone_number} após 3 minutos")
-                else:
-                    logging.error(f"❌ Falha ao enviar mensagem de urgência para {phone_number}: {result}")
-                    
-            except Exception as e:
-                logging.error(f"Erro ao enviar mensagem agendada para {phone_number}: {str(e)}")
-        
-        # Criar e iniciar thread para envio agendado
-        thread = threading.Thread(target=send_delayed_message, daemon=True)
-        thread.start()
-        
-        logging.info(f"📅 Mensagem de urgência agendada para {phone_number} em 3 minutos")
+                for scheduled_msg in pending_messages:
+                    try:
+                        # Configurar phone_number_id correto para a mensagem
+                        whatsapp_api.set_phone_number_id(scheduled_msg.whatsapp_phone_id)
+                        
+                        # Enviar mensagem
+                        success, result = whatsapp_api.send_text_message(
+                            scheduled_msg.phone_number, 
+                            scheduled_msg.message_content
+                        )
+                        
+                        if success:
+                            # Marcar como enviada
+                            message_id = result.get('messageId', 'N/A')
+                            scheduled_msg.mark_as_sent(message_id)
+                            
+                            # Salvar na conversa também
+                            automation = ConversationAutomation(whatsapp_api, None)
+                            automation._save_outbound_message(
+                                scheduled_msg.conversation_id, 
+                                scheduled_msg.message_content, 
+                                message_id
+                            )
+                            
+                            logging.info(f"✅ Mensagem agendada enviada para {scheduled_msg.phone_number}")
+                        else:
+                            # Marcar como falha
+                            error_msg = str(result)
+                            scheduled_msg.mark_as_failed(error_msg)
+                            logging.error(f"❌ Falha ao enviar mensagem agendada para {scheduled_msg.phone_number}: {error_msg}")
+                            
+                    except Exception as e:
+                        # Marcar como falha
+                        scheduled_msg.mark_as_failed(str(e))
+                        logging.error(f"Erro ao processar mensagem agendada para {scheduled_msg.phone_number}: {str(e)}")
+                
+        except Exception as e:
+            logging.error(f"Erro no processamento de mensagens agendadas: {str(e)}")
