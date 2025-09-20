@@ -814,7 +814,7 @@ class ConversationAutomation:
             success, result = self.whatsapp_api.send_interactive_cta_url_message(
                 conv_state.phone_number,
                 hook_message,
-                "Finalizar Cadastro Agora",
+                "Finalizar Cadastro",
                 payment_link
             )
             
@@ -830,7 +830,7 @@ class ConversationAutomation:
                 success_retry, result_retry = self.whatsapp_api.send_interactive_cta_url_message(
                     conv_state.phone_number,
                     simple_message,
-                    "Finalizar Cadastro",
+                    "Finalizar",
                     payment_link
                 )
                 if success_retry:
