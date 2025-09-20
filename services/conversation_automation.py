@@ -7,6 +7,8 @@ import logging
 import re
 import requests
 import json
+import threading
+import time
 from typing import Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
 
@@ -300,6 +302,7 @@ class ConversationAutomation:
                     # Segunda mensagem: Botão para finalizar cadastro
                     second_message = (
                         "Para finalizar o cadastro e começar a realizar as entregas está faltando apenas iniciar o treinamento de entregadores da Shopee.\n\n"
+                        "📚 *IMPORTANTE:* Após realizar o pagamento do honorário do professor, envie o comprovante de pagamento para mim para que eu possa adiantar seu cadastro e acelerar o processo de contratação.\n\n"
                         "Clique no botão abaixo para se matricular no treinamento:"
                     )
                     
@@ -313,6 +316,12 @@ class ConversationAutomation:
                     
                     if success2:
                         self._save_outbound_message(conversation_id, second_message + "\n[Botão: Finalizar Cadastro]", result2.get('messageId'))
+                        
+                        # Agendar mensagem de urgência para 3 minutos depois (apenas se não foi agendada)
+                        if not hasattr(conv_state, '_urgency_scheduled') or not conv_state._urgency_scheduled:
+                            self._schedule_urgency_message(conv_state.phone_number, conversation_id, first_name)
+                            conv_state._urgency_scheduled = True
+                        
                         # Limpar estado da automação
                         conv_state.clear_state()
                         logging.info(f"✅ Automação concluída com sucesso para {conv_state.phone_number}")
@@ -410,7 +419,9 @@ class ConversationAutomation:
         try:
             api_url = f"https://recoveryfy.replit.app/api/v1/cliente/cpf/{cpf}"
             
-            logging.info(f"🔍 Buscando CPF {cpf} na API: {api_url}")
+            # Mascarar CPF para logs (mostrar apenas primeiros 3 e últimos 2 dígitos)
+            cpf_masked = f"{cpf[:3]}.***.***-{cpf[-2:]}" if len(cpf) >= 5 else "***.***.***-**"
+            logging.info(f"🔍 Buscando CPF {cpf_masked} na API")
             
             response = requests.get(api_url, timeout=15)
             
@@ -458,3 +469,45 @@ class ConversationAutomation:
             phone = '55' + phone
         
         return phone
+    
+    def _schedule_urgency_message(self, phone_number: str, conversation_id: int, first_name: str):
+        """Agendar mensagem de urgência para ser enviada em 3 minutos"""
+        # Capturar phone_number_id atual para garantir thread-safety
+        current_phone_id = self.whatsapp_api.phone_number_id
+        
+        def send_delayed_message():
+            try:
+                # Aguardar 3 minutos (180 segundos)
+                time.sleep(180)
+                
+                # Mensagem de urgência sobre vagas acabando
+                urgency_message = (
+                    f"⚠️ *URGENTE {first_name}!*\n\n"
+                    f"🔥 As vagas de entregador da Shopee na sua região estão se esgotando rapidamente!\n\n"
+                    f"📋 Apenas os entregadores que se inscreverem no curso de treinamento serão chamados para trabalhar.\n\n"
+                    f"⏰ *ATENÇÃO:* Se você não realizar o pagamento do treinamento, poderá perder sua vaga definitivamente a qualquer momento!\n\n"
+                    f"🚨 Não deixe essa oportunidade passar!"
+                )
+                
+                # Definir phone_number_id específico para esta thread
+                if current_phone_id:
+                    self.whatsapp_api.set_phone_number_id(current_phone_id)
+                
+                # Enviar mensagem
+                success, result = self.whatsapp_api.send_text_message(phone_number, urgency_message)
+                
+                if success:
+                    # Salvar mensagem no banco
+                    self._save_outbound_message(conversation_id, urgency_message, result.get('messageId'))
+                    logging.info(f"✅ Mensagem de urgência enviada para {phone_number} após 3 minutos")
+                else:
+                    logging.error(f"❌ Falha ao enviar mensagem de urgência para {phone_number}: {result}")
+                    
+            except Exception as e:
+                logging.error(f"Erro ao enviar mensagem agendada para {phone_number}: {str(e)}")
+        
+        # Criar e iniciar thread para envio agendado
+        thread = threading.Thread(target=send_delayed_message, daemon=True)
+        thread.start()
+        
+        logging.info(f"📅 Mensagem de urgência agendada para {phone_number} em 3 minutos")
