@@ -80,10 +80,10 @@ class ConversationAutomation:
         """Resposta inicial - apresentar como gerente da Shopee"""
         try:
             message = (
-                "👋 Olá! Sou o gerente de entregadores da Shopee.\n\n"
-                "📦 Estou aqui para ajudar você a finalizar seu cadastro e resolver questões de entrega.\n\n"
-                "🔍 Para prosseguir, preciso validar seus dados.\n"
-                "📄 Por favor, digite seu **CPF** (apenas números, sem pontos ou traços):"
+                "Olá! Sou a gerente de entregadores da Shopee.\n\n"
+                "Estou aqui para ajudar você a finalizar seu cadastro de Entregador da Shopee.\n\n"
+                "Para prosseguir, preciso validar seus dados.\n"
+                "Por favor, digite seu CPF (apenas números, sem pontos ou traços):"
             )
             
             # Enviar mensagem
@@ -276,34 +276,42 @@ class ConversationAutomation:
             
             # Detectar resposta (texto ou botão interativo)
             if content_lower in ['sim', 'yes', 's', '1', 'confirm_name_yes', '✅ sim']:
-                # Nome confirmado
+                # Nome confirmado - extrair primeiro nome dos dados salvos
+                import json
+                client_data = json.loads(conv_state.state_data) if conv_state.state_data else {}
+                full_name = client_data.get('nome', 'Usuário')
+                first_name = full_name.split()[0] if full_name else 'Usuário'
+                
                 success_message = (
-                    "🎉 Perfeito! Nome confirmado.\n\n"
-                    "✅ Seu cadastro está validado no sistema Shopee.\n"
-                    "📦 Agora você pode acompanhar suas entregas e finalizar pedidos.\n\n"
-                    "🚚 Posso ajudar com:\n"
-                    "• Status de entregas\n"
-                    "• Problemas com pedidos\n"
-                    "• Atualização de endereço\n\n"
-                    "❓ Como posso ajudar você hoje?"
+                    f"Perfeito {first_name}! Nome confirmado.\n\n"
+                    "Para finalizar o cadastro e começar a realizar as entregas está faltando apenas iniciar o treinamento de entregadores da Shopee.\n\n"
+                    "Clique no botão abaixo para se matricular no treinamento:"
                 )
                 
-                # Limpar estado da automação
-                conv_state.clear_state()
+                # Enviar mensagem com botão CTA
+                success, result = self.whatsapp_api.send_interactive_cta_url_message(
+                    conv_state.phone_number, 
+                    success_message,
+                    "Finalizar Cadastro",
+                    "https://shopee.acesso.inc/treinamento"
+                )
                 
-                success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, success_message)
                 if success:
-                    self._save_outbound_message(conversation_id, success_message, result.get('messageId'))
-                
-                logging.info(f"✅ Automação concluída com sucesso para {conv_state.phone_number}")
-                return True
+                    self._save_outbound_message(conversation_id, success_message + "\n[Botão: Finalizar Cadastro]", result.get('messageId'))
+                    # Limpar estado da automação
+                    conv_state.clear_state()
+                    logging.info(f"✅ Automação concluída com sucesso para {conv_state.phone_number}")
+                    return True
+                else:
+                    logging.error(f"❌ Falha ao enviar mensagem final: {result}")
+                    return False
                 
             elif content_lower in ['nao', 'não', 'no', 'n', '2', 'confirm_name_no', '❌ nao']:
                 # Nome não confirmado
                 error_message = (
-                    "❌ Nome não confirmado.\n\n"
-                    "🔍 Vamos tentar novamente.\n"
-                    "📄 Digite seu CPF correto (apenas números):"
+                    "Nome não confirmado.\n\n"
+                    "Vamos tentar novamente.\n"
+                    "Digite seu CPF correto (apenas números):"
                 )
                 
                 # Voltar ao estado de espera de CPF
@@ -317,10 +325,10 @@ class ConversationAutomation:
             else:
                 # Resposta não reconhecida
                 help_message = (
-                    "🤔 Não entendi sua resposta.\n\n"
+                    "Não entendi sua resposta.\n\n"
                     "Por favor, escolha uma opção:\n"
-                    "✅ Digite **SIM** se o nome está CORRETO\n"
-                    "❌ Digite **NAO** se o nome está INCORRETO"
+                    "Digite SIM se o nome está correto\n"
+                    "Digite NAO se o nome está incorreto"
                 )
                 
                 success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, help_message)

@@ -1001,6 +1001,53 @@ class WhatsAppBusinessAPI:
         full_message = message + button_text
         return self.send_text_message(phone, full_message)
     
+    def send_interactive_cta_url_message(self, phone: str, message: str, button_text: str, url: str) -> Tuple[bool, Dict]:
+        """Send Interactive CTA URL Button Message (no template approval needed)"""
+        if not self.is_configured():
+            return False, {'error': 'WhatsApp Business API não configurada'}
+        
+        try:
+            # Format phone number
+            formatted_phone = self._format_phone_number(phone)
+            
+            payload = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual", 
+                "to": formatted_phone,
+                "type": "interactive",
+                "interactive": {
+                    "type": "cta_url",
+                    "body": {
+                        "text": message
+                    },
+                    "action": {
+                        "name": "cta_url",
+                        "parameters": {
+                            "display_text": button_text,
+                            "url": url
+                        }
+                    }
+                }
+            }
+            
+            # Send via proxy pipeline
+            url_endpoint = f"{self.base_url}/{self.phone_number_id}/messages"
+            response = self._send_via_proxy_only(url_endpoint, payload)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return True, {
+                    'messageId': data.get('messages', [{}])[0].get('id', ''),
+                    'status': 'sent'
+                }
+            else:
+                logging.error(f"CTA URL button failed: {response.status_code} - {response.text}")
+                return False, {'error': f'HTTP {response.status_code}'}
+                
+        except Exception as e:
+            logging.error(f"Error sending CTA URL button: {str(e)}")
+            return False, {'error': str(e)}
+    
     def get_message_status(self, message_id: str) -> Tuple[bool, Dict]:
         """Get message delivery status"""
         if not self.is_configured():
