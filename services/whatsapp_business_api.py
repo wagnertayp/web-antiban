@@ -164,10 +164,7 @@ class WhatsAppBusinessAPI:
             if not self._access_token:
                 return None
             
-            headers = {
-                'Authorization': f'Bearer {self._access_token}',
-                'Content-Type': 'application/json'
-            }
+            headers = self.headers  # 🔒 Usar headers da sessão atualizada
             
             # Try to get WhatsApp Business Accounts directly
             try:
@@ -527,10 +524,7 @@ class WhatsAppBusinessAPI:
                 return None
                 
             url = f"{self.base_url}/{self.business_account_id}/message_templates"
-            headers = {
-                'Authorization': f'Bearer {self.access_token}',
-                'Content-Type': 'application/json'
-            }
+            headers = self.headers  # 🔒 Usar headers da sessão atualizada
             
             params = {
                 'fields': 'name,status,language,components',
