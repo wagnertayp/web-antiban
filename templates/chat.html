@@ -380,6 +380,12 @@
             <!-- Nova conversa -->
             <div class="new-chat-section">
                 <h6 class="mb-2">Nova Conversa</h6>
+                <div class="mb-2">
+                    <label for="phoneNumberSelect" class="form-label small">Número WhatsApp:</label>
+                    <select class="form-select form-select-sm" id="phoneNumberSelect">
+                        <option value="">Carregando números...</option>
+                    </select>
+                </div>
                 <div class="new-chat-form">
                     <input type="tel" 
                            class="form-control form-control-sm phone-input" 
@@ -456,6 +462,7 @@
             init() {
                 this.bindEvents();
                 this.loadConversations();
+                this.loadPhoneNumbers();
                 this.startPolling();
                 this.checkConnectionStatus();
             }
@@ -498,6 +505,46 @@
                 });
             }
             
+            async loadPhoneNumbers() {
+                try {
+                    const response = await fetch('/api/phone-numbers');
+                    const select = document.getElementById('phoneNumberSelect');
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const phoneNumbers = data.phone_numbers || [];
+                        
+                        select.innerHTML = '';
+                        
+                        if (phoneNumbers.length === 0) {
+                            select.innerHTML = '<option value="">Nenhum número disponível</option>';
+                            return;
+                        }
+                        
+                        phoneNumbers.forEach(phone => {
+                            const option = document.createElement('option');
+                            option.value = phone.id;
+                            option.textContent = `${phone.display_phone_number} (${phone.quality_rating})`;
+                            select.appendChild(option);
+                        });
+                        
+                        // Selecionar o phone number ID específico do usuário se disponível
+                        const preferredPhoneId = '847647585090448';
+                        if (phoneNumbers.find(p => p.id === preferredPhoneId)) {
+                            select.value = preferredPhoneId;
+                        }
+                        
+                        console.log(`${phoneNumbers.length} phone numbers carregados da conexão`);
+                    } else {
+                        select.innerHTML = '<option value="">Erro ao carregar números</option>';
+                    }
+                } catch (error) {
+                    console.error('Erro ao carregar phone numbers:', error);
+                    const select = document.getElementById('phoneNumberSelect');
+                    select.innerHTML = '<option value="">Erro de conexão</option>';
+                }
+            }
+
             async checkConnectionStatus() {
                 try {
                     const response = await fetch('/api/phone-numbers');
@@ -691,12 +738,19 @@
             async sendNewMessage() {
                 const phoneInput = document.getElementById('newChatPhone');
                 const messageInput = document.getElementById('newChatMessage');
+                const phoneNumberSelect = document.getElementById('phoneNumberSelect');
                 
                 const phone = phoneInput.value.trim();
                 const message = messageInput.value.trim();
+                const phoneNumberId = phoneNumberSelect.value;
                 
                 if (!phone || !message) {
                     this.showError('Telefone e mensagem são obrigatórios');
+                    return;
+                }
+                
+                if (!phoneNumberId) {
+                    this.showError('Selecione um número WhatsApp');
                     return;
                 }
                 
@@ -711,7 +765,8 @@
                         },
                         body: JSON.stringify({
                             phone_number: phone,
-                            content: message
+                            content: message,
+                            phone_number_id: phoneNumberId
                         })
                     });
                     
