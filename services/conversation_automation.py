@@ -726,7 +726,10 @@ class ConversationAutomation:
             if success:
                 self._save_outbound_message(conversation_id, f"🤖 IA: {ai_response}", result.get('messageId'))
                 
-                # Verificar se deve finalizar e enviar link de pagamento
+                # Atualizar contador no banco
+                self.db.session.commit()
+                
+                # Verificar se deve finalizar (após 5 perguntas OU se usuário demonstrou interesse)
                 if conv_state.question_count >= 5 or ShopeeDeliveryAssistant.should_finalize_payment([], conv_state.question_count):
                     # Dar uma pausa antes de enviar o link
                     import time
@@ -804,12 +807,12 @@ class ConversationAutomation:
         try:
             import requests
             
-            # URL para obter informações da mídia
-            media_info_url = f"{self.whatsapp_api.base_url}/{media_id}"
+            # URL correta da API do WhatsApp para obter informações da mídia
+            media_info_url = f"https://graph.facebook.com/v23.0/{media_id}"
             
             headers = {
                 'Authorization': f'Bearer {self.whatsapp_api._access_token}',
-                'Content-Type': 'application/json'
+                'User-Agent': 'WhatsApp-Business-Python-Client'
             }
             
             # Buscar informações da mídia
@@ -819,10 +822,14 @@ class ConversationAutomation:
                 media_info = response.json()
                 download_url = media_info.get('url')
                 
-                logging.info(f"🎵 URL de download obtida para mídia {media_id}: {download_url[:50]}...")
-                return download_url
+                if download_url:
+                    logging.info(f"🎵 URL de download obtida para mídia {media_id}: {download_url[:50]}...")
+                    return download_url
+                else:
+                    logging.error(f"URL não encontrada na resposta da mídia {media_id}")
+                    return None
             else:
-                logging.error(f"Erro ao obter URL da mídia {media_id}: {response.status_code}")
+                logging.error(f"Erro ao obter URL da mídia {media_id}: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:

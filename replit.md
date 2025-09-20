@@ -32,6 +32,16 @@ Preferred communication style: Simple, everyday language.
 - **Deployment**: Optimized for Heroku with support for various dyno configurations.
 - **Anti-Duplication**: Tracks successfully sent numbers in a database to prevent re-sending to the same contacts.
 
+### **NEW: Conversational Automation System**
+- **Dual Conversation Flows**: Automatic detection of Recoverify API status (APPROVED vs PENDING) with conditional message flows
+- **CPF Validation & API Integration**: Real-time CPF validation using external Recoverify API with personalized responses
+- **OpenAI Integration**: GPT-5 powered intelligent responses for customer questions with specialized Shopee delivery context
+- **Audio Message Processing**: Complete Whisper-powered audio transcription and GPT-5 text responses for voice messages
+- **Interactive Button System**: WhatsApp native buttons for seamless user experience (Yes/No, confirmation flows)
+- **Persistent State Management**: Database-backed conversation states supporting complex multi-step interactions
+- **Smart Question Limiting**: Automatic finalization after 5 questions or user interest detection
+- **Dynamic Payment Links**: Personalized payment URLs using original CPF format (https://shopee.acesso.inc/{cpf})
+
 ### System Design
 - **Scalability**: Designed to handle large volumes of messages through multi-threading, connection pooling, and distributed sending across multiple WhatsApp Phone Numbers.
 - **Modularity**: Separation of concerns with distinct models, services, and utilities.
@@ -42,9 +52,12 @@ Preferred communication style: Simple, everyday language.
 
 ### Services
 - **WhatsApp Business API**: Primary service for sending WhatsApp messages.
+- **OpenAI API**: GPT-5 for intelligent conversation responses and Whisper for audio transcription.
+- **Recoverify API**: External CPF validation and customer data retrieval.
 
 ### Environment Variables
 - `WHATSAPP_ACCESS_TOKEN`: Required for WhatsApp Business API authentication.
+- `OPENAI_API_KEY`: Required for OpenAI GPT-5 and Whisper services.
 - `DATABASE_URL`: PostgreSQL database connection string.
 - `SESSION_SECRET`: Flask session secret key (optional, has development default).
 
@@ -54,6 +67,7 @@ Preferred communication style: Simple, everyday language.
 - `Requests`: HTTP library for API communication.
 - `Werkzeug`: WSGI utilities.
 - `psycopg2-binary`: PostgreSQL adapter.
+- `OpenAI`: GPT-5 and Whisper integration for conversational AI.
 
 ### Frontend Libraries (via CDN)
 - `Bootstrap`

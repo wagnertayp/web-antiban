@@ -163,8 +163,8 @@ NUNCA FALE SOBRE:
         """
         Determina se deve finalizar e enviar link de pagamento
         """
-        # Após 3 perguntas ou se usuário demonstrar interesse
-        if question_count >= 3:
+        # Após 5 perguntas ou se usuário demonstrar interesse
+        if question_count >= 5:
             return True
             
         # Verificar se usuário demonstrou interesse nas últimas mensagens
