@@ -58,37 +58,22 @@ class WhatsAppBusinessAPI:
             logging.warning("WhatsApp Business API credentials not found in environment variables")
     
     def _anti_ban_protection(self):
-        """🛡️ PROTEÇÃO ULTRA-ROBUSTA ANTI-BAN"""
+        """🛡️ PROTEÇÃO PROXY ROTATIVO - Focada em mudança de IP"""
         current_time = time.time()
         
-        # Reset contador a cada minuto
-        if current_time - self._minute_start > 60:
-            self._minute_start = current_time
-            self._message_count_minute = 0
-        
-        # Limite: máximo 20 mensagens por minuto (Meta recomenda 80/min, mas vamos ser conservadores)
-        if self._message_count_minute >= 20:
-            wait_time = 60 - (current_time - self._minute_start)
-            if wait_time > 0:
-                logging.warning(f"🛡️ LIMITE ANTI-BAN: Aguardando {wait_time:.1f}s para próxima mensagem")
-                time.sleep(wait_time)
-                self._minute_start = time.time()
-                self._message_count_minute = 0
-        
-        # Delay mínimo entre mensagens: 2-4 segundos (randomizado)
+        # Delay mínimo entre mensagens: 0.5-1.5 segundos (otimizado para velocidade)
         time_since_last = current_time - self._last_message_time
-        min_delay = random.uniform(2.0, 4.0)  # 2-4 segundos randomizado
+        min_delay = random.uniform(0.5, 1.5)  # Delay mais rápido, proxy é a proteção principal
         
         if time_since_last < min_delay:
             wait_time = min_delay - time_since_last
-            logging.info(f"🛡️ DELAY ANTI-BAN: {wait_time:.1f}s (proteção humanizada)")
+            logging.info(f"🔄 Delay proxy: {wait_time:.1f}s (garantindo nova rotação de IP)")
             time.sleep(wait_time)
         
-        # Atualizar contadores
+        # Atualizar apenas timestamp
         self._last_message_time = time.time()
-        self._message_count_minute += 1
         
-        logging.info(f"🛡️ Status: {self._message_count_minute}/20 mensagens este minuto")
+        logging.info(f"🔄 Proxy rotativo ativo - IP mudará nesta mensagem")
 
     def _get_randomized_headers(self):
         """🎭 Headers randomizados para parecer mais humano"""
