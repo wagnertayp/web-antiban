@@ -79,7 +79,7 @@ EVITAR SEMPRE:
             response = openai.chat.completions.create(
                 model="gpt-5",
                 messages=messages,
-                max_tokens=200  # Respostas curtas e objetivas
+                max_completion_tokens=200  # Respostas curtas e objetivas
             )
             
             ai_response = response.choices[0].message.content
@@ -89,12 +89,8 @@ EVITAR SEMPRE:
             
         except Exception as e:
             logging.error(f"Erro na OpenAI: {str(e)}")
-            # Resposta padrão em caso de erro
-            return (
-                "Entendo sua dúvida! O importante é que você finalize seu cadastro hoje mesmo "
-                "realizando o pagamento do Kit EPI e taxa do Cartão Salário. "
-                "As vagas estão se esgotando rapidamente na sua região!"
-            )
+            # Elaborar resposta específica baseada na pergunta
+            return self._elaborate_specific_response(user_message)
     
     @staticmethod
     def transcribe_audio_from_url(audio_url: str, access_token: str) -> str:
@@ -214,3 +210,71 @@ EVITAR SEMPRE:
         # question_count vai de 6 a 10
         index = max(0, min(question_count - 6, len(conversion_messages) - 1))
         return conversion_messages[index]
+    
+    def _elaborate_specific_response(self, user_message: str) -> str:
+        """
+        Elaborar resposta específica baseada na pergunta do usuário quando OpenAI falha
+        """
+        message_lower = user_message.lower()
+        
+        # Analisar tipo de pergunta e elaborar resposta específica
+        if any(word in message_lower for word in ['pagar', 'porque', 'por que', 'custo', 'taxa', 'dinheiro']):
+            return (
+                "Compreendo perfeitamente sua dúvida sobre o pagamento! 💰\n\n"
+                "A taxa de R$ 64,90 é obrigatória para:\n"
+                "🦺 Kit EPI completo (capacete, colete, equipamentos de segurança)\n"
+                "💳 Ativação do Cartão Salário exclusivo Shopee\n\n"
+                "⚖️ Por legislação trabalhista, todo entregador DEVE ter equipamentos de proteção.\n\n"
+                "💪 Com ganhos de R$ 500-750/dia, você recupera esse investimento no primeiro dia de trabalho!\n\n"
+                "🏃‍♂️ Restam apenas 2 vagas na sua região!"
+            )
+        
+        elif any(word in message_lower for word in ['quanto', 'ganho', 'salario', 'salário', 'dinheiro']):
+            return (
+                "Excelente pergunta sobre os ganhos! 💪\n\n"
+                "📊 Remuneração diária: R$ 500 a R$ 750\n"
+                "📅 Trabalhando 6 dias por semana: R$ 15.000 a R$ 18.000 mensais\n"
+                "⏰ Horário flexível: Você escolhe quando trabalhar\n\n"
+                "🚀 A Shopee é líder em delivery no Brasil, com demanda constante!\n\n"
+                "🔥 Para começar, falta apenas o pagamento da taxa de R$ 64,90 do Kit EPI!"
+            )
+        
+        elif any(word in message_lower for word in ['como', 'funciona', 'trabalho', 'entrega']):
+            return (
+                "Vou explicar como funciona ser entregador Shopee! 🛵\n\n"
+                "📱 Processo simples:\n"
+                "1️⃣ Recebe pedidos no app\n"
+                "2️⃣ Retira produtos no centro de distribuição\n"
+                "3️⃣ Entrega no endereço do cliente\n"
+                "4️⃣ Recebe pagamento instantâneo no Cartão Salário\n\n"
+                "⏰ Horário: Totalmente flexível\n"
+                "🎯 Meta: 15-20 entregas/dia = R$ 500-750\n\n"
+                "💳 Finalize hoje o pagamento do Kit EPI (R$ 64,90) para começar!"
+            )
+        
+        elif any(word in message_lower for word in ['seguro', 'beneficio', 'benefício', 'proteção']):
+            return (
+                "Ótima pergunta sobre os benefícios! 🛡️\n\n"
+                "✅ O que está incluído:\n"
+                "🦺 Kit EPI completo e certificado\n"
+                "💳 Cartão Salário exclusivo com conta digital\n"
+                "🚑 Seguro de acidentes durante entregas\n"
+                "📱 App exclusivo com GPS otimizado\n\n"
+                "🏥 Cobertura total durante o trabalho!\n"
+                "💰 Pagamento instantâneo após cada entrega\n\n"
+                "🔥 Para ativar todos esses benefícios, finalize o pagamento de R$ 64,90!"
+            )
+        
+        else:
+            # Resposta genérica mais elaborada para outras dúvidas
+            return (
+                "Entendo sua dúvida perfeitamente! 🤔\n\n"
+                "Como Gerente de Contratação da Shopee, estou aqui para esclarecer tudo sobre ser nosso entregador.\n\n"
+                "🎯 Principais informações:\n"
+                "💰 Ganhos: R$ 500-750 por dia\n"
+                "⏰ Horário flexível: Você escolhe\n"
+                "🦺 Kit EPI incluso na taxa de R$ 64,90\n"
+                "💳 Cartão Salário para recebimentos instantâneos\n\n"
+                "🔥 Restam apenas 2 vagas disponíveis na sua região!\n\n"
+                "Tem alguma dúvida específica que posso esclarecer?"
+            )
