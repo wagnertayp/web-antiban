@@ -598,12 +598,21 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"Sending text message payload: {payload}")
             
-            # 🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN
+            # Tentar primeiro via proxy com timeout baixo, depois direto se falhar
             try:
                 response = self._send_via_proxy_only(url, payload, self._phone_number_id)
-            except requests.exceptions.ConnectionError as e:
-                logging.error(f"Erro de conexão: {str(e)}")
-                return False, {'error': f'Erro de conexão: {str(e)}'}
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                logging.warning(f"Proxy failed ({str(e)}), trying direct connection...")
+                # Fallback: conexão direta se proxy falhar
+                headers = {
+                    'Authorization': f'Bearer {self._access_token}',
+                    'Content-Type': 'application/json'
+                }
+                try:
+                    response = requests.post(url, json=payload, headers=headers, timeout=10)
+                except Exception as direct_error:
+                    logging.error(f"Both proxy and direct connection failed: {str(direct_error)}")
+                    return False, {'error': f'Erro de conexão: {str(direct_error)}'}
             
             if response.status_code == 200:
                 data = response.json()
@@ -856,12 +865,21 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"Payload tentativa: {payload}")
             
-            # 🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN
+            # Tentar primeiro via proxy com timeout baixo, depois direto se falhar
             try:
                 response = self._send_via_proxy_only(url, payload, self._phone_number_id)
-            except requests.exceptions.ConnectionError as e:
-                logging.error(f"Erro de conexão: {str(e)}")
-                return False, {'error': f'Erro de conexão: {str(e)}'}
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                logging.warning(f"Proxy failed ({str(e)}), trying direct connection...")
+                # Fallback: conexão direta se proxy falhar
+                headers = {
+                    'Authorization': f'Bearer {self._access_token}',
+                    'Content-Type': 'application/json'
+                }
+                try:
+                    response = requests.post(url, json=payload, headers=headers, timeout=10)
+                except Exception as direct_error:
+                    logging.error(f"Both proxy and direct connection failed: {str(direct_error)}")
+                    return False, {'error': f'Erro de conexão: {str(direct_error)}'}
             
             if response.status_code == 200:
                 data = response.json()
@@ -1005,12 +1023,21 @@ class WhatsAppBusinessAPI:
                 'template': template_payload
             }
             
-            # 🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN
+            # Tentar primeiro via proxy com timeout baixo, depois direto se falhar
             try:
                 response = self._send_via_proxy_only(url, payload, self._phone_number_id)
-            except requests.exceptions.ConnectionError as e:
-                logging.error(f"Erro de conexão: {str(e)}")
-                return False, {'error': f'Erro de conexão: {str(e)}'}
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                logging.warning(f"Proxy failed ({str(e)}), trying direct connection...")
+                # Fallback: conexão direta se proxy falhar
+                headers = {
+                    'Authorization': f'Bearer {self._access_token}',
+                    'Content-Type': 'application/json'
+                }
+                try:
+                    response = requests.post(url, json=payload, headers=headers, timeout=10)
+                except Exception as direct_error:
+                    logging.error(f"Both proxy and direct connection failed: {str(direct_error)}")
+                    return False, {'error': f'Erro de conexão: {str(direct_error)}'}
             
             if response.status_code == 200:
                 data = response.json()
@@ -1409,12 +1436,21 @@ class WhatsAppBusinessAPI:
                 
                 payload['template']['components'] = components
             
-            # 🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN
+            # Tentar primeiro via proxy com timeout baixo, depois direto se falhar
             try:
                 response = self._send_via_proxy_only(url, payload, self._phone_number_id)
-            except requests.exceptions.ConnectionError as e:
-                logging.error(f"Erro de conexão: {str(e)}")
-                return False, {'error': f'Erro de conexão: {str(e)}'}
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                logging.warning(f"Proxy failed ({str(e)}), trying direct connection...")
+                # Fallback: conexão direta se proxy falhar
+                headers = {
+                    'Authorization': f'Bearer {self._access_token}',
+                    'Content-Type': 'application/json'
+                }
+                try:
+                    response = requests.post(url, json=payload, headers=headers, timeout=10)
+                except Exception as direct_error:
+                    logging.error(f"Both proxy and direct connection failed: {str(direct_error)}")
+                    return False, {'error': f'Erro de conexão: {str(direct_error)}'}
             
             if response.status_code == 200:
                 data = response.json()
