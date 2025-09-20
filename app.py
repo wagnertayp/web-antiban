@@ -8,7 +8,7 @@ from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import queue
 from heroku_config import HerokuConfig
 
@@ -262,7 +262,10 @@ def connect_whatsapp():
                 if not existing_proxy:
                     # Add proxy temporarily for this connection
                     temp_proxy = Proxy()
-                    temp_proxy.name = f"Conexão {datetime.utcnow().strftime('%H:%M')}"
+                    # 🇧🇷 TIMEZONE BRASILEIRO
+                    brasil_tz = timezone(timedelta(hours=-3))
+                    now_br = datetime.now(brasil_tz)
+                    temp_proxy.name = f"Conexão {now_br.strftime('%H:%M')}"
                     temp_proxy.proxy_string = proxy_connection
                     temp_proxy.is_active = True
                     
@@ -361,7 +364,7 @@ def connect_whatsapp():
         session['whatsapp_connection'] = {
             'access_token': access_token,
             'business_manager_id': discovered_bm_id,
-            'connected_at': datetime.utcnow().isoformat()
+            'connected_at': datetime.now(timezone(timedelta(hours=-3))).isoformat()
         }
         session['last_business_manager_id'] = discovered_bm_id
         session.permanent = True  # Manter sessão persistente
@@ -381,7 +384,7 @@ def connect_whatsapp():
             'business_manager_id': discovered_bm_id,
             'phone_numbers': phone_numbers,
             'templates': templates,
-            'connected_at': datetime.utcnow().isoformat()
+            'connected_at': datetime.now(timezone(timedelta(hours=-3))).isoformat()
         }
         
         logging.info(f"🚀 CONEXÃO AUTOMÁTICA COMPLETA - BM: {discovered_bm_id}, Phones: {len(phone_numbers)}, Templates: {len(templates)}")
@@ -1833,7 +1836,7 @@ def update_proxy(proxy_id):
             proxy.proxy_string = proxy_string
         
         proxy.is_active = is_active
-        proxy.updated_at = datetime.utcnow()
+        proxy.updated_at = datetime.now(timezone(timedelta(hours=-3)))
         
         db.session.commit()
         

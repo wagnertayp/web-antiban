@@ -1,7 +1,13 @@
 from app import db
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import time
 from typing import Optional
+
+# 🇧🇷 TIMEZONE BRASILEIRO
+def brasilia_now():
+    """Retorna datetime atual no fuso horário de Brasília (UTC-3)"""
+    brasil_tz = timezone(timedelta(hours=-3))
+    return datetime.now(brasil_tz)
 
 class Campaign(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -11,8 +17,8 @@ class Campaign(db.Model):
     failed_count = db.Column(db.Integer, default=0)
     progress = db.Column(db.Float, default=0.0)
     status = db.Column(db.String(20), default='processing')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=brasilia_now)
+    updated_at = db.Column(db.DateTime, default=brasilia_now, onupdate=brasilia_now)
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -24,7 +30,7 @@ class Message(db.Model):
     phone_number_id = db.Column(db.String(50))
     message_id = db.Column(db.String(200))
     status = db.Column(db.String(20), default='pending')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=brasilia_now)
     
     # Z-API specific fields
     api_response = db.Column(db.Text)
@@ -36,7 +42,7 @@ class SentNumber(db.Model):
     lead_name = db.Column(db.String(100))
     lead_cpf = db.Column(db.String(20))
     message_id = db.Column(db.String(200))
-    sent_at = db.Column(db.DateTime, default=datetime.utcnow)
+    sent_at = db.Column(db.DateTime, default=brasilia_now)
     
     @staticmethod
     def is_number_sent(phone_number):
@@ -61,8 +67,8 @@ class Contact(db.Model):
     profile_picture_url = db.Column(db.String(500))
     last_message_at = db.Column(db.DateTime)
     is_blocked = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=brasilia_now)
+    updated_at = db.Column(db.DateTime, default=brasilia_now, onupdate=brasilia_now)
     
     # Relacionamentos
     conversations = db.relationship('Conversation', backref='contact', lazy=True)
@@ -92,8 +98,8 @@ class Conversation(db.Model):
     last_message_at = db.Column(db.DateTime)
     unread_count = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=brasilia_now)
+    updated_at = db.Column(db.DateTime, default=brasilia_now, onupdate=brasilia_now)
     
     # Relacionamentos
     messages = db.relationship('ChatMessage', backref='conversation', lazy=True, 
@@ -140,7 +146,7 @@ class ChatMessage(db.Model):
     media_caption = db.Column(db.Text)
     
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=brasilia_now)
     sent_at = db.Column(db.DateTime)
     delivered_at = db.Column(db.DateTime)
     read_at = db.Column(db.DateTime)
@@ -193,7 +199,7 @@ class ChatMessage(db.Model):
         if whatsapp_message_id:
             self.whatsapp_message_id = whatsapp_message_id
         
-        now = datetime.utcnow()
+        now = brasilia_now()
         if status == 'sent':
             self.sent_at = now
         elif status == 'delivered':
@@ -211,8 +217,8 @@ class Proxy(db.Model):
     last_used = db.Column(db.DateTime)
     success_count = db.Column(db.Integer, default=0)
     error_count = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=brasilia_now)
+    updated_at = db.Column(db.DateTime, default=brasilia_now, onupdate=brasilia_now)
     
     @staticmethod
     def get_active_proxies():
@@ -258,7 +264,7 @@ class Proxy(db.Model):
     def increment_success(self):
         """Increment success counter"""
         self.success_count += 1
-        self.last_used = datetime.utcnow()
+        self.last_used = brasilia_now()
         db.session.commit()
     
     def increment_error(self):
