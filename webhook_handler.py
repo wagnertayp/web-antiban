@@ -313,8 +313,8 @@ class WhatsAppWebhookHandler:
                 # Inicializar WhatsApp API
                 whatsapp_api = WhatsAppBusinessAPI()
                 
-                # Inicializar automação com nova sessão
-                automation = ConversationAutomation(whatsapp_api, self.db)
+                # Inicializar automação com nova sessão e phone_number_id correto
+                automation = ConversationAutomation(whatsapp_api, self.db, phone_number_id)
                 
                 # Verificar se deve disparar automação
                 if automation.should_trigger_automation(phone_number, conversation_id):

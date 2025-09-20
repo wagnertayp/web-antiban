@@ -13,9 +13,14 @@ from datetime import datetime, timedelta
 class ConversationAutomation:
     """Automação inteligente de conversas WhatsApp"""
     
-    def __init__(self, whatsapp_api, db):
+    def __init__(self, whatsapp_api, db, phone_number_id=None):
         self.whatsapp_api = whatsapp_api
         self.db = db
+        self.phone_number_id = phone_number_id
+        
+        # Configurar phone_number_id na API se fornecido
+        if phone_number_id and hasattr(whatsapp_api, 'phone_number_id'):
+            whatsapp_api.phone_number_id = phone_number_id
         
     def should_trigger_automation(self, phone_number: str, conversation_id: int) -> bool:
         """Verifica se deve disparar automação para esta conversa"""
