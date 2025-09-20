@@ -2044,12 +2044,20 @@ def send_message_to_conversation(conversation_id):
             # ✅ SOLUÇÃO APP CONTEXT - Corrigir "Working outside of application context"
             with app.app_context():
                 try:
+                    # 🔧 NOVA SESSÃO SQL - Recarregar objetos na thread
+                    thread_message = ChatMessage.query.get(message.id)
+                    thread_conversation = Conversation.query.get(conversation_id)
+                    
+                    if not thread_message or not thread_conversation:
+                        logging.error("❌ Falha ao recarregar objetos na thread")
+                        return
+                    
                     # Configurar phone number ID do seletor
                     whatsapp_service.set_phone_number_id(phone_number_id)
                     
                     # Enviar mensagem de texto livre (sem template)
                     success, result = whatsapp_service.send_text_message(
-                        phone=conversation.contact.phone_number,
+                        phone=thread_conversation.contact.phone_number,
                         message=message_content,
                         phone_number_id=phone_number_id
                     )
@@ -2057,23 +2065,26 @@ def send_message_to_conversation(conversation_id):
                     # Atualizar status da mensagem
                     if success:
                         whatsapp_message_id = result.get('messageId', result.get('whatsAppId', ''))
-                        message.update_status('sent', whatsapp_message_id)
+                        thread_message.update_status('sent', whatsapp_message_id)
                         
-                        # Atualizar conversa
-                        conversation.last_message_at = message.created_at
-                        conversation.updated_at = message.created_at
+                        # Atualizar conversa com nova sessão
+                        thread_conversation.last_message_at = thread_message.created_at
+                        thread_conversation.updated_at = thread_message.created_at
                         db.session.commit()
                         
                         logging.info(f"✅ Mensagem enviada com sucesso: {whatsapp_message_id}")
                     else:
-                        message.update_status('failed')
+                        thread_message.update_status('failed')
                         logging.error(f"❌ Falha no envio: {result.get('error', 'Erro desconhecido')}")
                         
                 except Exception as send_error:
                     try:
-                        message.update_status('failed')
-                    except:
-                        logging.error("❌ Erro ao atualizar status da mensagem")
+                        # Tentar atualizar com nova query
+                        error_message = ChatMessage.query.get(message.id)
+                        if error_message:
+                            error_message.update_status('failed')
+                    except Exception as update_error:
+                        logging.error(f"❌ Erro ao atualizar status: {update_error}")
                     logging.error(f"❌ Erro na thread de envio: {send_error}")
         
         # Iniciar thread de background e retornar imediatamente
