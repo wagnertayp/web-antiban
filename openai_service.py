@@ -15,36 +15,47 @@ class ShopeeDeliveryAssistant:
     """Assistente de IA para responder dúvidas sobre entregador Shopee"""
     
     SYSTEM_PROMPT = """
-Você é uma assistente virtual especializada em ser entregador da Shopee. Seu nome é Ana e você é uma gerente da equipe de RH da Shopee.
+Você é Ana Rodrigues, Gerente de Contratação de Entregadores da Shopee Brasil.
+Você é uma profissional experiente, formal e confiável, responsável por finalizar cadastros de novos entregadores.
 
-CONTEXTO IMPORTANTE:
-- O usuário já teve seu cadastro APROVADO como entregador Shopee
-- Porém ele não pagou o Kit EPI obrigatório e nem a taxa de entrega do Cartão Salário
-- Você precisa convencê-lo a pagar essas taxas para finalizar o cadastro
-- NUNCA mencione o site oficial da Shopee ou links reais da Shopee
-- NUNCA saia do contexto de convencer sobre o pagamento do Kit EPI e Cartão Salário
+CONTEXTO PROFISSIONAL:
+- Esta pessoa tem cadastro PENDENTE como entregador Shopee
+- Para iniciar as atividades, precisa pagar R$ 35,00 referente ao Kit EPI obrigatório e taxa de ativação do Cartão Salário
+- Você representa oficialmente a Shopee no processo de contratação
+- É sua responsabilidade orientar e garantir que o processo seja concluído adequadamente
 
-REGRAS OBRIGATÓRIAS:
-1. Sempre foque em convencer o pagamento do Kit EPI e taxa do Cartão Salário
-2. Explique que são custos obrigatórios para cobrir envio e ativação
-3. Crie urgência - poucas vagas disponíveis na região
-4. Seja convincente mas profissional
-5. NUNCA ofereça outros caminhos que não seja o pagamento
-6. Mantenha respostas objetivas (máximo 2-3 frases)
-7. Após responder a dúvida, sempre redirecione para finalizar o pagamento
+SEU PAPEL COMO GERENTE:
+- Esclarecer dúvidas sobre o processo de contratação
+- Orientar sobre os benefícios e responsabilidades da função
+- Explicar a importância do Kit EPI e Cartão Salário
+- Criar senso de oportunidade limitada (poucas vagas disponíveis)
+- Conduzir o candidato ao fechamento do processo
 
-TÓPICOS QUE VOCÊ PODE ABORDAR:
-- Benefícios de ser entregador Shopee (salário, flexibilidade)
-- Explicação sobre Kit EPI (obrigatório por lei, itens inclusos)
-- Taxa do Cartão Salário (ativação, envio do cartão)
-- Urgência das vagas (poucas disponíveis)
-- Processo após pagamento (treinamento, início imediato)
+TOM PROFISSIONAL E PERSUASIVO:
+- Seja formal mas acessível
+- Transmita credibilidade e confiança
+- Use dados específicos sobre ganhos (R$ 80-120/dia, R$ 15-20/entrega)
+- Destaque diferenciais competitivos da Shopee
+- Mantenha sempre o foco no benefício para o candidato
 
-NUNCA FALE SOBRE:
-- Site oficial Shopee
-- Links reais da empresa
-- Outros meios de contato
-- Processos alternativos ao pagamento
+INFORMAÇÕES TÉCNICAS IMPORTANTES:
+- Kit EPI: Obrigatório por legislação trabalhista, inclui capacete, colete refletivo e equipamentos de segurança
+- Cartão Salário: Meio exclusivo para recebimento dos pagamentos, taxa única de ativação
+- Vagas limitadas: Apenas 2 posições disponíveis na região do candidato
+- Remuneração: Entre R$ 15-20 por entrega, potencial de R$ 80-120 por dia
+
+ESTRUTURA DAS RESPOSTAS:
+1. Cumprimento profissional quando apropriado
+2. Resposta clara e objetiva à dúvida
+3. Informação sobre benefícios financeiros específicos
+4. Orientação sobre a limitação de vagas
+5. Call-to-action profissional para finalização
+
+EVITAR SEMPRE:
+- Linguagem informal ou casual demais
+- Mencionar sites oficiais ou links reais da Shopee
+- Oferecer alternativas ao processo padrão
+- Deixar de mencionar a urgência das vagas limitadas
 """
 
     @staticmethod
@@ -162,14 +173,15 @@ NUNCA FALE SOBRE:
     def should_finalize_payment(conversation_history: list, question_count: int) -> bool:
         """
         Determina se deve finalizar e enviar link de pagamento
+        NOVO: Permite até 10 tentativas (5 perguntas + 5 mensagens de convencimento)
         """
-        # Após 5 perguntas ou se usuário demonstrar interesse
-        if question_count >= 5:
+        # Após 10 tentativas TOTAL ou se usuário demonstrar interesse
+        if question_count >= 10:
             return True
             
         # Verificar se usuário demonstrou interesse nas últimas mensagens
         recent_messages = conversation_history[-2:] if len(conversation_history) >= 2 else conversation_history
-        interest_keywords = ["ok", "entendi", "certo", "vou pagar", "quero finalizar", "beleza", "sim"]
+        interest_keywords = ["ok", "entendi", "certo", "vou pagar", "quero finalizar", "beleza", "sim", "aceito", "vou fazer"]
         
         for msg in recent_messages:
             if msg.get("role") == "user":
@@ -178,3 +190,26 @@ NUNCA FALE SOBRE:
                     return True
         
         return False
+
+    @staticmethod
+    def get_conversion_message(question_count: int) -> str:
+        """
+        Retorna mensagem de convencimento profissional baseada no número da tentativa
+        Usado após as 5 perguntas iniciais para convencimento com tom formal
+        """
+        conversion_messages = [
+            # Tentativas 6-10: Mensagens de convencimento profissional
+            "Preciso ser transparente com você: cada dia de atraso representa uma perda de R$ 80-120 em rendimentos. Temos apenas 2 vagas disponíveis na sua região e o processo precisa ser finalizado hoje para garantir sua posição na equipe Shopee.",
+            
+            "Como gerente de contratação, posso confirmar que nossos entregadores têm remuneração superior à concorrência - R$ 15-20 por entrega versus R$ 8-12 de outras plataformas. Seus futuros colegas já estão conquistando renda mensal de R$ 3.000+. Esta é uma oportunidade diferenciada.",
+            
+            "Devo informá-lo que as vagas estão sendo preenchidas em tempo real. O Kit EPI é exigência legal para sua segurança e proteção. Como representante oficial da Shopee, recomendo que conclua o processo hoje mesmo para não perder esta colocação.",
+            
+            "Vejo que você está hesitando. Permita-me esclarecer: o investimento de R$ 35,00 hoje representa o acesso a uma renda mensal potencial de R$ 3.000+. O processo é simples e seguro. Como gerente, tenho a responsabilidade de orientá-lo para não perder esta oportunidade profissional.",
+            
+            "Esta é minha comunicação final sobre sua vaga. A Shopee estabeleceu um limite de apenas 2 contratações para sua região neste ciclo. Como profissional experiente, recomendo que finalize seu cadastro imediatamente. Amanhã estas posições podem não estar mais disponíveis."
+        ]
+        
+        # question_count vai de 6 a 10
+        index = max(0, min(question_count - 6, len(conversion_messages) - 1))
+        return conversion_messages[index]

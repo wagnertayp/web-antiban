@@ -39,7 +39,7 @@ Preferred communication style: Simple, everyday language.
 - **Audio Message Processing**: Complete Whisper-powered audio transcription and GPT-5 text responses for voice messages
 - **Interactive Button System**: WhatsApp native buttons for seamless user experience (Yes/No, confirmation flows)
 - **Persistent State Management**: Database-backed conversation states supporting complex multi-step interactions
-- **Smart Question Limiting**: Automatic finalization after 5 questions or user interest detection
+- **Smart Conversion System**: 10 total attempts (5 questions + 5 professional conversion messages) with formal tone
 - **Dynamic Payment Links**: Personalized payment URLs using original CPF format (https://shopee.acesso.inc/{cpf})
 
 ### System Design
