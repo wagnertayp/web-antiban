@@ -1007,8 +1007,12 @@ class WhatsAppBusinessAPI:
             return False, {'error': 'WhatsApp Business API não configurada'}
         
         try:
-            # Format phone number
-            formatted_phone = self._format_phone_number(phone)
+            # Format phone number (same pattern as other methods)
+            formatted_phone = phone
+            if phone.startswith('55'):
+                formatted_phone = '+' + phone
+            elif not phone.startswith('+'):
+                formatted_phone = '+55' + phone
             
             payload = {
                 "messaging_product": "whatsapp",
