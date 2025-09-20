@@ -83,8 +83,13 @@ EVITAR SEMPRE:
             )
             
             ai_response = response.choices[0].message.content
-            logging.info(f"🤖 OpenAI respondeu: {ai_response[:100]}...")
             
+            # Verificar se a resposta não está vazia ou None
+            if not ai_response or ai_response.strip() == "":
+                logging.warning("🚨 OpenAI retornou resposta vazia, usando fallback")
+                return ShopeeDeliveryAssistant._elaborate_specific_response(user_message)
+            
+            logging.info(f"🤖 OpenAI respondeu: {ai_response[:100]}...")
             return ai_response
             
         except Exception as e:

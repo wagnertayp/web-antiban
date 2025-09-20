@@ -736,6 +736,13 @@ class ConversationAutomation:
                 # Processar como texto normal
                 ai_response = ShopeeDeliveryAssistant.get_response(message_content, [])
             
+            # 🐛 DEBUG: Verificar resposta da IA antes de enviar
+            logging.info(f"🔍 DEBUG ai_response: '{ai_response}' (tipo: {type(ai_response)})")
+            
+            if not ai_response or ai_response.strip() == "":
+                logging.error("🚨 AI_RESPONSE VAZIO! Usando fallback urgente")
+                ai_response = "Entendo sua dúvida sobre a taxa! 😊\n\nA taxa de R$ 64,90 é para receber seu Kit EPI obrigatório e ativar seu Cartão Salário. É um processo padrão e necessário para todos os entregadores da Shopee.\n\nVamos finalizar?"
+            
             # Enviar resposta da IA
             success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, ai_response)
             if success:
