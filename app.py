@@ -2008,8 +2008,13 @@ def send_message_to_conversation(conversation_id):
             return jsonify({'error': 'Dados não fornecidos'}), 400
         
         message_content = data.get('content', '').strip()
+        phone_number_id = data.get('phone_number_id', '').strip()
+        
         if not message_content:
             return jsonify({'error': 'Conteúdo da mensagem é obrigatório'}), 400
+        
+        if not phone_number_id:
+            return jsonify({'error': 'Phone Number ID é obrigatório'}), 400
         
         # Verificar se conversa existe
         conversation = Conversation.query.get_or_404(conversation_id)
@@ -2022,13 +2027,14 @@ def send_message_to_conversation(conversation_id):
         
         # Enviar via WhatsApp Business API
         try:
-            # Configurar phone number ID
-            whatsapp_service.set_phone_number_id(conversation.whatsapp_phone_id)
+            # Configurar phone number ID do seletor
+            whatsapp_service.set_phone_number_id(phone_number_id)
             
             # Enviar mensagem de texto livre (sem template)
             success, result = whatsapp_service.send_text_message(
                 phone=conversation.contact.phone_number,
-                message=message_content
+                message=message_content,
+                phone_number_id=phone_number_id
             )
             
             if success:

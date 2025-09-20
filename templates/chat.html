@@ -704,6 +704,15 @@
                 
                 if (!content) return;
                 
+                // Obter o phone number ID selecionado
+                const phoneNumberSelect = document.getElementById('phoneNumberSelect');
+                const phoneNumberId = phoneNumberSelect.value;
+                
+                if (!phoneNumberId) {
+                    alert('Selecione um número WhatsApp primeiro');
+                    return;
+                }
+                
                 const sendBtn = document.getElementById('sendMessageBtn');
                 sendBtn.disabled = true;
                 input.disabled = true;
@@ -714,7 +723,10 @@
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ content })
+                        body: JSON.stringify({ 
+                            content: content,
+                            phone_number_id: phoneNumberId
+                        })
                     });
                     
                     if (response.ok) {
