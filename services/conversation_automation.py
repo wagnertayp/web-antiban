@@ -458,7 +458,7 @@ class ConversationAutomation:
             logging.error(f"Erro ao buscar dados na API: {str(e)}")
             return None
     
-    def _save_outbound_message(self, conversation_id: int, content: str, whatsapp_message_id: str = None):
+    def _save_outbound_message(self, conversation_id: int, content: str, whatsapp_message_id: Optional[str] = None):
         """Salvar mensagem enviada no banco"""
         try:
             from app import app
@@ -508,13 +508,14 @@ class ConversationAutomation:
         """Carregar token ativo do cache compartilhado"""
         try:
             import tempfile
+            import os
             cache_file = os.path.join(tempfile.gettempdir(), "whatsapp_active_token.txt")
             if os.path.exists(cache_file):
                 with open(cache_file, 'r') as f:
                     return f.read().strip()
         except Exception as e:
             logging.warning(f"Falha ao carregar token ativo: {e}")
-        return None
+        return ""
     
     @staticmethod
     def process_scheduled_messages():
