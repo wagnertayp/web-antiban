@@ -104,7 +104,7 @@ class Conversation(db.Model):
     # Relacionamentos
     messages = db.relationship('ChatMessage', backref='conversation', lazy=True, 
                               foreign_keys='ChatMessage.conversation_id', 
-                              order_by='ChatMessage.created_at')
+                              order_by='ChatMessage.created_at.desc()')
     last_message = db.relationship('ChatMessage', foreign_keys=[last_message_id], 
                                   post_update=True, viewonly=True)
     
