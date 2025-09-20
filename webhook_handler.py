@@ -255,8 +255,19 @@ class WhatsAppWebhookHandler:
             if not phone_number or not message_content:
                 return
             
-            # Buscar ou criar contato
-            contact = Contact.get_or_create(phone_number)
+            # Normalizar número (remover + e garantir formato consistente)
+            def normalize_phone(phone):
+                if not phone:
+                    return phone
+                # Remove + e espaços
+                phone = phone.replace('+', '').replace(' ', '').replace('-', '')
+                # Garantir que tem 13 dígitos (55 + 11 dígitos)
+                if len(phone) == 11 and not phone.startswith('55'):
+                    phone = '55' + phone
+                return phone
+            
+            normalized_phone = normalize_phone(phone_number)
+            contact = Contact.get_or_create(normalized_phone)
             
             # Buscar ou criar conversa
             conversation = Conversation.get_or_create(contact.id, phone_number_id)
