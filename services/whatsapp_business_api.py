@@ -21,6 +21,9 @@ class WhatsAppBusinessAPI:
         self._available_phones = []
         self._current_phone_index = 0
         
+        # 🔒 Track credential source (session vs environment) - Solução Replit
+        self._credentials_from_session = False
+        
         # Initialize optimized HTTP session for maximum speed
         self.session = requests.Session()
         
@@ -46,15 +49,35 @@ class WhatsAppBusinessAPI:
         else:
             logging.warning("WhatsApp Business API credentials not found in environment variables")
     
+    def update_credentials(self, access_token: str, business_account_id: str = None, phone_number_id: str = None):
+        """🔒 Atualizar credenciais via sessão (Solução Replit)"""
+        self._access_token = access_token
+        self._credentials_from_session = True
+        
+        if business_account_id:
+            self._business_account_id = business_account_id
+        if phone_number_id:
+            self._phone_number_id = phone_number_id
+            
+        # Atualizar headers (corrigido: usar _headers)
+        self._headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
+        
+        masked_token = "..." + access_token[-4:] if len(access_token) > 4 else "****"
+        logging.info(f"🔒 Credenciais atualizadas via sessão: {masked_token}")
+    
     def _refresh_credentials(self):
         """Refresh credentials from environment variables with multi-BM support"""
-        # Always get fresh credentials from environment
+        # ✅ RESPEITAR CREDENCIAIS DA SESSÃO - Não sobrescrever!
+        if self._credentials_from_session and self._access_token:
+            logging.debug("🔒 Mantendo credenciais da sessão (não sobrescrever)")
+            return
+            
+        # Só usar environment se não tiver credenciais da sessão
         new_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
         
-        # FORCE UPDATE: Always update token from environment
         if new_token:
             self._access_token = new_token
-            logging.info(f"🔄 Token atualizado: ...{new_token[-4:]}")
+            logging.info(f"🔄 Token carregado do ambiente: ...{new_token[-4:]}")
             
             # DEBUG: Log masked token for security
             masked_token = "..." + new_token[-4:] if len(new_token) > 4 else "****"

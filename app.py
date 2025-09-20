@@ -9,6 +9,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import threading
 import time
 from datetime import datetime
+import queue
 from heroku_config import HerokuConfig
 
 # Global counter for real-time progress tracking
@@ -74,6 +75,40 @@ whatsapp_service = WhatsAppBusinessAPI()
 message_service = MessageService(db, whatsapp_service, app)
 
 # Proxy service removed for faster direct connections
+
+@app.before_request
+def load_session_credentials():
+    """🔒 Carrega credenciais da sessão antes de cada request (Solução Replit)"""
+    # Só processar se tiver token na sessão e não for um arquivo estático
+    if (request.endpoint and 
+        not request.endpoint.startswith('static') and 
+        'whatsapp_access_token' in session):
+        
+        session_token = session.get('whatsapp_access_token')
+        session_bm_id = session.get('whatsapp_business_manager_id')
+        session_phone_id = session.get('whatsapp_selected_phone_id')
+        
+        # Verificar se o token atual é diferente do da sessão
+        if (hasattr(whatsapp_service, '_access_token') and 
+            whatsapp_service._access_token != session_token):
+            
+            try:
+                # Atualizar credenciais do service com dados da sessão
+                if hasattr(whatsapp_service, 'update_credentials'):
+                    whatsapp_service.update_credentials(session_token, session_bm_id, session_phone_id)
+                else:
+                    # Fallback direto (corrigido: usar _headers)
+                    whatsapp_service._access_token = session_token
+                    whatsapp_service._headers = {'Authorization': f'Bearer {session_token}', 'Content-Type': 'application/json'}
+                    if session_bm_id:
+                        whatsapp_service._business_account_id = session_bm_id
+                    if session_phone_id:
+                        whatsapp_service._phone_number_id = session_phone_id
+                
+                logging.debug(f"🔄 Token carregado da sessão: ...{session_token[-6:]}")
+                
+            except Exception as e:
+                logging.warning(f"Erro ao carregar credenciais da sessão: {e}")
 
 @app.route('/')
 def index():
@@ -316,24 +351,28 @@ def connect_whatsapp():
         else:
             logging.warning(f"Erro ao buscar templates: {templates_response.status_code}")
         
-        # 4. Salvar dados na sessão E atualizar ambiente automaticamente
+        # 🔒 PERSISTÊNCIA DE TOKEN VIA SESSÃO (Solução Replit)
+        session['whatsapp_access_token'] = access_token
+        session['whatsapp_business_manager_id'] = discovered_bm_id
+        session['whatsapp_phone_numbers'] = phone_numbers
+        session['whatsapp_templates'] = templates
         session['whatsapp_connection'] = {
             'access_token': access_token,
             'business_manager_id': discovered_bm_id,
             'connected_at': datetime.utcnow().isoformat()
         }
         session['last_business_manager_id'] = discovered_bm_id
+        session.permanent = True  # Manter sessão persistente
         
-        # CRÍTICO: Atualizar variáveis de ambiente para usar o token da interface
-        os.environ['WHATSAPP_ACCESS_TOKEN'] = access_token
-        logging.info(f"✅ TOKEN ATUALIZADO AUTOMATICAMENTE: {access_token[:50]}...")
-        
-        # Forçar refresh das credenciais no serviço WhatsApp
+        # ✅ ATUALIZAR WHATSAPP SERVICE DIRETAMENTE (sem env)
         try:
-            whatsapp_service._refresh_credentials()
-            logging.info("✅ Credenciais WhatsApp Service atualizadas")
-        except Exception as e:
-            logging.warning(f"Aviso ao atualizar credenciais: {e}")
+            whatsapp_service.update_credentials(access_token, discovered_bm_id, None)
+            logging.info("✅ Credenciais WhatsApp Service atualizadas via sessão")
+        except AttributeError:
+            # Fallback temporário se método não existir ainda (corrigido: usar _headers)
+            whatsapp_service._access_token = access_token
+            whatsapp_service._headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
+            logging.info("✅ Credenciais WhatsApp Service atualizadas (fallback)")
         
         # 5. Retornar dados da conexão
         connection_data = {
@@ -1994,40 +2033,61 @@ def send_message_to_conversation(conversation_id):
             content=message_content
         )
         
-        # Enviar via WhatsApp Business API
+        # 🚀 ENVIO ASSÍNCRONO EM BACKGROUND THREAD (Solução Worker Timeout)
+        def send_message_background():
+            """Thread function para enviar mensagem sem bloquear worker"""
+            # ✅ SOLUÇÃO APP CONTEXT - Corrigir "Working outside of application context"
+            with app.app_context():
+                try:
+                    # Configurar phone number ID do seletor
+                    whatsapp_service.set_phone_number_id(phone_number_id)
+                    
+                    # Enviar mensagem de texto livre (sem template)
+                    success, result = whatsapp_service.send_text_message(
+                        phone=conversation.contact.phone_number,
+                        message=message_content,
+                        phone_number_id=phone_number_id
+                    )
+                    
+                    # Atualizar status da mensagem
+                    if success:
+                        whatsapp_message_id = result.get('messageId', result.get('whatsAppId', ''))
+                        message.update_status('sent', whatsapp_message_id)
+                        
+                        # Atualizar conversa
+                        conversation.last_message_at = message.created_at
+                        conversation.updated_at = message.created_at
+                        db.session.commit()
+                        
+                        logging.info(f"✅ Mensagem enviada com sucesso: {whatsapp_message_id}")
+                    else:
+                        message.update_status('failed')
+                        logging.error(f"❌ Falha no envio: {result.get('error', 'Erro desconhecido')}")
+                        
+                except Exception as send_error:
+                    try:
+                        message.update_status('failed')
+                    except:
+                        logging.error("❌ Erro ao atualizar status da mensagem")
+                    logging.error(f"❌ Erro na thread de envio: {send_error}")
+        
+        # Iniciar thread de background e retornar imediatamente
         try:
-            # Configurar phone number ID do seletor
-            whatsapp_service.set_phone_number_id(phone_number_id)
+            thread = threading.Thread(target=send_message_background, daemon=True)
+            thread.start()
             
-            # Enviar mensagem de texto livre (sem template)
-            success, result = whatsapp_service.send_text_message(
-                phone=conversation.contact.phone_number,
-                message=message_content,
-                phone_number_id=phone_number_id
-            )
+            # Retorno imediato - mensagem será processada em background
+            return jsonify({
+                'success': True,
+                'message': 'Mensagem enviando...',
+                'message_id': message.id,
+                'status': 'sending'
+            })
             
-            if success:
-                whatsapp_message_id = result.get('messageId', result.get('whatsAppId', ''))
-                message.update_status('sent', whatsapp_message_id)
-                
-                # Atualizar conversa
-                conversation.last_message_at = message.created_at
-                conversation.updated_at = message.created_at
-                db.session.commit()
-                
-                return jsonify({
-                    'success': True,
-                    'message_id': message.id,
-                    'whatsapp_message_id': whatsapp_message_id
-                })
-            else:
-                message.update_status('failed')
-                return jsonify({'error': result.get('error', 'Falha no envio')}), 500
-                
-        except Exception as send_error:
+        except Exception as thread_error:
             message.update_status('failed')
-            logging.error(f"Erro ao enviar mensagem: {send_error}")
-            return jsonify({'error': f'Erro no envio: {str(send_error)}'}), 500
+            logging.error(f"Erro ao criar thread: {thread_error}")
+            return jsonify({'error': f'Erro no sistema: {str(thread_error)}'}), 500
         
     except Exception as e:
         logging.error(f"Erro ao processar envio: {str(e)}")
