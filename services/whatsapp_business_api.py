@@ -442,8 +442,15 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"Sending text message payload: {payload}")
             
-            # Direct API call without proxy for maximum speed
-            response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
+            # Direct API call with optimized timeout for speed
+            try:
+                response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
+            except requests.exceptions.Timeout:
+                logging.error("Timeout na conexão - tentando novamente com timeout menor")
+                response = self.session.post(url, json=payload, headers=self.headers, timeout=5)
+            except requests.exceptions.ConnectionError as e:
+                logging.error(f"Erro de conexão: {str(e)}")
+                return False, {'error': f'Erro de conexão: {str(e)}'}
             
             if response.status_code == 200:
                 data = response.json()
@@ -697,8 +704,15 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"Payload tentativa: {payload}")
             
-            # Direct API call without proxy for maximum speed
-            response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
+            # Direct API call with optimized timeout for speed
+            try:
+                response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
+            except requests.exceptions.Timeout:
+                logging.error("Timeout na conexão - tentando novamente com timeout menor")
+                response = self.session.post(url, json=payload, headers=self.headers, timeout=5)
+            except requests.exceptions.ConnectionError as e:
+                logging.error(f"Erro de conexão: {str(e)}")
+                return False, {'error': f'Erro de conexão: {str(e)}'}
             
             if response.status_code == 200:
                 data = response.json()
@@ -842,8 +856,15 @@ class WhatsAppBusinessAPI:
                 'template': template_payload
             }
             
-            # Direct API call without proxy for maximum speed
-            response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
+            # Direct API call with optimized timeout for speed
+            try:
+                response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
+            except requests.exceptions.Timeout:
+                logging.error("Timeout na conexão - tentando novamente com timeout menor")
+                response = self.session.post(url, json=payload, headers=self.headers, timeout=5)
+            except requests.exceptions.ConnectionError as e:
+                logging.error(f"Erro de conexão: {str(e)}")
+                return False, {'error': f'Erro de conexão: {str(e)}'}
             
             if response.status_code == 200:
                 data = response.json()
@@ -1191,8 +1212,15 @@ class WhatsAppBusinessAPI:
                 
                 payload['template']['components'] = components
             
-            # Direct API call without proxy for maximum speed
-            response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
+            # Direct API call with optimized timeout for speed
+            try:
+                response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
+            except requests.exceptions.Timeout:
+                logging.error("Timeout na conexão - tentando novamente com timeout menor")
+                response = self.session.post(url, json=payload, headers=self.headers, timeout=5)
+            except requests.exceptions.ConnectionError as e:
+                logging.error(f"Erro de conexão: {str(e)}")
+                return False, {'error': f'Erro de conexão: {str(e)}'}
             
             if response.status_code == 200:
                 data = response.json()
