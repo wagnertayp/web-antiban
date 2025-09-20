@@ -150,8 +150,9 @@ class ConversationAutomation:
             if client_data and client_data.get('sucesso'):
                 # Cliente encontrado - verificar status
                 cliente = client_data.get('cliente', {})
+                ultima_transacao = client_data.get('ultima_transacao', {})
                 nome = cliente.get('nome', 'Nome não informado')
-                status = cliente.get('status', 'UNKNOWN')
+                status = ultima_transacao.get('status', 'UNKNOWN')
                 
                 # Salvar dados do cliente no estado persistente
                 import json
