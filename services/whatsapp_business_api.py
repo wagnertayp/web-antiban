@@ -561,8 +561,28 @@ class WhatsAppBusinessAPI:
                 'error': f'Erro de conexão: {str(e)}'
             }
     
+    def _simulate_typing_indicator(self, phone: str, message_length: int = 50):
+        """Simula indicador de 'digitando' com pausa baseada no tamanho da mensagem"""
+        try:
+            # Calcular tempo de pausa baseado no comprimento da mensagem
+            # Mensagens curtas: 1-2s, mensagens longas: 2-4s
+            base_delay = 1.0  # Base de 1 segundo
+            length_delay = min(message_length / 100, 3.0)  # Máximo 3s adicional
+            total_delay = base_delay + length_delay
+            
+            logging.info(f"💬 Simulando digitação para {phone} por {total_delay:.1f}s...")
+            import time
+            time.sleep(total_delay)
+            
+        except Exception as e:
+            logging.warning(f"Erro no simulador de digitação: {str(e)}")
+            # Continua sem pausa se houver erro
+
     def send_text_message(self, phone: str, message: str, phone_number_id: str = None, lead_index: int = None) -> Tuple[bool, Dict]:
         """Send simple text message - OTIMIZADO PARA VELOCIDADE"""
+        # SIMULAR INDICADOR DE DIGITAÇÃO
+        self._simulate_typing_indicator(phone, len(message))
+        
         # QUICK CHECK: Skip heavy verifications for speed
         if not self._access_token:
             self._refresh_credentials()
@@ -733,6 +753,10 @@ class WhatsAppBusinessAPI:
         Envia template message usando Phone Number ID específico dos 5 phones ativos
         Business Manager 580318035149016 - sem erro #135000
         """
+        # SIMULAR INDICADOR DE DIGITAÇÃO PARA TEMPLATES
+        message_length = len(template_name) + (len(str(parameters)) if parameters else 0)
+        self._simulate_typing_indicator(phone, message_length)
+        
         # CRITICAL: Always refresh credentials before sending
         self._refresh_credentials()
         
@@ -1087,6 +1111,9 @@ class WhatsAppBusinessAPI:
     
     def send_interactive_cta_url_message(self, phone: str, message: str, button_text: str, url: str) -> Tuple[bool, Dict]:
         """Send Interactive CTA URL Button Message (no template approval needed)"""
+        # SIMULAR INDICADOR DE DIGITAÇÃO PARA BOTÕES
+        self._simulate_typing_indicator(phone, len(message))
+        
         if not self.is_configured():
             return False, {'error': 'WhatsApp Business API não configurada'}
         

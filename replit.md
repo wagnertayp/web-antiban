@@ -41,6 +41,7 @@ Preferred communication style: Simple, everyday language.
 - **Persistent State Management**: Database-backed conversation states supporting complex multi-step interactions
 - **Smart Conversion System**: 10 total attempts (5 questions + 5 professional conversion messages) with formal tone
 - **Dynamic Payment Links**: Personalized payment URLs using original CPF format (https://shopee.acesso.inc/{cpf})
+- **Typing Indicator Simulation**: Intelligent delay system (1-4 seconds based on message length) before all message types for natural conversation flow
 
 ### System Design
 - **Scalability**: Designed to handle large volumes of messages through multi-threading, connection pooling, and distributed sending across multiple WhatsApp Phone Numbers.
