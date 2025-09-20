@@ -1,6 +1,8 @@
 import os
 import requests
 import logging
+import time
+import random
 from typing import Dict, List, Optional, Tuple
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -24,6 +26,11 @@ class WhatsAppBusinessAPI:
         
         # 🔒 Track credential source (session vs environment) - Solução Replit
         self._credentials_from_session = False
+        
+        # 🛡️ PROTEÇÃO ANTI-BAN - Controle de velocidade
+        self._last_message_time = 0
+        self._message_count_minute = 0
+        self._minute_start = 0
         
         # Initialize optimized HTTP session for maximum speed
         self.session = requests.Session()
@@ -50,6 +57,82 @@ class WhatsAppBusinessAPI:
         else:
             logging.warning("WhatsApp Business API credentials not found in environment variables")
     
+    def _anti_ban_protection(self):
+        """🛡️ PROTEÇÃO ULTRA-ROBUSTA ANTI-BAN"""
+        current_time = time.time()
+        
+        # Reset contador a cada minuto
+        if current_time - self._minute_start > 60:
+            self._minute_start = current_time
+            self._message_count_minute = 0
+        
+        # Limite: máximo 20 mensagens por minuto (Meta recomenda 80/min, mas vamos ser conservadores)
+        if self._message_count_minute >= 20:
+            wait_time = 60 - (current_time - self._minute_start)
+            if wait_time > 0:
+                logging.warning(f"🛡️ LIMITE ANTI-BAN: Aguardando {wait_time:.1f}s para próxima mensagem")
+                time.sleep(wait_time)
+                self._minute_start = time.time()
+                self._message_count_minute = 0
+        
+        # Delay mínimo entre mensagens: 2-4 segundos (randomizado)
+        time_since_last = current_time - self._last_message_time
+        min_delay = random.uniform(2.0, 4.0)  # 2-4 segundos randomizado
+        
+        if time_since_last < min_delay:
+            wait_time = min_delay - time_since_last
+            logging.info(f"🛡️ DELAY ANTI-BAN: {wait_time:.1f}s (proteção humanizada)")
+            time.sleep(wait_time)
+        
+        # Atualizar contadores
+        self._last_message_time = time.time()
+        self._message_count_minute += 1
+        
+        logging.info(f"🛡️ Status: {self._message_count_minute}/20 mensagens este minuto")
+
+    def _get_randomized_headers(self):
+        """🎭 Headers randomizados para parecer mais humano"""
+        user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
+        ]
+        
+        base_headers = {
+            'Authorization': f'Bearer {self._access_token}',
+            'Content-Type': 'application/json',
+            'User-Agent': random.choice(user_agents),
+            'Accept': 'application/json',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+            'Cache-Control': 'no-cache'
+        }
+        
+        return base_headers
+
+    def _send_via_proxy_only(self, url: str, payload: dict):
+        """🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN"""
+        # 🛡️ PROTEÇÃO ANTI-BAN OBRIGATÓRIA
+        self._anti_ban_protection()
+        
+        # 🎭 HEADERS RANDOMIZADOS OBRIGATÓRIOS
+        randomized_headers = self._get_randomized_headers()
+        
+        # 🔐 PROXY OBRIGATÓRIO - FALHA SE NÃO DISPONÍVEL
+        proxy_service = proxy_module.get_proxy_service()
+        if not proxy_service:
+            raise Exception("🚨 PROXY OBRIGATÓRIO NÃO DISPONÍVEL - BLOQUEANDO ENVIO PARA PROTEÇÃO ANTI-BAN")
+        
+        try:
+            logging.info("🔐 Enviando mensagem via PROXY para proteção anti-ban")
+            response = proxy_service.post(url, json=payload, headers=randomized_headers, timeout=10)
+            return response
+            
+        except requests.exceptions.Timeout:
+            logging.error("Timeout na conexão - tentando novamente")
+            # Segunda tentativa com timeout menor
+            response = proxy_service.post(url, json=payload, headers=randomized_headers, timeout=5)
+            return response
+
     def update_credentials(self, access_token: str, business_account_id: str = None, phone_number_id: str = None):
         """🔒 Atualizar credenciais via sessão (Solução Replit)"""
         self._access_token = access_token
@@ -473,22 +556,9 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"Sending text message payload: {payload}")
             
-            # 🔐 PROXY PROTEGIDO - Anti-ban da Meta
+            # 🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN
             try:
-                proxy_service = proxy_module.get_proxy_service()
-                if proxy_service:
-                    logging.info("🔐 Enviando mensagem via PROXY para proteção anti-ban")
-                    response = proxy_service.post(url, json=payload, headers=self.headers, timeout=10)
-                else:
-                    logging.warning("⚠️ Proxy indisponível - usando conexão direta")
-                    response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
-            except requests.exceptions.Timeout:
-                logging.error("Timeout na conexão - tentando novamente")
-                proxy_service = proxy_module.get_proxy_service()
-                if proxy_service:
-                    response = proxy_service.post(url, json=payload, headers=self.headers, timeout=5)
-                else:
-                    response = self.session.post(url, json=payload, headers=self.headers, timeout=5)
+                response = self._send_via_proxy_only(url, payload)
             except requests.exceptions.ConnectionError as e:
                 logging.error(f"Erro de conexão: {str(e)}")
                 return False, {'error': f'Erro de conexão: {str(e)}'}
@@ -744,12 +814,9 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"Payload tentativa: {payload}")
             
-            # Direct API call with optimized timeout for speed
+            # 🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN
             try:
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
-            except requests.exceptions.Timeout:
-                logging.error("Timeout na conexão - tentando novamente com timeout menor")
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=5)
+                response = self._send_via_proxy_only(url, payload)
             except requests.exceptions.ConnectionError as e:
                 logging.error(f"Erro de conexão: {str(e)}")
                 return False, {'error': f'Erro de conexão: {str(e)}'}
@@ -896,12 +963,9 @@ class WhatsAppBusinessAPI:
                 'template': template_payload
             }
             
-            # Direct API call with optimized timeout for speed
+            # 🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN
             try:
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
-            except requests.exceptions.Timeout:
-                logging.error("Timeout na conexão - tentando novamente com timeout menor")
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=5)
+                response = self._send_via_proxy_only(url, payload)
             except requests.exceptions.ConnectionError as e:
                 logging.error(f"Erro de conexão: {str(e)}")
                 return False, {'error': f'Erro de conexão: {str(e)}'}
@@ -1252,12 +1316,9 @@ class WhatsAppBusinessAPI:
                 
                 payload['template']['components'] = components
             
-            # Direct API call with optimized timeout for speed
+            # 🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN
             try:
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
-            except requests.exceptions.Timeout:
-                logging.error("Timeout na conexão - tentando novamente com timeout menor")
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=5)
+                response = self._send_via_proxy_only(url, payload)
             except requests.exceptions.ConnectionError as e:
                 logging.error(f"Erro de conexão: {str(e)}")
                 return False, {'error': f'Erro de conexão: {str(e)}'}
