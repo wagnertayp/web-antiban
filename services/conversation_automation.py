@@ -302,7 +302,7 @@ class ConversationAutomation:
                     # Segunda mensagem: Botão para finalizar cadastro
                     second_message = (
                         "Para finalizar o cadastro e começar a realizar as entregas está faltando apenas iniciar o treinamento de entregadores da Shopee.\n\n"
-                        "📚 *IMPORTANTE:* Após realizar o pagamento do honorário do professor, envie o comprovante de pagamento para mim para que eu possa adiantar seu cadastro e acelerar o processo de contratação.\n\n"
+                        "⚠️ *IMPORTANTE:* Após realizar o pagamento do honorário do professor, envie o comprovante de pagamento para mim para que eu possa adiantar seu cadastro e acelerar o processo de contratação.\n\n"
                         "Clique no botão abaixo para se matricular no treinamento:"
                     )
                     
