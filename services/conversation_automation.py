@@ -84,7 +84,7 @@ class ConversationAutomation:
         """Resposta inicial - apresentar como gerente da Shopee"""
         try:
             message = (
-                "Olá! Sou Ana Rodrigues, Gerente de Contratação de Entregadores da Shopee Brasil.\n\n"
+                "Olá! Sou Zilma Alencar, Gerente de Contratação de Entregadores da Shopee Brasil.\n\n"
                 "Estou aqui para ajudar você a finalizar seu cadastro de Entregador da Shopee.\n\n"
                 "Para prosseguir, preciso validar seus dados.\n"
                 "Por favor, digite seu CPF (apenas números, sem pontos ou traços):"
