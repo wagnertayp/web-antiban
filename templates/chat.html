@@ -832,46 +832,32 @@
             formatTime(dateString) {
                 if (!dateString) return '';
                 
-                // 🇧🇷 USAR TIMEZONE BRASILEIRO NATIVO
+                // 🇧🇷 CONVERSÃO MANUAL PARA BRASÍLIA (UTC-3)
                 const date = new Date(dateString);
+                
+                // Subtrair 3 horas do UTC para obter horário de Brasília
+                const brasiliaTime = new Date(date.getTime() - (3 * 60 * 60 * 1000));
+                
                 const now = new Date();
+                const nowBrasilia = new Date(now.getTime() - (3 * 60 * 60 * 1000));
                 
-                // Converter para timezone de Brasília usando Intl
-                const brasiliaDate = new Intl.DateTimeFormat('pt-BR', {
-                    timeZone: 'America/Sao_Paulo',
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit'
-                }).formatToParts(date);
-                
-                const todayBrasilia = new Intl.DateTimeFormat('pt-BR', {
-                    timeZone: 'America/Sao_Paulo',
-                    year: 'numeric',
-                    month: '2-digit', 
-                    day: '2-digit'
-                }).formatToParts(now);
-                
-                // Comparar se é hoje
+                // Verificar se é hoje (data brasileira)
                 const isToday = (
-                    brasiliaDate.find(p => p.type === 'year')?.value === todayBrasilia.find(p => p.type === 'year')?.value &&
-                    brasiliaDate.find(p => p.type === 'month')?.value === todayBrasilia.find(p => p.type === 'month')?.value &&
-                    brasiliaDate.find(p => p.type === 'day')?.value === todayBrasilia.find(p => p.type === 'day')?.value
+                    brasiliaTime.getUTCFullYear() === nowBrasilia.getUTCFullYear() &&
+                    brasiliaTime.getUTCMonth() === nowBrasilia.getUTCMonth() &&
+                    brasiliaTime.getUTCDate() === nowBrasilia.getUTCDate()
                 );
                 
                 if (isToday) {
-                    // Mostrar apenas hora:minuto em horário brasileiro
-                    return new Intl.DateTimeFormat('pt-BR', {
-                        timeZone: 'America/Sao_Paulo',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }).format(date);
+                    // Mostrar hora:minuto no fuso brasileiro
+                    const hours = brasiliaTime.getUTCHours().toString().padStart(2, '0');
+                    const minutes = brasiliaTime.getUTCMinutes().toString().padStart(2, '0');
+                    return `${hours}:${minutes}`;
                 } else {
-                    // Mostrar data em formato brasileiro
-                    return new Intl.DateTimeFormat('pt-BR', {
-                        timeZone: 'America/Sao_Paulo',
-                        day: '2-digit',
-                        month: '2-digit'
-                    }).format(date);
+                    // Mostrar data brasileira
+                    const day = brasiliaTime.getUTCDate().toString().padStart(2, '0');
+                    const month = (brasiliaTime.getUTCMonth() + 1).toString().padStart(2, '0');
+                    return `${day}/${month}`;
                 }
             }
             
