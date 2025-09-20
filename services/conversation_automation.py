@@ -476,6 +476,31 @@ class ConversationAutomation:
         return phone
     
     @staticmethod
+    def _save_active_token(token: str):
+        """Salvar token ativo no cache compartilhado"""
+        try:
+            import tempfile
+            import os
+            cache_file = os.path.join(tempfile.gettempdir(), "whatsapp_active_token.txt")
+            with open(cache_file, 'w') as f:
+                f.write(token)
+        except Exception as e:
+            logging.warning(f"Falha ao salvar token ativo: {e}")
+    
+    @staticmethod
+    def _load_active_token() -> str:
+        """Carregar token ativo do cache compartilhado"""
+        try:
+            import tempfile
+            cache_file = os.path.join(tempfile.gettempdir(), "whatsapp_active_token.txt")
+            if os.path.exists(cache_file):
+                with open(cache_file, 'r') as f:
+                    return f.read().strip()
+        except Exception as e:
+            logging.warning(f"Falha ao carregar token ativo: {e}")
+        return None
+    
+    @staticmethod
     def process_scheduled_messages():
         """Processar mensagens agendadas pendentes - executar periodicamente"""
         try:
@@ -492,8 +517,11 @@ class ConversationAutomation:
                 
                 logging.info(f"📋 Processando {len(pending_messages)} mensagens agendadas...")
                 
-                # Inicializar WhatsApp API para envio
-                whatsapp_api = WhatsAppBusinessAPI()
+                # Usar o mesmo WhatsApp API service já configurado na interface
+                from app import whatsapp_service
+                whatsapp_api = whatsapp_service
+                
+                logging.info(f"🔑 Scheduler usando token da interface: ...{whatsapp_api._access_token[-5:] if whatsapp_api._access_token else 'N/A'}")
                 
                 for scheduled_msg in pending_messages:
                     try:

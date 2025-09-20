@@ -116,6 +116,14 @@ def load_session_credentials():
                 # Armazenar token válido globalmente para automação
                 app._current_valid_token = session_token
                 
+                # Salvar token ativo no cache para o scheduler usar
+                try:
+                    from services.conversation_automation import ConversationAutomation
+                    ConversationAutomation._save_active_token(session_token)
+                    logging.info(f"🔑 Token ativo salvo no cache para scheduler: ...{session_token[-5:]}")
+                except Exception as e:
+                    logging.warning(f"Falha ao salvar token no cache: {e}")
+                
             except Exception as e:
                 logging.warning(f"Erro ao carregar credenciais da sessão: {e}")
 
