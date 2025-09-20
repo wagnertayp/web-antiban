@@ -217,7 +217,7 @@ class WhatsAppBusinessAPI:
         """Auto-discover both Business Manager ID and Phone Number ID"""
         try:
             # First, get the Business Account ID
-            headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
+            headers = self.headers  # 🔒 Usar headers da sessão atualizada
             
             # Try to get business account from me endpoint
             # Direct API call without proxy for speed
@@ -562,10 +562,7 @@ class WhatsAppBusinessAPI:
         """Descobre phone numbers de uma Business Manager específica"""
         try:
             url = f"{self.base_url}/{business_account_id}/phone_numbers"
-            headers = {
-                'Authorization': f'Bearer {self._access_token}',
-                'Content-Type': 'application/json'
-            }
+            headers = self.headers  # 🔒 Usar headers da sessão atualizada
             
             response = requests.get(url, headers=headers, timeout=10)
             
