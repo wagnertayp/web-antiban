@@ -422,8 +422,8 @@ def get_phone_numbers():
             logging.info(f"Carregados {len(phone_numbers)} phone numbers da BM {getattr(whatsapp_service, '_business_account_id', 'FALLBACK')}")
             return jsonify({'phone_numbers': phone_numbers})
         
-        # Fallback: buscar diretamente da Business Manager conhecida
-        access_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
+        # Fallback: buscar diretamente usando token da sessão ou ambiente  
+        access_token = session.get('whatsapp_access_token') or os.getenv('WHATSAPP_ACCESS_TOKEN')
         if not access_token:
             return jsonify({'error': 'Token não configurado'}), 400
         
@@ -432,8 +432,8 @@ def get_phone_numbers():
             'Content-Type': 'application/json'
         }
         
-        # Usar BM ID conhecido que funciona
-        business_manager_id = request.args.get('business_manager_id', '1079986203913095').strip()
+        # Usar BM ID da sessão ou do parâmetro (sem hardcode da BM antiga)
+        business_manager_id = request.args.get('business_manager_id') or session.get('whatsapp_business_manager_id', '').strip()
         
         # Buscar phone numbers da BM
         if business_manager_id:
