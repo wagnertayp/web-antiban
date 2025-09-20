@@ -74,11 +74,21 @@ EVITAR:
                 max_completion_tokens=200  # Respostas curtas e objetivas
             )
             
+            # 🔍 DEBUG: Log completo da resposta OpenAI
+            logging.info(f"🔍 OpenAI response completo: {response}")
+            logging.info(f"🔍 Choices disponíveis: {len(response.choices)}")
+            
+            if response.choices:
+                first_choice = response.choices[0]
+                logging.info(f"🔍 Choice[0]: {first_choice}")
+                logging.info(f"🔍 Message: {first_choice.message}")
+                logging.info(f"🔍 Message content: '{first_choice.message.content}'")
+            
             ai_response = response.choices[0].message.content
             
             # Verificar se a resposta não está vazia ou None
             if not ai_response or ai_response.strip() == "":
-                logging.warning("🚨 OpenAI retornou resposta vazia, usando fallback")
+                logging.error("🚨 OpenAI retornou resposta vazia! Detalhes da resposta acima.")
                 return ShopeeDeliveryAssistant._elaborate_specific_response(user_message)
             
             logging.info(f"🤖 OpenAI respondeu: {ai_response[:100]}...")
