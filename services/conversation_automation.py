@@ -620,8 +620,15 @@ class ConversationAutomation:
                     }
                 ]
                 
-                # Enviar mensagem com botões
-                success2, result2 = self._send_interactive_buttons(conv_state.phone_number, second_message, buttons)
+                # Enviar mensagem com botões (usando API direta)
+                success2, result2 = self.whatsapp_api.send_interactive_buttons(
+                    conv_state.phone_number,
+                    second_message,
+                    [
+                        {"id": "pending_doubt_yes", "title": "✅ SIM - Tenho dúvidas"},
+                        {"id": "pending_doubt_no", "title": "❌ NÃO - Sem dúvidas"}
+                    ]
+                )
                 
                 if success2:
                     self._save_outbound_message(conversation_id, second_message + " [Com botões: SIM/NÃO]", result2.get('messageId'))
@@ -631,17 +638,12 @@ class ConversationAutomation:
                     logging.info(f"✅ Fluxo PENDING iniciado para {conv_state.phone_number}: {nome[:20]}...")
                     return True
                 else:
-                    # Fallback para texto simples
-                    fallback_message = (
-                        second_message + "\n\n"
-                        "👆 Responda:\n"
-                        "1️⃣ Digite *SIM* se tem dúvidas\n"
-                        "2️⃣ Digite *NAO* se não tem dúvidas"
-                    )
+                    # Se falhar, tenta enviar apenas a mensagem básica
+                    basic_message = second_message + "\n\n🤔 Pode me responder SIM ou NÃO?"
                     
-                    success3, result3 = self.whatsapp_api.send_text_message(conv_state.phone_number, fallback_message)
+                    success3, result3 = self.whatsapp_api.send_text_message(conv_state.phone_number, basic_message)
                     if success3:
-                        self._save_outbound_message(conversation_id, fallback_message, result3.get('messageId'))
+                        self._save_outbound_message(conversation_id, basic_message, result3.get('messageId'))
                         conv_state.update_state('pending_questions')
                         return True
             
