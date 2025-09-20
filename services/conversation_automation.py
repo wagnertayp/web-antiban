@@ -629,14 +629,14 @@ class ConversationAutomation:
                             'type': 'reply',
                             'reply': {
                                 'id': 'pending_doubt_yes',
-                                'title': '✅ SIM - Tenho dúvidas'
+                                'title': '✅ SIM'
                             }
                         },
                         {
                             'type': 'reply',
                             'reply': {
                                 'id': 'pending_doubt_no',
-                                'title': '❌ NÃO - Sem dúvidas'
+                                'title': '❌ NÃO'
                             }
                         }
                     ]
