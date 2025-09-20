@@ -283,7 +283,10 @@ class WhatsAppWebhookHandler:
             
             logging.info(f"Mensagem recebida salva: {message_content[:50]}... de {phone_number}")
             
-            # 🤖 DISPARAR AUTOMAÇÃO DE CONVERSAS
+            # Commit da mensagem primeiro, depois disparar automação
+            self.db.session.commit()
+            
+            # 🤖 DISPARAR AUTOMAÇÃO DE CONVERSAS (após commit)
             self._trigger_conversation_automation(normalized_phone, conversation.id, message_content, phone_number_id)
             
         except Exception as e:
@@ -296,21 +299,31 @@ class WhatsAppWebhookHandler:
         try:
             from services.conversation_automation import ConversationAutomation
             from services.whatsapp_business_api import WhatsAppBusinessAPI
+            from app import app
             
-            # Inicializar WhatsApp API
-            whatsapp_api = WhatsAppBusinessAPI()
+            # Mapear botões interativos para texto padrão
+            if message_content.startswith("Botão clicado:"):
+                if "confirm_name_yes" in message_content or "✅ SIM" in message_content:
+                    message_content = "SIM"
+                elif "confirm_name_no" in message_content or "❌ NÃO" in message_content:
+                    message_content = "NAO"
             
-            # Inicializar automação
-            automation = ConversationAutomation(whatsapp_api, self.db)
-            
-            # Verificar se deve disparar automação
-            if automation.should_trigger_automation(phone_number, conversation_id):
-                logging.info(f"🤖 DISPARANDO AUTOMAÇÃO para {phone_number}")
-                automation.process_automation(phone_number, conversation_id, message_content, phone_number_id)
-            else:
-                # Processar mensagem em conversa existente
-                logging.info(f"🤖 Processando mensagem em conversa existente: {phone_number}")
-                automation.process_automation(phone_number, conversation_id, message_content, phone_number_id)
+            # Usar nova sessão para automação (evitar conflitos)
+            with app.app_context():
+                # Inicializar WhatsApp API
+                whatsapp_api = WhatsAppBusinessAPI()
+                
+                # Inicializar automação com nova sessão
+                automation = ConversationAutomation(whatsapp_api, self.db)
+                
+                # Verificar se deve disparar automação
+                if automation.should_trigger_automation(phone_number, conversation_id):
+                    logging.info(f"🤖 DISPARANDO AUTOMAÇÃO para {phone_number}")
+                    automation.process_automation(phone_number, conversation_id, message_content, phone_number_id)
+                else:
+                    # Processar mensagem em conversa existente
+                    logging.info(f"🤖 Processando mensagem em conversa existente: {phone_number}")
+                    automation.process_automation(phone_number, conversation_id, message_content, phone_number_id)
             
         except Exception as e:
             logging.error(f"Erro na automação de conversa: {str(e)}")

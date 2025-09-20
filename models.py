@@ -209,6 +209,38 @@ class ChatMessage(db.Model):
         
         db.session.commit()
 
+class ConversationState(db.Model):
+    """Estado persistente de conversas para automação"""
+    id = db.Column(db.Integer, primary_key=True)
+    phone_number = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    current_state = db.Column(db.String(50), default='initial')  # initial, waiting_cpf, confirming_name
+    client_data = db.Column(db.Text)  # JSON com dados do cliente da API
+    created_at = db.Column(db.DateTime, default=brasilia_now)
+    updated_at = db.Column(db.DateTime, default=brasilia_now, onupdate=brasilia_now)
+    
+    @staticmethod
+    def get_or_create(phone_number: str):
+        """Busca ou cria estado de conversa"""
+        state = ConversationState.query.filter_by(phone_number=phone_number).first()
+        if not state:
+            state = ConversationState(phone_number=phone_number)
+            db.session.add(state)
+            db.session.commit()
+        return state
+    
+    def update_state(self, new_state: str, client_data: str = None):
+        """Atualiza estado da conversa"""
+        self.current_state = new_state
+        if client_data:
+            self.client_data = client_data
+        self.updated_at = brasilia_now()
+        db.session.commit()
+    
+    def clear_state(self):
+        """Limpa estado da conversa"""
+        db.session.delete(self)
+        db.session.commit()
+
 class Proxy(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
