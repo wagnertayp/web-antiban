@@ -279,8 +279,11 @@ class ConversationAutomation:
                 # Nome confirmado - extrair primeiro nome dos dados salvos
                 import json
                 client_data = json.loads(conv_state.client_data) if conv_state.client_data else {}
-                full_name = client_data.get('nome', 'Usuário')
-                first_name = full_name.split()[0] if full_name else 'Usuário'
+                
+                # Extrair nome do campo cliente.nome
+                cliente_info = client_data.get('cliente', {})
+                full_name = cliente_info.get('nome', 'Usuário')
+                first_name = full_name.split()[0] if full_name and full_name != 'Usuário' else 'Usuário'
                 
                 success_message = (
                     f"Perfeito {first_name}! Nome confirmado.\n\n"
