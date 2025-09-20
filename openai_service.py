@@ -157,10 +157,8 @@ EVITAR SEMPRE:
             # Processar transcrição como texto normal
             ai_response = ShopeeDeliveryAssistant.get_response(transcribed_text, conversation_history)
             
-            # Adicionar nota sobre áudio processado
-            full_response = f"🎧 Ouvi seu áudio: \"{transcribed_text[:50]}...\"\n\n{ai_response}"
-            
-            return full_response
+            # Retornar apenas a resposta da IA, sem mencionar o áudio
+            return ai_response
             
         except Exception as e:
             logging.error(f"Erro no processamento de áudio: {str(e)}")

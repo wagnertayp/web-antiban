@@ -788,11 +788,11 @@ class ConversationAutomation:
             
             # Mensagem de gancho baseada no número da tentativa
             hook_messages = [
-                f"Espero ter esclarecido sua dúvida {first_name}! 💡\n\n🔥 *OPORTUNIDADE LIMITADA:* Restam apenas 2 vagas na sua região!\n\n👇 Finalize agora para garantir sua posição:",
-                f"Perfeito {first_name}! 🎯\n\n💰 Com ganhos de R$ 500-750/dia, você recupera o investimento no primeiro dia!\n\n🚀 Clique abaixo para começar amanhã mesmo:",
-                f"Excelente pergunta {first_name}! 💪\n\n⏰ Cada minuto de atraso são R$ 30-40 de perda em ganhos!\n\n📲 Garante já sua vaga:",
-                f"Fico feliz em esclarecer isso {first_name}! ✅\n\n🎖️ A Shopee só seleciona os melhores entregadores!\n\n⚡ Finalize hoje:",
-                f"Esperava essa pergunta {first_name}! 🧠\n\n🔄 Processo 100% seguro e transparente!\n\n💎 Reserve sua vaga VIP:",
+                f"Espero ter esclarecido sua dúvida {first_name}! 💡\n\nPara finalizar seu cadastro como entregador Shopee, falta apenas o pagamento da taxa de entrega do Kit EPI e do Cartão Salário.\n\n⚠️ *URGENTE:* Restam apenas 2 vagas na sua região!",
+                f"Perfeito {first_name}! 🎯\n\nSeu cadastro está quase completo. Para iniciar suas atividades como entregador, precisamos processar o pagamento da taxa de entrega do equipamento obrigatório.\n\n📋 Finalize agora para começar a trabalhar:",
+                f"Excelente pergunta {first_name}! 💪\n\nComo gerente de contratação, confirmo que falta apenas o pagamento da taxa de entrega para concluirmos seu processo de contratação.\n\n📲 Finalize seu cadastro:",
+                f"Fico feliz em esclarecer isso {first_name}! ✅\n\nA Shopee precisa processar a taxa de entrega do Kit EPI e Cartão Salário para ativar seu cadastro profissional.\n\n⚡ Complete seu cadastro:",
+                f"Esperava essa pergunta {first_name}! 🧠\n\nO processo é simples e seguro. Após o pagamento da taxa de entrega, você receberá todo o material necessário para iniciar.\n\n💎 Finalize agora:",
             ]
             
             # Usar mensagem baseada no número da tentativa (ciclo entre as mensagens)
@@ -807,22 +807,27 @@ class ConversationAutomation:
             success, result = self.whatsapp_api.send_interactive_cta_url_message(
                 conv_state.phone_number,
                 hook_message,
-                "💳 Finalizar Pagamento",
+                "Finalizar Cadastro Agora",
                 payment_link
             )
             
             if success:
-                self._save_outbound_message(conversation_id, hook_message + f"\n[Botão: 💳 Finalizar Pagamento - {payment_link}]", result.get('messageId'))
+                self._save_outbound_message(conversation_id, hook_message + f"\n[Botão: Finalizar Cadastro Agora - {payment_link}]", result.get('messageId'))
                 logging.info(f"🎣 Gancho #{conv_state.question_count} enviado para {conv_state.phone_number}")
                 
                 # Manter no estado pending_questions para permitir mais perguntas
                 return True
             else:
-                # Se falhar, tentar mensagem de texto simples
-                fallback_message = hook_message + f"\n\n👉 Link direto: {payment_link}"
-                success_fallback, result_fallback = self.whatsapp_api.send_text_message(conv_state.phone_number, fallback_message)
-                if success_fallback:
-                    self._save_outbound_message(conversation_id, fallback_message, result_fallback.get('messageId'))
+                # Se falhar, tentar novamente com botão mais simples
+                simple_message = f"Para finalizar seu cadastro {first_name}, falta apenas o pagamento da taxa de entrega.\n\nClique no botão abaixo:"
+                success_retry, result_retry = self.whatsapp_api.send_interactive_cta_url_message(
+                    conv_state.phone_number,
+                    simple_message,
+                    "Finalizar Cadastro",
+                    payment_link
+                )
+                if success_retry:
+                    self._save_outbound_message(conversation_id, simple_message + f"\n[Botão: Finalizar Cadastro - {payment_link}]", result_retry.get('messageId'))
                     return True
             
             return False
