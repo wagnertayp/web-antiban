@@ -318,8 +318,9 @@ class WhatsAppWebhookHandler:
                 valid_token = getattr(app, '_current_valid_token', None)
                 if valid_token:
                     logging.info(f"🔑 Usando token válido armazenado: {valid_token[-6:]}")
-                    whatsapp_api.access_token = valid_token
-                    whatsapp_api.phone_number_id = phone_number_id
+                    whatsapp_api._access_token = valid_token
+                    whatsapp_api._headers = {'Authorization': f'Bearer {valid_token}', 'Content-Type': 'application/json'}
+                    whatsapp_api._phone_number_id = phone_number_id
                 else:
                     logging.warning("⚠️ Nenhum token válido encontrado, usando padrão")
                 
