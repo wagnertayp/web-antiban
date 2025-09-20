@@ -731,8 +731,6 @@
                     });
                     
                     if (response.ok) {
-                        input.value = '';
-                        input.style.height = 'auto';
                         await this.loadMessages(this.currentConversationId);
                         await this.loadConversations(); // Atualizar lista
                     } else {
@@ -743,6 +741,9 @@
                     // ✅ SILENCIAR ERRO - Não incomodar o usuário
                     console.debug('Erro ao enviar mensagem:', error);
                 } finally {
+                    // ✅ SEMPRE LIMPAR CAMPO - Independente de erro
+                    input.value = '';
+                    input.style.height = 'auto';
                     sendBtn.disabled = false;
                     input.disabled = false;
                     input.focus();
