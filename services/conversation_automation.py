@@ -705,10 +705,33 @@ class ConversationAutomation:
             from openai_service import ShopeeDeliveryAssistant
             from models import ChatMessage
             
-            # Incrementar contador de perguntas
-            conv_state.question_count = (conv_state.question_count or 0) + 1
+            # Verificar limite de 15 mensagens da IA para controle de tokens
+            current_ai_count = conv_state.question_count or 0
+            AI_MESSAGE_LIMIT = 15
             
-            logging.info(f"🤖 Processando pergunta #{conv_state.question_count} via OpenAI para {conv_state.phone_number}")
+            if current_ai_count >= AI_MESSAGE_LIMIT:
+                logging.info(f"🚫 LIMITE DE IA ATINGIDO ({AI_MESSAGE_LIMIT} mensagens) para {conv_state.phone_number}")
+                
+                # Resposta de fallback sem usar IA
+                fallback_message = (
+                    "Obrigada pelas perguntas! 😊\n\n"
+                    "Para continuar conversando e esclarecer mais dúvidas, "
+                    "vamos finalizar seu cadastro agora. "
+                    "Com o cadastro ativo, teremos um canal direto para suporte!\n\n"
+                    "Vamos prosseguir? 🚀"
+                )
+                
+                success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, fallback_message)
+                if success:
+                    self._save_outbound_message(conversation_id, fallback_message, result.get('messageId'))
+                    return self._send_pending_payment_link(conv_state, conversation_id, phone_number_id)
+                
+                return False
+            
+            # Incrementar contador de perguntas
+            conv_state.question_count = current_ai_count + 1
+            
+            logging.info(f"🤖 Processando pergunta #{conv_state.question_count}/{AI_MESSAGE_LIMIT} via OpenAI para {conv_state.phone_number}")
             
             # Buscar a última mensagem para verificar se é áudio
             last_message = ChatMessage.query.filter_by(
@@ -748,19 +771,18 @@ class ConversationAutomation:
             if success:
                 self._save_outbound_message(conversation_id, f"🤖 IA: {ai_response}", result.get('messageId'))
                 
-                # Incrementar contador APENAS após envio bem-sucedido
-                conv_state.question_count += 1
+                # Salvar contador já incrementado no início do método
                 self.db.session.commit()
                 
                 # 🚀 SEMPRE enviar botão de pagamento após cada resposta da IA
                 import time
                 time.sleep(1)  # Pequena pausa para parecer natural
                 
-                # Verificar se deve finalizar completamente (após 10 tentativas)
-                if conv_state.question_count >= 10:
+                # Verificar se deve finalizar completamente (após atingir limite de IA)
+                if conv_state.question_count >= AI_MESSAGE_LIMIT:
                     return self._send_pending_payment_link(conv_state, conversation_id, phone_number_id)
                 
-                # Para tentativas 1-9: Enviar mensagem de gancho + botão
+                # Para tentativas 1-14: Enviar mensagem de gancho + botão
                 return self._send_hook_with_payment_button(conv_state, conversation_id, phone_number_id)
                 
                 # Código antigo removido - agora sempre vai para pagamento
