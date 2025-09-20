@@ -54,11 +54,11 @@ class WhatsAppBusinessAPI:
         # FORCE UPDATE: Always update token from environment
         if new_token:
             self._access_token = new_token
-            logging.info(f"🔄 Token forçadamente atualizado: {new_token[:50]}...")
+            logging.info(f"🔄 Token atualizado: ...{new_token[-4:]}")
             
             # DEBUG: Log masked token for security
-            masked_token = new_token[:20] + "..." + new_token[-10:] if len(new_token) > 30 else new_token[:10] + "..."
-            logging.info(f"🔍 Token ativo (mascarado): {masked_token}")
+            masked_token = "..." + new_token[-4:] if len(new_token) > 4 else "****"
+            logging.info(f"🔍 Token ativo: {masked_token}")
         
         # Auto-detect Business Manager and Phone based on token
             
@@ -70,69 +70,13 @@ class WhatsAppBusinessAPI:
                 self._has_error_135000 = discovered.get('has_error_135000', False)
                 logging.info(f"AUTO-DESCOBERTO: BM {self._business_account_id} - {len(self._available_phones)} phones")
             else:
-                # Fallback para detecção baseada no padrão do token
-                if 'EAAZAPHnka8gYBPJPFyRsoiLBPOqtxjGnA2YGFy4ZCWbKzh5xP' in new_token:
-                    # BM Cleide atualizada - CONFIRMADO: erro #135000 sistemático mas templates aprovados funcionais
-                    self._business_account_id = "580318035149016"
-                    self._available_phones = ["710232202173614", "739188885941111", "709194588941211", "767158596471686"]
-                    self._has_error_135000 = True  # Flag para ativar fallback automático
-                    logging.info("FALLBACK: BM Cleide (580318035149016) - 4 phones Quality GREEN, erro #135000 sistemático")
-                elif 'EAAHUCvWVsdgBP' in new_token:
-                    # BM Iara - CONFIRMADO: 2089992404820473 com 20 phones funcionando
-                    self._business_account_id = "2089992404820473"
-                    self._available_phones = ["725492557312328", "800312496489716", "732911983238956", "726853233845655", "766893406842436"]
-                    self._has_error_135000 = False  # Templates funcionam direto
-                    logging.info("FALLBACK: BM Iara (2089992404820473) - 20 phones Quality GREEN, templates diretos")
-                elif 'EAAHUCvWVsdgBPA64LaqP5ZC' in new_token:
-                    # BM Iara - nova Business Manager com 20 números
-                    self._business_account_id = "2089992404820473"
-                    self._available_phones = ["725492557312328", "800312496489716", "776788602173980", "774576132396207", "764495823408049", "764138826774184", "749599158230143", "747868138404614", "746367015221228", "736306482898341", "732911983238956", "728240807037686", "721222711076869", "718291801369739", "712294161968633", "706148559252459", "698088016726677", "674341985771514", "672331669304211", "670736396133662"]
-                    self._has_error_135000 = False
-                    logging.info("FALLBACK: BM Iara (2089992404820473) - 20 phones Quality GREEN/UNKNOWN sem erro #135000")
-                elif 'EAAKYElksPsEBP' in new_token:
-                    # BM Jose Carlos - configuração anterior 
-                    self._business_account_id = "639849885789886"
-                    self._available_phones = ["746209145234709", "782640984922130", "775859882269062", "745498515309824", "652047048001128"]
-                    self._has_error_135000 = False
-                    logging.info("FALLBACK: BM Jose Carlos (639849885789886) - 5 phones Quality GREEN sem erro #135000")
-                elif 'EAA9z86lNONYBP' in new_token:
-                    # BM Michele - nova configuração sem erro #135000 (descoberto dinamicamente)
-                    self._business_account_id = "1523966465251146" 
-                    self._available_phones = ["752224571301771", "715028345028798", "708063449062586", "682857414919717", "667340429803430"]
-                    self._has_error_135000 = False
-                    logging.info("FALLBACK: BM Michele (1523966465251146) - 5 phones Quality GREEN sem erro #135000")
-                elif 'EAAJc6cZAxck4BP' in new_token:
-                    # Token Iara - BM 580318035149016 (4 phones verified) - VALIDADO 100%
-                    logging.info("✅ FALLBACK: Token Iara - BM 580318035149016 CONFIRMADA...")
-                    self._business_account_id = "580318035149016"
-                    self._available_phones = ["709194588941211", "767158596471686", "739188885941111", "710232202173614"]
-                    self._has_error_135000 = True  # Flag para ativar fallback automático
-                    logging.info("FALLBACK: BM Iara (580318035149016) - 4 phones Quality GREEN, erro #135000 sistemático")
-                elif 'EAAXSZCgDJ8gI' in new_token:
-                    # Token Pamela Lins - BM 1243060407061288 (20 phones verified) - VALIDADO 100%
-                    logging.info("✅ FALLBACK: Token Pamela Lins - BM 1243060407061288 CONFIRMADA...")
-                    self._business_account_id = "1243060407061288"
-                    self._available_phones = ["787797057740522", "776071108916081", "762657266924258", "756135447578794", "748265028368355", "745362661989536", "741949852336884", "741147869082998", "733161399878488", "702987286234741", "702652176269321", "696567276878368", "696418036895822", "679750695229830", "674562665749367", "668432953027797", "667813599757688", "654767824396713", "653512801188664", "647999318406671"]
-                    self._has_error_135000 = False
-                    # BM 1243060407061288 (Pamela Lins) - Templates em INGLÊS
-                    self._approved_templates = ["kleber_template_1753741080_9db55e1f", "kleber_template_1753740861_1352659a", "kleber_template_1753740788_105c5281", "kleber_template_1753740673_863dbbd4", "kleber_template_1753740646_1b1e0fa5", "kleber_template_1753740590_b8149029", "kleber_template_1753740575_e78517c8", "kleber_template_1753740559_6a596614", "maria_template_1753740220_12264620", "maria_template_1753740069_92fd4c2d"]
-                    # IMPORTANT: All templates are in ENGLISH (en) language
-                    logging.info("✅ FALLBACK: BM Pamela Lins VALIDADA - 20 phones + 10 templates APROVADOS funcionando 100%")
-                elif 'EAAKO6zbFUSwBP' in new_token:
-                    # Nova BM conectada pelo usuário - Business Account ID: 721254414139146
-                    logging.info("✅ NOVA BM DETECTADA: Business Account ID 721254414139146")
-                    self._business_account_id = "721254414139146"
-                    # Tentar descobrir phones desta BM específica
-                    discovered = self._discover_phones_from_bm("721254414139146")
-                    if discovered:
-                        self._available_phones = discovered
-                        self._has_error_135000 = False
-                        logging.info(f"✅ PHONES DESCOBERTOS DA NOVA BM: {len(self._available_phones)} números encontrados")
-                    else:
-                        # Usar phone number ID que foi mencionado nos logs
-                        self._available_phones = ["693473723855916"]
-                        self._has_error_135000 = False
-                        logging.info("📱 USANDO PHONE NUMBER ID PADRÃO DA NOVA BM: 693473723855916")
+                # Descoberta dinâmica via API apenas - sem números hardcoded
+                discovered = self._discover_business_manager()
+                if discovered:
+                    self._business_account_id = discovered['business_account_id']
+                    self._available_phones = discovered['phone_numbers']
+                    self._has_error_135000 = discovered.get('has_error_135000', False)
+                    logging.info(f"📱 DESCOBERTO VIA API: {len(self._available_phones)} números da BM {self._business_account_id}")
                 else:
                     # Fallback para BM configurada via secrets
                     bm_from_env = os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID')
@@ -140,24 +84,25 @@ class WhatsAppBusinessAPI:
                         logging.info(f"📍 USANDO BM DAS SECRETS: {bm_from_env}")
                         self._business_account_id = bm_from_env
                         # Tentar descobrir phones desta BM específica
-                        discovered = self._discover_phones_from_bm(bm_from_env)
-                        if discovered:
-                            self._available_phones = discovered
+                        discovered_phones = self._discover_phones_from_bm(bm_from_env)
+                        if discovered_phones:
+                            self._available_phones = discovered_phones
                             self._has_error_135000 = False
                             logging.info(f"✅ PHONES DESCOBERTOS DA BM: {len(self._available_phones)} números encontrados")
                         else:
-                            # Fallback com phones comuns se não conseguir descobrir
-                            self._available_phones = ["693473723855916"]
+                            # Sem fallback - usar seleção do usuário apenas
+                            self._available_phones = []
                             self._has_error_135000 = False
-                            logging.info(f"📱 USANDO PHONE PADRÃO DA BM {bm_from_env}")
+                            logging.warning(f"📱 NENHUM PHONE DESCOBERTO DA BM {bm_from_env} - USAR SELEÇÃO DO USUÁRIO")
                     else:
-                        # Fallback final
-                        logging.warning("⚠️ NENHUMA BM RECONHECIDA - USANDO FALLBACK")
-                        self._business_account_id = "721254414139146"
-                        self._available_phones = ["693473723855916"]
+                        # Sem fallback final - depender da seleção do usuário
+                        logging.warning("⚠️ NENHUMA BM RECONHECIDA - USAR SELEÇÃO DO USUÁRIO")
+                        self._business_account_id = None
+                        self._available_phones = []
                         self._has_error_135000 = False
             
-            new_phone_id = self._available_phones[0]
+            # Usar primeiro phone disponível ou None se não há phones
+            new_phone_id = self._available_phones[0] if self._available_phones else None
                 
         elif new_token:
             # ALWAYS FORCE FRESH - NO CACHE EVER
@@ -186,39 +131,8 @@ class WhatsAppBusinessAPI:
                 logging.warning("WhatsApp credentials not available")
     
     def _get_cached_fallback(self):
-        """Return cached fallback based on current token pattern"""
-        token = self._access_token or os.getenv('WHATSAPP_ACCESS_TOKEN') or ''
-        
-        if 'EAAHUCvWVsdgBP' in token:
-            return {
-                'business_account_id': "2089992404820473",
-                'phone_numbers': ["725492557312328", "800312496489716", "776788602173980", "774576132396207", "764495823408049", "764138826774184", "749599158230143", "747868138404614", "746367015221228", "736306482898341", "732911983238956", "728240807037686", "721222711076869", "718291801369739", "712294161968633", "706148559252459", "698088016726677", "674341985771514", "672331669304211", "670736396133662"],
-                'has_error_135000': False
-            }
-        elif 'EAAKYElksPsEBP' in token and 'N6szHJ' in token:
-            return {
-                'business_account_id': "639849885789886",
-                'phone_numbers': ["743171782208180", "696547163548546"],
-                'has_error_135000': False
-            }
-        elif 'EAAKYElksPsEBP' in token:
-            return {
-                'business_account_id': "639849885789886",
-                'phone_numbers': ["746209145234709", "782640984922130", "775859882269062", "745498515309824", "652047048001128"],
-                'has_error_135000': False
-            }
-        elif 'EAA9z86lNONYBP' in token:
-            return {
-                'business_account_id': "1523966465251146",
-                'phone_numbers': ["752224571301771", "715028345028798", "708063449062586", "682857414919717", "667340429803430"],
-                'has_error_135000': False
-            }
-        elif 'EAAJc6cZAxck4BP' in token:
-            return {
-                'business_account_id': "580318035149016",
-                'phone_numbers': ["709194588941211", "767158596471686", "739188885941111", "710232202173614"],
-                'has_error_135000': True
-            }
+        """Return cached fallback based on current token pattern - DEPRECATED: Use dynamic discovery instead"""
+        # Todos os números hardcoded foram removidos - usar apenas descoberta dinâmica via API
         return None
 
     def _discover_business_manager(self) -> Optional[Dict]:
@@ -235,6 +149,7 @@ class WhatsAppBusinessAPI:
             # Try to get WhatsApp Business Accounts directly
             try:
                 import services.proxy_service as proxy_module
+                proxy_service = proxy_module.get_proxy_service()
                 me_response = proxy_service.get(f"{self.base_url}/me", headers=headers, timeout=10)
                 if me_response.status_code == 200:
                     me_data = me_response.json()
@@ -284,6 +199,7 @@ class WhatsAppBusinessAPI:
             
             # Try to get business account from me endpoint
             import services.proxy_service as proxy_module
+            proxy_service = proxy_module.get_proxy_service()
             me_response = proxy_service.get(f"{self.base_url}/me", headers=headers, timeout=10)
             if me_response.status_code != 200:
                 return None
@@ -306,6 +222,7 @@ class WhatsAppBusinessAPI:
             
             for endpoint in possible_endpoints:
                 try:
+                    proxy_service = proxy_module.get_proxy_service()
                     response = proxy_service.get(endpoint, headers=headers, timeout=10)
                     if response.status_code == 200:
                         data = response.json()
@@ -323,6 +240,7 @@ class WhatsAppBusinessAPI:
                 # Sometimes the phone numbers are directly accessible
                 try:
                     # Try to get WhatsApp Business accounts directly
+                    proxy_service = proxy_module.get_proxy_service()
                     waba_response = proxy_service.get(f"{self.base_url}/me?fields=whatsapp_business_accounts", headers=headers, timeout=10)
                     if waba_response.status_code == 200:
                         waba_data = waba_response.json()
@@ -339,6 +257,7 @@ class WhatsAppBusinessAPI:
                 if current_phone_id and len(current_phone_id) > 10:
                     # Try using it as business account ID
                     try:
+                        proxy_service = proxy_module.get_proxy_service()
                         phones_response = proxy_service.get(f"{self.base_url}/{current_phone_id}/phone_numbers", headers=headers, timeout=10)
                         if phones_response.status_code == 200:
                             phones_data = phones_response.json()
@@ -356,6 +275,7 @@ class WhatsAppBusinessAPI:
                 return None
             
             # Now get phone numbers from business account
+            proxy_service = proxy_module.get_proxy_service()
             phones_response = proxy_service.get(f"{self.base_url}/{business_account_id}/phone_numbers", headers=headers, timeout=10)
             if phones_response.status_code == 200:
                 phones_data = phones_response.json()
