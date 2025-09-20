@@ -1,0 +1,80 @@
+Como funciona a configuração
+
+No App da Meta for Developers, em Webhooks, você coloca:
+
+Callback URL: sua URL pública (ex.: https://meusite.com/webhook)
+
+Verify Token: o token que você definiu (ex.: meu_token_123)
+
+O WhatsApp vai fazer uma requisição GET para sua URL, com parâmetros hub.mode, hub.challenge, hub.verify_token.
+
+Seu servidor precisa responder com o valor de hub.challenge se o verify_token bater.
+
+Isso confirma a assinatura.
+
+Depois disso, sempre que um usuário mandar mensagem para o número da BM, o WhatsApp vai enviar uma requisição POST (JSON) para o seu webhook.
+
+🔹 4. Exemplo de webhook em Node.js (Express)
+import express from "express";
+const app = express();
+
+app.use(express.json());
+
+// GET para validação inicial
+app.get("/webhook", (req, res) => {
+  const verify_token = "meu_token_123"; // seu token
+
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode === "subscribe" && token === verify_token) {
+    res.status(200).send(challenge); // Confirmação
+  } else {
+    res.sendStatus(403);
+  }
+});
+
+// POST para receber mensagens
+app.post("/webhook", (req, res) => {
+  console.log("Webhook recebido:", JSON.stringify(req.body, null, 2));
+
+  // Aqui você trata mensagens, status de entrega, etc.
+  res.sendStatus(200); // sempre responda 200
+});
+
+app.listen(3000, () => console.log("Webhook rodando na porta 3000"));
+
+🔹 5. Exemplo de JSON recebido
+
+Quando alguém manda mensagem para seu número, o WhatsApp envia algo parecido com isso:
+
+{
+  "object": "whatsapp_business_account",
+  "entry": [{
+    "id": "123456789",
+    "changes": [{
+      "value": {
+        "messages": [{
+          "from": "5511999999999",
+          "id": "wamid.HBgM...",
+          "timestamp": "1699999999",
+          "text": { "body": "Oi" },
+          "type": "text"
+        }]
+      },
+      "field": "messages"
+    }]
+  }]
+}
+
+🔹 6. Resposta curta para sua dúvida
+
+👉 Não basta só colocar a URL e o token.
+Você precisa garantir que:
+
+Sua URL responda o GET de verificação com o hub.challenge.
+
+Seu endpoint aceite POST com os eventos e retorne 200 OK.
+
+Depois disso, sim: só colocar a Callback URL + Token já funciona e você começa a receber mensagens enviadas para o número da BM.
