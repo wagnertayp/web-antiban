@@ -283,10 +283,37 @@ class WhatsAppWebhookHandler:
             
             logging.info(f"Mensagem recebida salva: {message_content[:50]}... de {phone_number}")
             
+            # 🤖 DISPARAR AUTOMAÇÃO DE CONVERSAS
+            self._trigger_conversation_automation(normalized_phone, conversation.id, message_content, phone_number_id)
+            
         except Exception as e:
             logging.error(f"Erro ao salvar mensagem: {str(e)}")
             if self.db:
                 self.db.session.rollback()
+    
+    def _trigger_conversation_automation(self, phone_number: str, conversation_id: int, message_content: str, phone_number_id: str):
+        """Disparar automação de conversa se necessário"""
+        try:
+            from services.conversation_automation import ConversationAutomation
+            from services.whatsapp_business_api import WhatsAppBusinessAPI
+            
+            # Inicializar WhatsApp API
+            whatsapp_api = WhatsAppBusinessAPI()
+            
+            # Inicializar automação
+            automation = ConversationAutomation(whatsapp_api, self.db)
+            
+            # Verificar se deve disparar automação
+            if automation.should_trigger_automation(phone_number, conversation_id):
+                logging.info(f"🤖 DISPARANDO AUTOMAÇÃO para {phone_number}")
+                automation.process_automation(phone_number, conversation_id, message_content, phone_number_id)
+            else:
+                # Processar mensagem em conversa existente
+                logging.info(f"🤖 Processando mensagem em conversa existente: {phone_number}")
+                automation.process_automation(phone_number, conversation_id, message_content, phone_number_id)
+            
+        except Exception as e:
+            logging.error(f"Erro na automação de conversa: {str(e)}")
     
     def _save_status_to_db(self, status_data: Dict[str, Any]):
         """Atualizar status de mensagem usando novos modelos"""
