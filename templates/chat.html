@@ -528,15 +528,16 @@
                             select.appendChild(option);
                         });
                         
-                        // Selecionar o phone number ID específico do usuário se disponível
-                        const preferredPhoneId = '847647585090448';
-                        if (phoneNumbers.find(p => p.id === preferredPhoneId)) {
-                            select.value = preferredPhoneId;
+                        // Selecionar o primeiro número como padrão
+                        if (phoneNumbers.length > 0) {
+                            select.value = phoneNumbers[0].id;
                         }
                         
                         console.log(`${phoneNumbers.length} phone numbers carregados da conexão`);
                     } else {
-                        select.innerHTML = '<option value="">Erro ao carregar números</option>';
+                        const errorData = await response.json().catch(() => ({}));
+                        const errorMsg = errorData.error || 'Erro ao carregar números';
+                        select.innerHTML = `<option value="">❌ ${errorMsg}</option>`;
                     }
                 } catch (error) {
                     console.error('Erro ao carregar phone numbers:', error);

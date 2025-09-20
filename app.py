@@ -383,31 +383,10 @@ def get_phone_numbers():
             logging.info(f"Carregados {len(phone_numbers)} phone numbers da BM {getattr(whatsapp_service, '_business_account_id', 'FALLBACK')}")
             return jsonify({'phone_numbers': phone_numbers})
         
-        # Fallback: retornar dados de exemplo quando token não funciona
+        # Fallback: buscar diretamente da Business Manager conhecida
         access_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
         if not access_token:
-            # Dados de exemplo para teste (quando não há token)
-            example_phones = [
-                {
-                    'id': '847647585090448',
-                    'display_phone_number': '+55 61 9999-9999',
-                    'quality_rating': 'GREEN',
-                    'verified_name': 'Teste WhatsApp 1'
-                },
-                {
-                    'id': '693473723855916', 
-                    'display_phone_number': '+55 61 8888-8888',
-                    'quality_rating': 'GREEN',
-                    'verified_name': 'Teste WhatsApp 2'
-                }
-            ]
-            
-            logging.info(f"Usando dados de exemplo: {len(example_phones)} phone numbers")
-            return jsonify({
-                'phone_numbers': example_phones,
-                'business_manager_id': 'EXAMPLE',
-                'total_phones': len(example_phones)
-            })
+            return jsonify({'error': 'Token não configurado'}), 400
         
         headers = {
             'Authorization': f'Bearer {access_token}',
@@ -444,29 +423,15 @@ def get_phone_numbers():
                     'total_phones': len(formatted_phones)
                 })
             else:
-                # Token expirado ou erro, usar dados de exemplo
-                logging.warning(f"Erro ao buscar phones da BM {business_manager_id}: {phones_response.text}")
-                example_phones = [
-                    {
-                        'id': '847647585090448',
-                        'display_phone_number': '+55 61 9999-9999',
-                        'quality_rating': 'GREEN',
-                        'verified_name': 'Teste WhatsApp 1'
-                    },
-                    {
-                        'id': '693473723855916', 
-                        'display_phone_number': '+55 61 8888-8888',
-                        'quality_rating': 'GREEN',
-                        'verified_name': 'Teste WhatsApp 2'
-                    }
-                ]
+                # Token expirado ou erro - retornar erro claro
+                logging.error(f"Erro ao buscar phones da BM {business_manager_id}: {phones_response.text}")
+                error_data = phones_response.json() if phones_response.text else {}
+                error_message = error_data.get('error', {}).get('message', f'Erro HTTP {phones_response.status_code}')
                 
-                logging.info(f"Token expirado - usando dados de exemplo: {len(example_phones)} phone numbers")
-                return jsonify({
-                    'phone_numbers': example_phones,
-                    'business_manager_id': 'FALLBACK',
-                    'total_phones': len(example_phones)
-                })
+                if 'expired' in error_message.lower() or phones_response.status_code == 401:
+                    return jsonify({'error': 'Token WhatsApp expirado - atualize nas configurações'}), 401
+                else:
+                    return jsonify({'error': f'Erro ao buscar números da BM: {error_message}'}), 400
         
         return jsonify({'error': 'Business Manager ID não encontrado'}), 400
         
