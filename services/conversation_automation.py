@@ -19,8 +19,8 @@ class ConversationAutomation:
         self.phone_number_id = phone_number_id
         
         # Configurar phone_number_id na API se fornecido
-        if phone_number_id and hasattr(whatsapp_api, 'phone_number_id'):
-            whatsapp_api.phone_number_id = phone_number_id
+        if phone_number_id:
+            self.whatsapp_api.set_phone_number_id(phone_number_id)
         
     def should_trigger_automation(self, phone_number: str, conversation_id: int) -> bool:
         """Verifica se deve disparar automação para esta conversa"""
