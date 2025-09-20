@@ -685,20 +685,41 @@ class ConversationAutomation:
             return False
     
     def _process_openai_question(self, conv_state, conversation_id: int, message_content: str, phone_number_id: str) -> bool:
-        """Processar pergunta do usuário usando OpenAI"""
+        """Processar pergunta do usuário usando OpenAI (texto ou áudio)"""
         try:
             from openai_service import ShopeeDeliveryAssistant
+            from models import ChatMessage
             
             # Incrementar contador de perguntas
             conv_state.question_count = (conv_state.question_count or 0) + 1
             
             logging.info(f"🤖 Processando pergunta #{conv_state.question_count} via OpenAI para {conv_state.phone_number}")
             
-            # Buscar histórico de conversa se necessário (simplificado por agora)
-            conversation_history = []
+            # Buscar a última mensagem para verificar se é áudio
+            last_message = ChatMessage.query.filter_by(
+                conversation_id=conversation_id,
+                direction='inbound'
+            ).order_by(ChatMessage.created_at.desc()).first()
             
-            # Obter resposta da IA
-            ai_response = ShopeeDeliveryAssistant.get_response(message_content, conversation_history)
+            ai_response = None
+            
+            # Verificar se é mensagem de áudio/voz
+            if last_message and last_message.message_type in ['audio', 'voice'] and last_message.media_url:
+                logging.info(f"🎵 Processando áudio via OpenAI: {last_message.media_url}")
+                
+                # Obter URL de download da mídia e transcrever + responder
+                media_download_url = self._get_media_download_url(last_message.media_url, phone_number_id)
+                if media_download_url:
+                    ai_response = ShopeeDeliveryAssistant.get_response_from_audio(
+                        media_download_url,
+                        self.whatsapp_api._access_token,
+                        []  # conversation_history simplificado
+                    )
+                else:
+                    ai_response = "Desculpe, não consegui processar o áudio. Pode me escrever sua dúvida?"
+            else:
+                # Processar como texto normal
+                ai_response = ShopeeDeliveryAssistant.get_response(message_content, [])
             
             # Enviar resposta da IA
             success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, ai_response)
@@ -706,7 +727,7 @@ class ConversationAutomation:
                 self._save_outbound_message(conversation_id, f"🤖 IA: {ai_response}", result.get('messageId'))
                 
                 # Verificar se deve finalizar e enviar link de pagamento
-                if conv_state.question_count >= 5 or ShopeeDeliveryAssistant.should_finalize_payment(conversation_history, conv_state.question_count):
+                if conv_state.question_count >= 5 or ShopeeDeliveryAssistant.should_finalize_payment([], conv_state.question_count):
                     # Dar uma pausa antes de enviar o link
                     import time
                     time.sleep(2)
@@ -777,3 +798,33 @@ class ConversationAutomation:
         except Exception as e:
             logging.error(f"Erro ao enviar link de pagamento PENDING: {str(e)}")
             return False
+    
+    def _get_media_download_url(self, media_id: str, phone_number_id: str) -> Optional[str]:
+        """Obter URL de download para mídia do WhatsApp usando media_id"""
+        try:
+            import requests
+            
+            # URL para obter informações da mídia
+            media_info_url = f"{self.whatsapp_api.base_url}/{media_id}"
+            
+            headers = {
+                'Authorization': f'Bearer {self.whatsapp_api._access_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            # Buscar informações da mídia
+            response = requests.get(media_info_url, headers=headers, timeout=15)
+            
+            if response.status_code == 200:
+                media_info = response.json()
+                download_url = media_info.get('url')
+                
+                logging.info(f"🎵 URL de download obtida para mídia {media_id}: {download_url[:50]}...")
+                return download_url
+            else:
+                logging.error(f"Erro ao obter URL da mídia {media_id}: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Erro ao processar mídia {media_id}: {str(e)}")
+            return None

@@ -129,6 +129,22 @@ class WhatsAppWebhookHandler:
                 text_data = message.get('text', {})
                 result['content'] = text_data.get('body', '')
                 
+            elif message_type == 'audio':
+                # MENSAGEM DE ÁUDIO recebida
+                audio_data = message.get('audio', {})
+                result['media_url'] = audio_data.get('id')  # ID da mídia para download
+                result['content'] = '[Áudio recebido]'
+                result['mime_type'] = audio_data.get('mime_type', 'audio/ogg')
+                logging.info(f"🎵 ÁUDIO RECEBIDO: {audio_data.get('id')} de {from_number}")
+                
+            elif message_type == 'voice':
+                # MENSAGEM DE VOZ (nota de voz) recebida
+                voice_data = message.get('voice', {})
+                result['media_url'] = voice_data.get('id')  # ID da mídia para download
+                result['content'] = '[Nota de voz recebida]'
+                result['mime_type'] = voice_data.get('mime_type', 'audio/ogg')
+                logging.info(f"🎤 VOZ RECEBIDA: {voice_data.get('id')} de {from_number}")
+                
             elif message_type == 'interactive':
                 # CLIQUE EM BOTÃO INTERATIVO!
                 interactive_data = message.get('interactive', {})
@@ -239,6 +255,7 @@ class WhatsAppWebhookHandler:
             message_content = interaction_data.get('content', '')
             message_type = interaction_data.get('type', 'text')
             whatsapp_message_id = interaction_data.get('message_id')
+            media_url = interaction_data.get('media_url')  # Para áudios e outras mídias
             
             # Processar clique em botão se houver
             button_data = interaction_data.get('button_clicked', {})
@@ -291,6 +308,11 @@ class WhatsAppWebhookHandler:
                 message_type=message_type,
                 webhook_data=json.dumps(interaction_data)
             )
+            
+            # Adicionar URL de mídia se for áudio/voz
+            if media_url and message_type in ['audio', 'voice']:
+                message.media_url = media_url
+                self.db.session.commit()
             
             logging.info(f"Mensagem recebida salva: {message_content[:50]}... de {phone_number}")
             
