@@ -817,7 +817,7 @@ class ConversationAutomation:
             
             if not ai_response or ai_response.strip() == "":
                 logging.error("🚨 AI_RESPONSE VAZIO! Usando fallback urgente")
-                ai_response = "Entendo sua dúvida sobre a taxa! 😊\n\nA taxa de R$ 64,90 é para receber seu Kit EPI obrigatório e ativar seu Cartão Salário. É um processo padrão e necessário para todos os entregadores da Shopee.\n\nVamos finalizar?"
+                ai_response = "Entendo sua dúvida! 😊\n\nO Kit EPI (R$ 64,90) é obrigatório e precisa ser pago via PIX para enviarmos os equipamentos e ativar seu Cartão Salário. É um processo padrão para todos os entregadores da Shopee.\n\nVamos finalizar?"
             
             # Enviar resposta da IA
             success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, ai_response)

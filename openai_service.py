@@ -74,7 +74,10 @@ NUNCA FALE:
 - ÚNICA forma de pagamento: PIX (R$ 64,90)
 - JAMAIS mencione "cartão", "parcelamento", "2x", "desconto em rota"
 - JAMAIS ofereça "escolher forma de pagamento"
+- JAMAIS diga "descontar dos primeiros ganhos", "abater nas entregas"
+- JAMAIS sugira "pagar depois" ou "desconto futuro"
 - Sempre diga: "O pagamento é via PIX (R$ 64,90), é instantâneo e seguro"
+- IMPORTANTE: O pagamento deve ser feito ANTES para enviarmos o kit EPI e cartão
 """
 
     @staticmethod
