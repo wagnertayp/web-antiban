@@ -4,7 +4,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import services.proxy_service as proxy_module
+# Removed proxy - using direct connections for speed
 
 class WhatsAppBusinessAPI:
     """Service for WhatsApp Business API (Facebook Cloud API) integration"""
@@ -148,9 +148,8 @@ class WhatsAppBusinessAPI:
             
             # Try to get WhatsApp Business Accounts directly
             try:
-                import services.proxy_service as proxy_module
-                proxy_service = proxy_module.get_proxy_service()
-                me_response = proxy_service.get(f"{self.base_url}/me", headers=headers, timeout=10)
+                # Removed proxy - using direct connections for speed
+                me_response = requests.get(f"{self.base_url}/me", headers=headers, timeout=10)
                 if me_response.status_code == 200:
                     me_data = me_response.json()
                     user_id = me_data.get('id')
@@ -158,7 +157,7 @@ class WhatsAppBusinessAPI:
                     if user_id:
                         # Try to get WhatsApp Business Accounts
                         waba_url = f"{self.base_url}/{user_id}?fields=whatsapp_business_accounts"
-                        waba_response = proxy_service.get(waba_url, headers=headers, timeout=10)
+                        waba_response = requests.get(waba_url, headers=headers, timeout=10)
                         
                         if waba_response.status_code == 200:
                             waba_data = waba_response.json()
@@ -169,7 +168,7 @@ class WhatsAppBusinessAPI:
                                 
                                 # Get phone numbers for this business account
                                 phones_url = f"{self.base_url}/{business_account_id}/phone_numbers"
-                                phones_response = proxy_service.get(phones_url, headers=headers, timeout=10)
+                                phones_response = requests.get(phones_url, headers=headers, timeout=10)
                                 
                                 if phones_response.status_code == 200:
                                     phones_data = phones_response.json()
@@ -198,9 +197,8 @@ class WhatsAppBusinessAPI:
             headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
             
             # Try to get business account from me endpoint
-            import services.proxy_service as proxy_module
-            proxy_service = proxy_module.get_proxy_service()
-            me_response = proxy_service.get(f"{self.base_url}/me", headers=headers, timeout=10)
+            # Direct API call without proxy for speed
+            me_response = requests.get(f"{self.base_url}/me", headers=headers, timeout=10)
             if me_response.status_code != 200:
                 return None
             
@@ -222,8 +220,7 @@ class WhatsAppBusinessAPI:
             
             for endpoint in possible_endpoints:
                 try:
-                    proxy_service = proxy_module.get_proxy_service()
-                    response = proxy_service.get(endpoint, headers=headers, timeout=10)
+                    response = requests.get(endpoint, headers=headers, timeout=10)
                     if response.status_code == 200:
                         data = response.json()
                         # Look for accounts or businesses data
@@ -307,20 +304,17 @@ class WhatsAppBusinessAPI:
     
     @property
     def access_token(self):
-        """Get access token, refreshing credentials if needed"""
-        self._refresh_credentials()
+        """Get access token - FAST VERSION"""
         return self._access_token
     
     @property
     def phone_number_id(self):
-        """Get phone number ID, refreshing credentials if needed"""
-        self._refresh_credentials()
+        """Get phone number ID - FAST VERSION"""
         return self._phone_number_id
     
     @property
     def headers(self):
-        """Get headers, refreshing credentials if needed"""
-        self._refresh_credentials()
+        """Get headers - FAST VERSION"""
         return self._headers
     
     def set_phone_number_id(self, phone_number_id: str):
@@ -329,9 +323,8 @@ class WhatsAppBusinessAPI:
         logging.info(f"Phone Number ID set to: {phone_number_id}")
     
     def is_configured(self) -> bool:
-        """Check if WhatsApp Business API is properly configured"""
-        # Always refresh credentials before checking
-        self._refresh_credentials()
+        """Check if WhatsApp Business API is properly configured - FAST VERSION"""
+        # Quick check without refresh for speed
         return bool(self._access_token)  # Only check token, phone ID will be set per request
     
     def _check_template_has_button(self, template_name: str) -> bool:
@@ -413,14 +406,17 @@ class WhatsAppBusinessAPI:
             }
     
     def send_text_message(self, phone: str, message: str, phone_number_id: str = None, lead_index: int = None) -> Tuple[bool, Dict]:
-        """Send simple text message"""
-        if not self.is_configured():
-            return False, {'error': 'WhatsApp Business API não configurada'}
+        """Send simple text message - OTIMIZADO PARA VELOCIDADE"""
+        # QUICK CHECK: Skip heavy verifications for speed
+        if not self._access_token:
+            self._refresh_credentials()
+            if not self._access_token:
+                return False, {'error': 'WhatsApp Business API não configurada'}
         
         try:
             # Use provided phone_number_id or default
-            used_phone_id = phone_number_id or self.phone_number_id
-            logging.info(f"📱 Enviando mensagem: phone_number_id={phone_number_id}, self.phone_number_id={self.phone_number_id}, used_phone_id={used_phone_id}")
+            used_phone_id = phone_number_id or self._phone_number_id
+            logging.info(f"📱 Enviando mensagem: phone_number_id={phone_number_id}, self.phone_number_id={self._phone_number_id}, used_phone_id={used_phone_id}")
             
             if not used_phone_id:
                 return False, {'error': 'Phone Number ID não especificado'}
@@ -446,20 +442,8 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"Sending text message payload: {payload}")
             
-            # Always use proxy service for consistent handling, but pass specific proxy for rotation
-            # Get proxy service instance at runtime to avoid import-time binding issues
-            proxy_service = proxy_module.get_proxy_service()
-            if lead_index is not None and proxy_service is not None:
-                proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
-                # Use proxy service with specific proxy for consistent retry and error handling
-                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=30, proxies=proxy_dict)
-            elif proxy_service is not None:
-                # Use standard proxy service for single sends
-                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=30)
-            else:
-                # Fallback: direct request without proxy if proxy service unavailable
-                logging.warning("Proxy service not available, making direct request")
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
+            # Direct API call without proxy for maximum speed
+            response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -713,20 +697,8 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"Payload tentativa: {payload}")
             
-            # Always use proxy service for consistent handling, but pass specific proxy for rotation
-            # Get proxy service instance at runtime to avoid import-time binding issues
-            proxy_service = proxy_module.get_proxy_service()
-            if lead_index is not None and proxy_service is not None:
-                proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
-                # Use proxy service with specific proxy for consistent retry and error handling
-                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=30, proxies=proxy_dict)
-            elif proxy_service is not None:
-                # Use standard proxy service for single sends
-                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=30)
-            else:
-                # Fallback: direct request without proxy if proxy service unavailable
-                logging.warning("Proxy service not available, making direct request")
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
+            # Direct API call without proxy for maximum speed
+            response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -870,20 +842,8 @@ class WhatsAppBusinessAPI:
                 'template': template_payload
             }
             
-            # Always use proxy service for consistent handling, but pass specific proxy for rotation
-            # Get proxy service instance at runtime to avoid import-time binding issues
-            proxy_service = proxy_module.get_proxy_service()
-            if lead_index is not None and proxy_service is not None:
-                proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
-                # Use proxy service with specific proxy for consistent retry and error handling
-                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=30, proxies=proxy_dict)
-            elif proxy_service is not None:
-                # Use standard proxy service for single sends
-                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=30)
-            else:
-                # Fallback: direct request without proxy if proxy service unavailable
-                logging.warning("Proxy service not available, making direct request")
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
+            # Direct API call without proxy for maximum speed
+            response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -1231,20 +1191,8 @@ class WhatsAppBusinessAPI:
                 
                 payload['template']['components'] = components
             
-            # Always use proxy service for consistent handling, but pass specific proxy for rotation
-            # Get proxy service instance at runtime to avoid import-time binding issues
-            proxy_service = proxy_module.get_proxy_service()
-            if lead_index is not None and proxy_service is not None:
-                proxy_dict = proxy_service.get_proxy_for_rotation(lead_index)
-                # Use proxy service with specific proxy for consistent retry and error handling
-                response = proxy_service.make_request('POST', url, json=payload, headers=self.headers, timeout=30, proxies=proxy_dict)
-            elif proxy_service is not None:
-                # Use standard proxy service for single sends
-                response = proxy_service.post(url, json=payload, headers=self.headers, timeout=30)
-            else:
-                # Fallback: direct request without proxy if proxy service unavailable
-                logging.warning("Proxy service not available, making direct request")
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
+            # Direct API call without proxy for maximum speed
+            response = self.session.post(url, json=payload, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()

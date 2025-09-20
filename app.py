@@ -73,9 +73,7 @@ from template_cloner import TemplateCloner
 whatsapp_service = WhatsAppBusinessAPI()
 message_service = MessageService(db, whatsapp_service, app)
 
-# Initialize proxy service with app context
-from services.proxy_service import init_proxy_service
-proxy_service = init_proxy_service(app, db)
+# Proxy service removed for faster direct connections
 
 @app.route('/')
 def index():
