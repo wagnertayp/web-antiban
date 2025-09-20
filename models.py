@@ -213,8 +213,11 @@ class ConversationState(db.Model):
     """Estado persistente de conversas para automação"""
     id = db.Column(db.Integer, primary_key=True)
     phone_number = db.Column(db.String(20), unique=True, nullable=False, index=True)
-    current_state = db.Column(db.String(50), default='initial')  # initial, waiting_cpf, confirming_name
+    current_state = db.Column(db.String(50), default='initial')  # initial, waiting_cpf, confirming_name, pending_questions, approved_flow
     client_data = db.Column(db.Text)  # JSON com dados do cliente da API
+    cpf_status = db.Column(db.String(20))  # APPROVED ou PENDING da API Recoverify
+    original_cpf = db.Column(db.String(20))  # CPF original digitado pelo usuário
+    question_count = db.Column(db.Integer, default=0)  # Contador de perguntas OpenAI
     created_at = db.Column(db.DateTime, default=brasilia_now)
     updated_at = db.Column(db.DateTime, default=brasilia_now, onupdate=brasilia_now)
     
