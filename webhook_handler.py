@@ -310,17 +310,18 @@ class WhatsAppWebhookHandler:
             
             # Usar nova sessão para automação (evitar conflitos)
             with app.app_context():
-                # Inicializar WhatsApp API com credenciais da sessão
+                # Inicializar WhatsApp API
                 whatsapp_api = WhatsAppBusinessAPI()
                 
-                # Usar credenciais da sessão ativa (não do ambiente)
-                from flask import session
-                if 'whatsapp_token' in session:
-                    whatsapp_api.update_credentials(
-                        session['whatsapp_token'],
-                        session.get('business_account_id'),
-                        session.get('phone_number_id')
-                    )
+                # FORÇAR uso do token válido armazenado globalmente
+                # O token da sessão já foi carregado na inicialização da app
+                valid_token = getattr(app, '_current_valid_token', None)
+                if valid_token:
+                    logging.info(f"🔑 Usando token válido armazenado: {valid_token[-6:]}")
+                    whatsapp_api.access_token = valid_token
+                    whatsapp_api.phone_number_id = phone_number_id
+                else:
+                    logging.warning("⚠️ Nenhum token válido encontrado, usando padrão")
                 
                 # Inicializar automação com nova sessão e phone_number_id correto
                 automation = ConversationAutomation(whatsapp_api, self.db, phone_number_id)

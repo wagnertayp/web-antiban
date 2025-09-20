@@ -109,6 +109,9 @@ def load_session_credentials():
                 
                 logging.debug(f"🔄 Token carregado da sessão: ...{session_token[-6:]}")
                 
+                # Armazenar token válido globalmente para automação
+                app._current_valid_token = session_token
+                
             except Exception as e:
                 logging.warning(f"Erro ao carregar credenciais da sessão: {e}")
 
