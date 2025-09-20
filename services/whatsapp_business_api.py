@@ -473,12 +473,22 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"Sending text message payload: {payload}")
             
-            # Direct API call with optimized timeout for speed
+            # 🔐 PROXY PROTEGIDO - Anti-ban da Meta
             try:
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
+                proxy_service = proxy_module.get_proxy_service()
+                if proxy_service:
+                    logging.info("🔐 Enviando mensagem via PROXY para proteção anti-ban")
+                    response = proxy_service.post(url, json=payload, headers=self.headers, timeout=10)
+                else:
+                    logging.warning("⚠️ Proxy indisponível - usando conexão direta")
+                    response = self.session.post(url, json=payload, headers=self.headers, timeout=10)
             except requests.exceptions.Timeout:
-                logging.error("Timeout na conexão - tentando novamente com timeout menor")
-                response = self.session.post(url, json=payload, headers=self.headers, timeout=5)
+                logging.error("Timeout na conexão - tentando novamente")
+                proxy_service = proxy_module.get_proxy_service()
+                if proxy_service:
+                    response = proxy_service.post(url, json=payload, headers=self.headers, timeout=5)
+                else:
+                    response = self.session.post(url, json=payload, headers=self.headers, timeout=5)
             except requests.exceptions.ConnectionError as e:
                 logging.error(f"Erro de conexão: {str(e)}")
                 return False, {'error': f'Erro de conexão: {str(e)}'}
