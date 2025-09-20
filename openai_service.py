@@ -90,7 +90,7 @@ EVITAR SEMPRE:
         except Exception as e:
             logging.error(f"Erro na OpenAI: {str(e)}")
             # Elaborar resposta específica baseada na pergunta
-            return self._elaborate_specific_response(user_message)
+            return ShopeeDeliveryAssistant._elaborate_specific_response(user_message)
     
     @staticmethod
     def transcribe_audio_from_url(audio_url: str, access_token: str) -> str:
@@ -211,7 +211,8 @@ EVITAR SEMPRE:
         index = max(0, min(question_count - 6, len(conversion_messages) - 1))
         return conversion_messages[index]
     
-    def _elaborate_specific_response(self, user_message: str) -> str:
+    @staticmethod
+    def _elaborate_specific_response(user_message: str) -> str:
         """
         Elaborar resposta específica baseada na pergunta do usuário quando OpenAI falha
         """
