@@ -1963,11 +1963,11 @@ def get_conversations():
                 },
                 'last_message': {
                     'content': last_msg.content if last_msg else '',
-                    'created_at': last_msg.created_at.isoformat() if last_msg else '',
+                    'created_at': last_msg.created_at.isoformat() if last_msg and last_msg.created_at else '',
                     'direction': last_msg.direction if last_msg else 'outbound'
                 },
                 'unread_count': conv.unread_count,
-                'updated_at': conv.updated_at.isoformat()
+                'updated_at': conv.updated_at.isoformat() if conv.updated_at else ''
             })
         
         return jsonify({'conversations': result})
@@ -2040,13 +2040,13 @@ def send_message_to_conversation(conversation_id):
             whatsapp_service.set_phone_number_id(conversation.whatsapp_phone_id)
             
             # Enviar mensagem de texto livre (sem template)
-            result = whatsapp_service.send_text_message(
-                to=conversation.contact.phone_number,
+            success, result = whatsapp_service.send_text_message(
+                phone=conversation.contact.phone_number,
                 message=message_content
             )
             
-            if result.get('success'):
-                whatsapp_message_id = result.get('message_id')
+            if success:
+                whatsapp_message_id = result.get('messageId', result.get('whatsAppId', ''))
                 message.update_status('sent', whatsapp_message_id)
                 
                 # Atualizar conversa
@@ -2116,13 +2116,13 @@ def send_text_message_api():
         try:
             whatsapp_service.set_phone_number_id(phone_number_id)
             
-            result = whatsapp_service.send_text_message(
-                to=clean_phone,
+            success, result = whatsapp_service.send_text_message(
+                phone=clean_phone,
                 message=message_content
             )
             
-            if result.get('success'):
-                whatsapp_message_id = result.get('message_id')
+            if success:
+                whatsapp_message_id = result.get('messageId', result.get('whatsAppId', ''))
                 message.update_status('sent', whatsapp_message_id)
                 
                 # Atualizar conversa
