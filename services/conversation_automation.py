@@ -894,7 +894,7 @@ class ConversationAutomation:
             )
             
             if success:
-                self._save_outbound_message(conversation_id, hook_message + f"\n[Botão: Finalizar Cadastro Agora - {payment_link}]", result.get('messageId'))
+                self._save_outbound_message(conversation_id, hook_message + f"\n[Botão: Finalizar Cadastro - {payment_link}]", result.get('messageId'))
                 logging.info(f"🎣 Gancho #{conv_state.question_count} enviado para {conv_state.phone_number}")
                 
                 # Manter no estado pending_questions para permitir mais perguntas
@@ -944,7 +944,7 @@ class ConversationAutomation:
             success, result = self.whatsapp_api.send_interactive_cta_url_message(
                 conv_state.phone_number,
                 final_message,
-                "Finalizar Cadastro Agora",
+                "Finalizar Cadastro",
                 payment_link
             )
             
