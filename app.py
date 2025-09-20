@@ -1382,19 +1382,26 @@ webhook_handler = WhatsAppWebhookHandler(db=db)
 @app.route('/webhook', methods=['GET', 'POST'])
 def whatsapp_webhook():
     """Endpoint para receber webhooks do WhatsApp Business API"""
+    logging.info(f"🔗 WEBHOOK CHAMADO - Método: {request.method}, IP: {request.remote_addr}")
+    
     if request.method == 'GET':
         # Verificação inicial do webhook
         mode = request.args.get('hub.mode')
         token = request.args.get('hub.verify_token')
         challenge = request.args.get('hub.challenge')
         
+        logging.info(f"🔑 WEBHOOK VERIFICATION - Mode: {mode}, Token: {token}, Challenge: {challenge}")
+        
         if mode and token and challenge:
             challenge_response = webhook_handler.verify_webhook(mode, token, challenge)
             if challenge_response:
+                logging.info(f"✅ WEBHOOK VERIFICADO - Challenge: {challenge}")
                 return challenge_response
             else:
+                logging.warning("❌ WEBHOOK VERIFICATION FAILED")
                 return "Forbidden", 403
         else:
+            logging.warning("❌ WEBHOOK VERIFICATION - Missing parameters")
             return "Bad Request", 400
     
     elif request.method == 'POST':
@@ -1403,19 +1410,22 @@ def whatsapp_webhook():
             webhook_data = request.get_json()
             
             if not webhook_data:
+                logging.warning("❌ WEBHOOK POST - No data received")
                 return "Bad Request", 400
             
             # Log do webhook recebido
-            logging.info(f"Webhook recebido: {str(webhook_data)}")
+            logging.info(f"📨 WEBHOOK RECEBIDO: {str(webhook_data)}")
             
             # Processar webhook
             result = webhook_handler.process_webhook(webhook_data)
+            
+            logging.info(f"✅ WEBHOOK PROCESSADO: {result}")
             
             # Responder com status 200 (obrigatório para WhatsApp)
             return jsonify(result), 200
             
         except Exception as e:
-            logging.error(f"Erro ao processar webhook: {str(e)}")
+            logging.error(f"❌ ERRO AO PROCESSAR WEBHOOK: {str(e)}")
             return "Internal Server Error", 500
 
 @app.route('/api/ultra-speed', methods=['POST'])
@@ -1873,46 +1883,7 @@ def proxy_manager():
     return render_template('proxy_manager.html')
 
 # ==================== WEBHOOK ROUTES ====================
-
-@app.route('/webhook', methods=['GET'])
-def webhook_verify():
-    """Webhook verification endpoint for WhatsApp Business API"""
-    try:
-        mode = request.args.get('hub.mode')
-        token = request.args.get('hub.verify_token')
-        challenge = request.args.get('hub.challenge')
-        
-        webhook_handler = WhatsAppWebhookHandler(db=db)
-        result = webhook_handler.verify_webhook(mode, token, challenge)
-        
-        if result:
-            return result
-        else:
-            return 'Forbidden', 403
-            
-    except Exception as e:
-        logging.error(f"Erro na verificação do webhook: {str(e)}")
-        return 'Error', 500
-
-@app.route('/webhook', methods=['POST'])
-def webhook_receive():
-    """Endpoint para receber webhooks do WhatsApp Business API"""
-    try:
-        webhook_data = request.get_json()
-        
-        if not webhook_data:
-            return jsonify({'error': 'No data received'}), 400
-        
-        logging.info(f"Webhook recebido: {webhook_data}")
-        
-        webhook_handler = WhatsAppWebhookHandler(db=db)
-        result = webhook_handler.process_webhook(webhook_data)
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        logging.error(f"Erro ao processar webhook: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+# Os endpoints duplicados foram removidos - usando apenas os endpoints principais
 
 # ==================== CHAT INTERFACE ROUTES ====================
 
