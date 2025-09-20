@@ -620,13 +620,25 @@ class ConversationAutomation:
                     }
                 ]
                 
-                # Enviar mensagem com botões (usando API direta)
-                success2, result2 = self.whatsapp_api.send_interactive_buttons(
+                # Enviar mensagem com botões (usando método interno)
+                success2, result2 = self._send_interactive_buttons(
                     conv_state.phone_number,
                     second_message,
                     [
-                        {"id": "pending_doubt_yes", "title": "✅ SIM - Tenho dúvidas"},
-                        {"id": "pending_doubt_no", "title": "❌ NÃO - Sem dúvidas"}
+                        {
+                            'type': 'reply',
+                            'reply': {
+                                'id': 'pending_doubt_yes',
+                                'title': '✅ SIM - Tenho dúvidas'
+                            }
+                        },
+                        {
+                            'type': 'reply',
+                            'reply': {
+                                'id': 'pending_doubt_no',
+                                'title': '❌ NÃO - Sem dúvidas'
+                            }
+                        }
                     ]
                 )
                 
