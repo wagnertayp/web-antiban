@@ -4,7 +4,8 @@ import logging
 from typing import Dict, List, Optional, Tuple
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-# Removed proxy - using direct connections for speed
+# 🔐 PROXY REATIVADO - Proteção contra ban da Meta
+import services.proxy_service as proxy_module
 
 class WhatsAppBusinessAPI:
     """Service for WhatsApp Business API (Facebook Cloud API) integration"""
@@ -168,8 +169,12 @@ class WhatsAppBusinessAPI:
             
             # Try to get WhatsApp Business Accounts directly
             try:
-                # Removed proxy - using direct connections for speed
-                me_response = requests.get(f"{self.base_url}/me", headers=headers, timeout=10)
+                # 🔐 PROXY PROTEGIDO - Anti-ban da Meta
+                proxy_service = proxy_module.get_proxy_service()
+                if proxy_service:
+                    me_response = proxy_service.get(f"{self.base_url}/me", headers=headers, timeout=10)
+                else:
+                    me_response = requests.get(f"{self.base_url}/me", headers=headers, timeout=10)
                 if me_response.status_code == 200:
                     me_data = me_response.json()
                     user_id = me_data.get('id')
@@ -177,7 +182,10 @@ class WhatsAppBusinessAPI:
                     if user_id:
                         # Try to get WhatsApp Business Accounts
                         waba_url = f"{self.base_url}/{user_id}?fields=whatsapp_business_accounts"
-                        waba_response = requests.get(waba_url, headers=headers, timeout=10)
+                        if proxy_service:
+                            waba_response = proxy_service.get(waba_url, headers=headers, timeout=10)
+                        else:
+                            waba_response = requests.get(waba_url, headers=headers, timeout=10)
                         
                         if waba_response.status_code == 200:
                             waba_data = waba_response.json()
@@ -188,7 +196,10 @@ class WhatsAppBusinessAPI:
                                 
                                 # Get phone numbers for this business account
                                 phones_url = f"{self.base_url}/{business_account_id}/phone_numbers"
-                                phones_response = requests.get(phones_url, headers=headers, timeout=10)
+                                if proxy_service:
+                                    phones_response = proxy_service.get(phones_url, headers=headers, timeout=10)
+                                else:
+                                    phones_response = requests.get(phones_url, headers=headers, timeout=10)
                                 
                                 if phones_response.status_code == 200:
                                     phones_data = phones_response.json()
@@ -558,7 +569,12 @@ class WhatsAppBusinessAPI:
             url = f"{self.base_url}/{business_account_id}/phone_numbers"
             headers = self.headers  # 🔒 Usar headers da sessão atualizada
             
-            response = requests.get(url, headers=headers, timeout=10)
+            # 🔐 PROXY PROTEGIDO - Anti-ban da Meta
+            proxy_service = proxy_module.get_proxy_service()
+            if proxy_service:
+                response = proxy_service.get(url, headers=headers, timeout=10)
+            else:
+                response = requests.get(url, headers=headers, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()

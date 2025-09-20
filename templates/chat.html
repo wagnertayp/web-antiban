@@ -574,11 +574,12 @@
                         this.conversations = data.conversations;
                         this.renderConversations();
                     } else {
-                        this.showError('Erro ao carregar conversas');
+                        // ✅ SILENCIAR ERRO - Não incomodar o usuário
+                        console.debug('Falha ao carregar conversas:', response.status);
                     }
                 } catch (error) {
-                    console.error('Erro ao carregar conversas:', error);
-                    this.showError('Erro de conexão');
+                    // ✅ SILENCIAR ERRO - Não incomodar o usuário  
+                    console.debug('Erro na conexão:', error);
                 }
             }
             
@@ -739,8 +740,8 @@
                         this.showError(error.error || 'Erro ao enviar mensagem');
                     }
                 } catch (error) {
-                    console.error('Erro ao enviar mensagem:', error);
-                    this.showError('Erro de conexão');
+                    // ✅ SILENCIAR ERRO - Não incomodar o usuário
+                    console.debug('Erro ao enviar mensagem:', error);
                 } finally {
                     sendBtn.disabled = false;
                     input.disabled = false;
@@ -798,8 +799,8 @@
                         this.showError(error.error || 'Erro ao enviar mensagem');
                     }
                 } catch (error) {
-                    console.error('Erro ao enviar nova mensagem:', error);
-                    this.showError('Erro de conexão');
+                    // ✅ SILENCIAR ERRO - Não incomodar o usuário
+                    console.debug('Erro ao enviar nova mensagem:', error);
                 } finally {
                     sendBtn.disabled = false;
                 }
@@ -858,8 +859,9 @@
             }
             
             showError(message) {
-                // Simple error display - could be enhanced with toast notifications
-                alert(message);
+                // ✅ SILENCIAR TODAS AS MENSAGENS DE ERRO - Não incomodar o usuário
+                console.debug('Erro (silenciado):', message);
+                // alert(message); // REMOVIDO - era irritante
             }
         }
         

@@ -74,7 +74,9 @@ from template_cloner import TemplateCloner
 whatsapp_service = WhatsAppBusinessAPI()
 message_service = MessageService(db, whatsapp_service, app)
 
-# Proxy service removed for faster direct connections
+# 🔐 PROXY REATIVADO - Proteção contra ban da Meta
+from services.proxy_service import init_proxy_service
+proxy_service = init_proxy_service(app, db)
 
 @app.before_request
 def load_session_credentials():
