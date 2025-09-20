@@ -27,7 +27,13 @@ db = SQLAlchemy(model_class=Base)
 
 # Create the app
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-change-in-production")
+# Require SESSION_SECRET in production
+session_secret = os.environ.get("SESSION_SECRET")
+if not session_secret:
+    # For development, use a default session secret
+    session_secret = "dev-secret-key-for-development-only"
+    logging.warning("Using default session secret for development. Set SESSION_SECRET for production.")
+app.secret_key = session_secret
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Configure the database for Heroku optimization
@@ -1879,6 +1885,269 @@ def test_proxy(proxy_id):
 def proxy_manager():
     """Proxy management page"""
     return render_template('proxy_manager.html')
+
+# ==================== WEBHOOK ROUTES ====================
+
+@app.route('/webhook', methods=['GET'])
+def webhook_verify():
+    """Webhook verification endpoint for WhatsApp Business API"""
+    try:
+        mode = request.args.get('hub.mode')
+        token = request.args.get('hub.verify_token')
+        challenge = request.args.get('hub.challenge')
+        
+        webhook_handler = WhatsAppWebhookHandler(db=db)
+        result = webhook_handler.verify_webhook(mode, token, challenge)
+        
+        if result:
+            return result
+        else:
+            return 'Forbidden', 403
+            
+    except Exception as e:
+        logging.error(f"Erro na verificação do webhook: {str(e)}")
+        return 'Error', 500
+
+@app.route('/webhook', methods=['POST'])
+def webhook_receive():
+    """Endpoint para receber webhooks do WhatsApp Business API"""
+    try:
+        webhook_data = request.get_json()
+        
+        if not webhook_data:
+            return jsonify({'error': 'No data received'}), 400
+        
+        logging.info(f"Webhook recebido: {webhook_data}")
+        
+        webhook_handler = WhatsAppWebhookHandler(db=db)
+        result = webhook_handler.process_webhook(webhook_data)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logging.error(f"Erro ao processar webhook: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# ==================== CHAT INTERFACE ROUTES ====================
+
+@app.route('/chat')
+def chat_interface():
+    """Interface principal de chat - semelhante ao WhatsApp"""
+    return render_template('chat.html')
+
+@app.route('/api/conversations', methods=['GET'])
+def get_conversations():
+    """Buscar todas as conversas ativas"""
+    try:
+        from models import Conversation, Contact, ChatMessage
+        
+        # Buscar conversas ordenadas por última mensagem
+        conversations = db.session.query(Conversation)\
+            .join(Contact)\
+            .outerjoin(ChatMessage, Conversation.last_message_id == ChatMessage.id)\
+            .order_by(Conversation.last_message_at.desc().nullsfirst())\
+            .all()
+        
+        result = []
+        for conv in conversations:
+            # Buscar última mensagem
+            last_msg = ChatMessage.query.filter_by(conversation_id=conv.id)\
+                .order_by(ChatMessage.created_at.desc()).first()
+            
+            result.append({
+                'id': conv.id,
+                'contact': {
+                    'name': conv.contact.name,
+                    'phone_number': conv.contact.phone_number,
+                    'profile_picture_url': conv.contact.profile_picture_url
+                },
+                'last_message': {
+                    'content': last_msg.content if last_msg else '',
+                    'created_at': last_msg.created_at.isoformat() if last_msg else '',
+                    'direction': last_msg.direction if last_msg else 'outbound'
+                },
+                'unread_count': conv.unread_count,
+                'updated_at': conv.updated_at.isoformat()
+            })
+        
+        return jsonify({'conversations': result})
+        
+    except Exception as e:
+        logging.error(f"Erro ao buscar conversas: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/conversations/<int:conversation_id>/messages', methods=['GET'])
+def get_conversation_messages(conversation_id):
+    """Buscar mensagens de uma conversa específica"""
+    try:
+        from models import ChatMessage, Conversation
+        
+        # Verificar se conversa existe
+        conversation = Conversation.query.get_or_404(conversation_id)
+        
+        # Buscar mensagens
+        messages = ChatMessage.query.filter_by(conversation_id=conversation_id)\
+            .order_by(ChatMessage.created_at.asc()).all()
+        
+        result = []
+        for msg in messages:
+            result.append({
+                'id': msg.id,
+                'direction': msg.direction,
+                'content': msg.content,
+                'message_type': msg.message_type,
+                'status': msg.status,
+                'created_at': msg.created_at.isoformat(),
+                'media_url': msg.media_url,
+                'media_caption': msg.media_caption
+            })
+        
+        # Marcar conversa como lida
+        conversation.mark_as_read()
+        
+        return jsonify({'messages': result})
+        
+    except Exception as e:
+        logging.error(f"Erro ao buscar mensagens: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/conversations/<int:conversation_id>/send', methods=['POST'])
+def send_message_to_conversation(conversation_id):
+    """Enviar mensagem em uma conversa"""
+    try:
+        from models import Conversation, ChatMessage
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Dados não fornecidos'}), 400
+        
+        message_content = data.get('content', '').strip()
+        if not message_content:
+            return jsonify({'error': 'Conteúdo da mensagem é obrigatório'}), 400
+        
+        # Verificar se conversa existe
+        conversation = Conversation.query.get_or_404(conversation_id)
+        
+        # Criar mensagem outbound
+        message = ChatMessage.create_outbound(
+            conversation_id=conversation_id,
+            content=message_content
+        )
+        
+        # Enviar via WhatsApp Business API
+        try:
+            # Configurar phone number ID
+            whatsapp_service.set_phone_number_id(conversation.whatsapp_phone_id)
+            
+            # Enviar mensagem de texto livre (sem template)
+            result = whatsapp_service.send_text_message(
+                to=conversation.contact.phone_number,
+                message=message_content
+            )
+            
+            if result.get('success'):
+                whatsapp_message_id = result.get('message_id')
+                message.update_status('sent', whatsapp_message_id)
+                
+                # Atualizar conversa
+                conversation.last_message_at = message.created_at
+                conversation.updated_at = message.created_at
+                db.session.commit()
+                
+                return jsonify({
+                    'success': True,
+                    'message_id': message.id,
+                    'whatsapp_message_id': whatsapp_message_id
+                })
+            else:
+                message.update_status('failed')
+                return jsonify({'error': result.get('error', 'Falha no envio')}), 500
+                
+        except Exception as send_error:
+            message.update_status('failed')
+            logging.error(f"Erro ao enviar mensagem: {send_error}")
+            return jsonify({'error': f'Erro no envio: {str(send_error)}'}), 500
+        
+    except Exception as e:
+        logging.error(f"Erro ao processar envio: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/send-text-message', methods=['POST'])
+def send_text_message_api():
+    """Enviar mensagem de texto para novo contato (inicia nova conversa)"""
+    try:
+        from models import Contact, Conversation, ChatMessage
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Dados não fornecidos'}), 400
+        
+        phone_number = data.get('phone_number', '').strip()
+        message_content = data.get('content', '').strip()
+        phone_number_id = data.get('phone_number_id', '').strip()
+        
+        if not phone_number or not message_content:
+            return jsonify({'error': 'Telefone e conteúdo são obrigatórios'}), 400
+        
+        # Limpar e formatar número
+        clean_phone = format_phone_number(phone_number)
+        if not clean_phone:
+            return jsonify({'error': 'Número de telefone inválido'}), 400
+        
+        # Buscar ou criar contato
+        contact = Contact.get_or_create(clean_phone)
+        
+        # Usar phone_number_id fornecido ou o padrão
+        if not phone_number_id:
+            if not whatsapp_service._available_phones:
+                return jsonify({'error': 'Nenhum número WhatsApp configurado'}), 400
+            phone_number_id = whatsapp_service._available_phones[0]
+        
+        # Buscar ou criar conversa
+        conversation = Conversation.get_or_create(contact.id, phone_number_id)
+        
+        # Criar mensagem outbound
+        message = ChatMessage.create_outbound(
+            conversation_id=conversation.id,
+            content=message_content
+        )
+        
+        # Enviar via WhatsApp Business API
+        try:
+            whatsapp_service.set_phone_number_id(phone_number_id)
+            
+            result = whatsapp_service.send_text_message(
+                to=clean_phone,
+                message=message_content
+            )
+            
+            if result.get('success'):
+                whatsapp_message_id = result.get('message_id')
+                message.update_status('sent', whatsapp_message_id)
+                
+                # Atualizar conversa
+                conversation.last_message_at = message.created_at
+                conversation.updated_at = message.created_at
+                db.session.commit()
+                
+                return jsonify({
+                    'success': True,
+                    'message_id': message.id,
+                    'conversation_id': conversation.id,
+                    'whatsapp_message_id': whatsapp_message_id
+                })
+            else:
+                message.update_status('failed')
+                return jsonify({'error': result.get('error', 'Falha no envio')}), 500
+                
+        except Exception as send_error:
+            message.update_status('failed')
+            logging.error(f"Erro ao enviar mensagem: {send_error}")
+            return jsonify({'error': f'Erro no envio: {str(send_error)}'}), 500
+        
+    except Exception as e:
+        logging.error(f"Erro ao processar envio: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

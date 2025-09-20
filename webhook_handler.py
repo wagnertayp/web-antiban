@@ -14,7 +14,13 @@ class WhatsAppWebhookHandler:
     
     def __init__(self, db=None):
         self.db = db
-        self.verify_token = os.getenv('WHATSAPP_WEBHOOK_VERIFY_TOKEN', 'webhook_verify_token_12345')
+        # Require secure webhook token
+        verify_token = os.getenv('WHATSAPP_WEBHOOK_VERIFY_TOKEN')
+        if not verify_token:
+            # For development, use a default token
+            verify_token = 'webhook_verify_token_12345_dev_only'
+            logging.warning("Using default webhook verify token for development. Set WHATSAPP_WEBHOOK_VERIFY_TOKEN for production.")
+        self.verify_token = verify_token
         
     def verify_webhook(self, mode: str, token: str, challenge: str) -> Optional[str]:
         """Verificar webhook do WhatsApp (processo de configuração inicial)"""
@@ -221,76 +227,83 @@ class WhatsAppWebhookHandler:
             return None
     
     def _save_interaction_to_db(self, interaction_data: Dict[str, Any]):
-        """Salvar interação no banco de dados"""
+        """Salvar mensagem recebida no banco de dados usando novos modelos"""
         try:
             if not self.db:
                 return
                 
-            from models import ButtonInteraction
+            from models import Contact, Conversation, ChatMessage
             
-            # Extrair dados do botão se houver
+            phone_number = interaction_data.get('from')
+            phone_number_id = interaction_data.get('phone_number_id')
+            message_content = interaction_data.get('content', '')
+            message_type = interaction_data.get('type', 'text')
+            whatsapp_message_id = interaction_data.get('message_id')
+            
+            # Processar clique em botão se houver
             button_data = interaction_data.get('button_clicked', {})
-            if not button_data:
+            if button_data:
+                message_content = f"Botão clicado: {button_data.get('button_title', 'N/A')}"
+                message_type = 'button_reply'
+            
+            # Processar seleção de lista se houver
+            list_data = interaction_data.get('list_selected', {})
+            if list_data:
+                message_content = f"Lista selecionada: {list_data.get('list_title', 'N/A')}"
+                message_type = 'list_reply'
+            
+            if not phone_number or not message_content:
                 return
             
-            interaction = ButtonInteraction(
-                message_id=interaction_data.get('message_id'),
-                from_phone=interaction_data.get('from'),
-                phone_number_id=interaction_data.get('phone_number_id'),
-                interaction_type=interaction_data.get('type', 'button_reply'),
-                button_id=button_data.get('button_id'),
-                button_title=button_data.get('button_title'),
-                button_payload=json.dumps(button_data),
-                interaction_timestamp=interaction_data.get('timestamp')
+            # Buscar ou criar contato
+            contact = Contact.get_or_create(phone_number)
+            
+            # Buscar ou criar conversa
+            conversation = Conversation.get_or_create(contact.id, phone_number_id)
+            
+            # Criar mensagem
+            message = ChatMessage.create_inbound(
+                conversation_id=conversation.id,
+                whatsapp_message_id=whatsapp_message_id,
+                content=message_content,
+                message_type=message_type,
+                webhook_data=json.dumps(interaction_data)
             )
             
-            self.db.session.add(interaction)
-            self.db.session.commit()
-            
-            logging.info(f"Interação salva: {button_data.get('button_title')} por {interaction_data.get('from')}")
+            logging.info(f"Mensagem recebida salva: {message_content[:50]}... de {phone_number}")
             
         except Exception as e:
-            logging.error(f"Erro ao salvar interação: {str(e)}")
+            logging.error(f"Erro ao salvar mensagem: {str(e)}")
             if self.db:
                 self.db.session.rollback()
     
     def _save_status_to_db(self, status_data: Dict[str, Any]):
-        """Salvar status no banco de dados"""
+        """Atualizar status de mensagem usando novos modelos"""
         try:
             if not self.db:
                 return
                 
-            from models import MessageStatus
+            from models import ChatMessage
             
-            # Verificar se já existe um status para esta mensagem
-            existing_status = MessageStatus.query.filter_by(
-                message_id=status_data.get('message_id'),
-                status=status_data.get('status')
+            whatsapp_message_id = status_data.get('message_id')
+            new_status = status_data.get('status')
+            
+            if not whatsapp_message_id or not new_status:
+                return
+            
+            # Buscar mensagem pelo WhatsApp message ID
+            message = ChatMessage.query.filter_by(
+                whatsapp_message_id=whatsapp_message_id
             ).first()
             
-            if existing_status:
-                return  # Status já existe
-            
-            error_data = status_data.get('error', {})
-            
-            status = MessageStatus(
-                message_id=status_data.get('message_id'),
-                recipient_phone=status_data.get('recipient_id'),
-                phone_number_id=status_data.get('phone_number_id'),
-                status=status_data.get('status'),
-                status_timestamp=status_data.get('timestamp'),
-                error_code=error_data.get('code'),
-                error_title=error_data.get('title'),
-                error_message=error_data.get('message')
-            )
-            
-            self.db.session.add(status)
-            self.db.session.commit()
-            
-            logging.info(f"Status salvo: {status_data.get('message_id')} -> {status_data.get('status')}")
+            if message:
+                message.update_status(new_status)
+                logging.info(f"Status atualizado: {whatsapp_message_id} -> {new_status}")
+            else:
+                logging.warning(f"Mensagem não encontrada para atualização de status: {whatsapp_message_id}")
             
         except Exception as e:
-            logging.error(f"Erro ao salvar status: {str(e)}")
+            logging.error(f"Erro ao atualizar status: {str(e)}")
             if self.db:
                 self.db.session.rollback()
     
