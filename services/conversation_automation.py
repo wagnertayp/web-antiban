@@ -1041,13 +1041,11 @@ class ConversationAutomation:
             ai_context = f"Cliente {first_name} está com problema no PIX: '{message_content}'. Responda de forma empática e explique que vou enviar o código copia e cola."
             ai_response = ShopeeDeliveryAssistant.get_response(ai_context)
             
-            # Adicionar prefixo para identificar resposta da IA
-            full_ai_response = f"🤖 IA: {ai_response}"
-            
-            # Enviar resposta da IA primeiro
-            success1, result1 = self.whatsapp_api.send_text_message(conv_state.phone_number, full_ai_response)
+            # Enviar resposta da IA primeiro (SEM prefixo para o usuário)
+            success1, result1 = self.whatsapp_api.send_text_message(conv_state.phone_number, ai_response)
             if success1:
-                self._save_outbound_message(conversation_id, full_ai_response, result1.get('messageId'))
+                # Salvar no banco COM prefixo apenas para logs internos
+                self._save_outbound_message(conversation_id, f"🤖 IA: {ai_response}", result1.get('messageId'))
             
             # Pequena pausa para parecer natural
             import time
