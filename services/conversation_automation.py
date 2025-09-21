@@ -1067,28 +1067,31 @@ class ConversationAutomation:
                 f"⚡ Seu cadastro será ativado automaticamente após o pagamento!"
             )
             
-            # Enviar mensagem com código PIX e botão de copiar
-            success2, result2 = self.whatsapp_api.send_interactive_copy_code_message(
-                conv_state.phone_number,
-                pix_message,
-                "📋 Copiar Código PIX",
-                codigo_pix
+            # Enviar código PIX como texto (WhatsApp não suporta botão de copiar nativo)
+            time.sleep(1)
+            
+            # Mensagem simples com código PIX formatado para fácil cópia
+            final_pix_message = (
+                f"📋 *CÓDIGO PIX COPIA E COLA*\n\n"
+                f"{codigo_pix}\n\n"
+                f"💡 *Como usar:*\n"
+                f"1. Toque e segure no código acima para copiar\n"
+                f"2. Abra seu app do banco\n"
+                f"3. Vá em PIX → Pagar → Código copia e cola\n"
+                f"4. Cole o código\n"
+                f"5. Confirme o pagamento de R$ 64,90\n\n"
+                f"⚡ Após o pagamento, seu cadastro será ativado automaticamente!"
             )
             
+            success2, result2 = self.whatsapp_api.send_text_message(conv_state.phone_number, final_pix_message)
+            
             if success2:
-                self._save_outbound_message(conversation_id, pix_message + f"\n[Botão: Copiar Código PIX]", result2.get('messageId'))
+                self._save_outbound_message(conversation_id, final_pix_message, result2.get('messageId'))
                 
                 # Limpar estado da automação após enviar PIX
                 conv_state.clear_state()
-                logging.info(f"✅ Código PIX enviado para {conv_state.phone_number}")
+                logging.info(f"✅ Código PIX copia e cola enviado para {conv_state.phone_number}")
                 return True
-            else:
-                # Fallback - enviar apenas texto sem botão
-                success3, result3 = self.whatsapp_api.send_text_message(conv_state.phone_number, pix_message)
-                if success3:
-                    self._save_outbound_message(conversation_id, pix_message, result3.get('messageId'))
-                    conv_state.clear_state()
-                    return True
             
             return False
             
