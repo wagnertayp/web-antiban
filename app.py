@@ -2233,12 +2233,69 @@ def can_start_scheduler():
                 return False
 
 def scheduled_message_processor():
-    """Processar mensagens agendadas em background - única instância"""
+    """Processar mensagens agendadas e rastreamento automático de clientes PENDING - única instância"""
+    import datetime
+    last_pending_check = datetime.datetime.now() - datetime.timedelta(minutes=10)  # Força primeira verificação
+    last_daily_check = datetime.datetime.now().date() - datetime.timedelta(days=1)  # Força primeira verificação diária
+    cycle_count = 0
+    
     try:
         while not stop_scheduler.is_set():
             try:
+                current_time = datetime.datetime.now()
+                
+                # 1. SEMPRE processar mensagens agendadas (a cada 30s)
                 from services.conversation_automation import ConversationAutomation
                 ConversationAutomation.process_scheduled_messages()
+                
+                # 2. VERIFICAR CLIENTES PENDING a cada 5 minutos (10 ciclos de 30s = 5 min)
+                if (current_time - last_pending_check).total_seconds() >= 300:  # 5 minutos
+                    try:
+                        from services.pending_client_tracker import PendingClientTracker
+                        from services.whatsapp_business_api import WhatsAppBusinessAPI
+                        
+                        whatsapp_api = WhatsAppBusinessAPI()
+                        tracker = PendingClientTracker(whatsapp_api)
+                        
+                        # Verificar status na API Recoverify
+                        checked_count = tracker.check_and_update_all_pending_clients()
+                        
+                        # Enviar primeira mensagem de follow-up
+                        sent_count = tracker.send_first_followup_messages()
+                        
+                        last_pending_check = current_time
+                        
+                        if checked_count > 0 or sent_count > 0:
+                            logging.info(f"🔍 Rastreamento PENDING: {checked_count} verificados, {sent_count} follow-ups enviados")
+                            
+                    except Exception as e:
+                        logging.error(f"Erro no rastreamento de clientes PENDING: {str(e)}")
+                
+                # 3. VERIFICAÇÃO DIÁRIA às 12:00 (uma vez por dia)
+                current_date = current_time.date()
+                current_hour = current_time.hour
+                
+                if (current_date > last_daily_check and current_hour >= 12):
+                    try:
+                        from services.pending_client_tracker import PendingClientTracker
+                        from services.whatsapp_business_api import WhatsAppBusinessAPI
+                        
+                        whatsapp_api = WhatsAppBusinessAPI()
+                        tracker = PendingClientTracker(whatsapp_api)
+                        
+                        # Enviar mensagens diárias
+                        daily_sent = tracker.send_daily_followup_messages()
+                        
+                        last_daily_check = current_date
+                        
+                        if daily_sent > 0:
+                            logging.info(f"📨 Mensagens diárias enviadas: {daily_sent} clientes")
+                            
+                    except Exception as e:
+                        logging.error(f"Erro no envio de mensagens diárias: {str(e)}")
+                
+                cycle_count += 1
+                
             except Exception as e:
                 logging.error(f"Erro no job scheduler de mensagens: {str(e)}")
             
