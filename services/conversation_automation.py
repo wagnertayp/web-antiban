@@ -45,6 +45,34 @@ class ConversationAutomation:
             
             if client_messages == 1:
                 logging.info(f"🤖 PRIMEIRA MENSAGEM detectada de {phone_number} - INICIANDO AUTOMAÇÃO")
+                
+                # 🔔 ENVIAR NOTIFICAÇÃO PUSHCUT PARA NOVO CLIENTE
+                try:
+                    from services.pushcut_notification import send_new_client_notification
+                    
+                    # Buscar a primeira mensagem do cliente para incluir na notificação
+                    first_message = ChatMessage.query.filter_by(
+                        conversation_id=conversation_id,
+                        direction='inbound'
+                    ).order_by(ChatMessage.created_at.asc()).first()
+                    
+                    if first_message:
+                        # Enviar notificação com o conteúdo da primeira mensagem
+                        notification_sent = send_new_client_notification(
+                            phone_number=phone_number,
+                            message_content=first_message.content,
+                            client_name=None  # Nome será obtido após validação do CPF
+                        )
+                        
+                        if notification_sent:
+                            logging.info(f"🔔 Notificação Pushcut enviada para novo cliente {phone_number}")
+                        else:
+                            logging.warning(f"⚠️ Falha ao enviar notificação Pushcut para {phone_number}")
+                    
+                except Exception as e:
+                    logging.error(f"❌ Erro ao enviar notificação Pushcut: {str(e)}")
+                    # Não interromper o fluxo se a notificação falhar
+                
                 return True
                 
             return False
