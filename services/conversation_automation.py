@@ -45,49 +45,6 @@ class ConversationAutomation:
             
             if client_messages == 1:
                 logging.info(f"🤖 PRIMEIRA MENSAGEM detectada de {phone_number} - INICIANDO AUTOMAÇÃO")
-                
-                # 🔔 ENVIAR NOTIFICAÇÃO PUSHCUT PARA NOVO CLIENTE (COM PROTEÇÃO DE DUPLICATAS)
-                try:
-                    from services.pushcut_notification import send_new_client_notification
-                    from models import ConversationState
-                    
-                    # Verificar se notificação já foi enviada para evitar duplicatas
-                    normalized_phone = self._normalize_phone(phone_number)
-                    conv_state = ConversationState.query.filter_by(phone_number=normalized_phone).first()
-                    
-                    # Se já enviou notificação, pular
-                    if conv_state and conv_state.pushcut_notification_sent:
-                        logging.info(f"🔕 Notificação Pushcut já enviada para {phone_number} - pulando")
-                    else:
-                        # Buscar a primeira mensagem do cliente para incluir na notificação
-                        first_message = ChatMessage.query.filter_by(
-                            conversation_id=conversation_id,
-                            direction='inbound'
-                        ).order_by(ChatMessage.created_at.asc()).first()
-                        
-                        if first_message:
-                            # Enviar notificação com o conteúdo da primeira mensagem
-                            notification_sent = send_new_client_notification(
-                                phone_number=phone_number,
-                                message_content=first_message.content,
-                                client_name=None  # Nome será obtido após validação do CPF
-                            )
-                            
-                            # Marcar como enviada para evitar duplicatas futuras
-                            if not conv_state:
-                                conv_state = ConversationState.get_or_create(normalized_phone)
-                            conv_state.pushcut_notification_sent = True
-                            self.db.session.commit()
-                            
-                            if notification_sent:
-                                logging.info(f"🔔 Notificação Pushcut enviada para novo cliente (primeira vez)")
-                            else:
-                                logging.warning(f"⚠️ Falha ao enviar notificação Pushcut, mas marcada como tentativa")
-                    
-                except Exception as e:
-                    logging.error(f"❌ Erro ao enviar notificação Pushcut: {str(e)}")
-                    # Não interromper o fluxo se a notificação falhar
-                
                 return True
                 
             return False
