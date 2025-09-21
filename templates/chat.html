@@ -638,8 +638,8 @@
                 });
                 event.target.closest('.conversation-item').classList.add('active');
                 
-                // Carregar mensagens
-                await this.loadMessages(conversationId);
+                // Carregar mensagens (primeira vez que abre conversa - ir para o final)
+                await this.loadMessages(conversationId, true);
             }
             
             updateChatHeader(conversation) {
@@ -649,20 +649,20 @@
                 document.getElementById('currentChatPhone').textContent = conversation.contact.phone_number;
             }
             
-            async loadMessages(conversationId) {
+            async loadMessages(conversationId, forceScrollToBottom = false) {
                 try {
                     const response = await fetch(`/api/conversations/${conversationId}/messages`);
                     if (response.ok) {
                         const data = await response.json();
                         this.messages = data.messages;
-                        this.renderMessages();
+                        this.renderMessages(forceScrollToBottom);
                     }
                 } catch (error) {
                     console.error('Erro ao carregar mensagens:', error);
                 }
             }
             
-            renderMessages() {
+            renderMessages(forceScrollToBottom = false) {
                 const container = document.getElementById('chatMessages');
                 
                 if (this.messages.length === 0) {
@@ -675,6 +675,14 @@
                     `;
                     return;
                 }
+                
+                // Salvar posição atual do scroll
+                const scrollTop = container.scrollTop;
+                const scrollHeight = container.scrollHeight;
+                const clientHeight = container.clientHeight;
+                
+                // Verificar se usuário estava próximo do final (últimos 100px)
+                const wasNearBottom = scrollTop >= (scrollHeight - clientHeight - 100);
                 
                 container.innerHTML = this.messages.map(msg => {
                     const time = this.formatTime(msg.created_at);
@@ -693,8 +701,13 @@
                     `;
                 }).join('');
                 
-                // Scroll para o final
-                container.scrollTop = container.scrollHeight;
+                // Só fazer scroll automático se:
+                // 1. Foi forçado (nova mensagem enviada)
+                // 2. Usuário estava próximo do final (não estava vendo histórico)
+                if (forceScrollToBottom || wasNearBottom) {
+                    container.scrollTop = container.scrollHeight;
+                }
+                // Caso contrário, manter a posição de scroll do usuário
             }
             
             async sendMessage() {
@@ -731,7 +744,7 @@
                     });
                     
                     if (response.ok) {
-                        await this.loadMessages(this.currentConversationId);
+                        await this.loadMessages(this.currentConversationId, true); // Forçar scroll para baixo após enviar mensagem
                         await this.loadConversations(); // Atualizar lista
                     } else {
                         const error = await response.json();
@@ -793,7 +806,8 @@
                         // Recarregar conversas e selecionar a nova
                         await this.loadConversations();
                         if (result.conversation_id) {
-                            this.selectConversation(result.conversation_id);
+                            // selectConversation já carrega mensagens com scroll automático
+                            await this.selectConversation(result.conversation_id);
                         }
                     } else {
                         const error = await response.json();
