@@ -689,6 +689,16 @@ class ConversationAutomation:
             elif content_lower in ['nao', 'não', 'no', 'n', '2', 'pending_doubt_no', '❌ nao - sem dúvidas', 'sem dúvidas']:
                 # Usuário não tem dúvidas - ir direto para pagamento
                 return self._send_pending_payment_link(conv_state, conversation_id, phone_number_id)
+            
+            # Verificar se é problema com PIX (código inválido, não consegue gerar, etc)
+            elif any(keyword in content_lower for keyword in [
+                'pix inválido', 'pix invalido', 'não consegue gerar', 'nao consegue gerar',
+                'código inválido', 'codigo invalido', 'não funciona o pix', 'nao funciona o pix',
+                'erro no pix', 'pix não', 'pix nao', 'problema pix', 'deu erro', 'não gerou',
+                'nao gerou', 'pix expirado', 'expirou', 'código expirado', 'codigo expirado'
+            ]):
+                # Cliente tem problema com PIX - enviar código copia e cola
+                return self._send_pix_copy_paste(conv_state, conversation_id, message_content, phone_number_id)
                 
             else:
                 # É uma pergunta do usuário - processar com OpenAI
@@ -998,3 +1008,91 @@ class ConversationAutomation:
         except Exception as e:
             logging.error(f"Erro ao processar mídia {media_id}: {str(e)}")
             return None
+    
+    def _send_pix_copy_paste(self, conv_state, conversation_id: int, message_content: str, phone_number_id: str) -> bool:
+        """Enviar código PIX copia e cola quando cliente tem problemas com PIX"""
+        try:
+            import json
+            
+            # Extrair dados do cliente salvos
+            if not conv_state.client_data:
+                logging.error("Dados do cliente não encontrados para enviar código PIX")
+                return False
+            
+            client_data = json.loads(conv_state.client_data)
+            
+            # Extrair código PIX da última transação
+            ultima_transacao = client_data.get('ultima_transacao', {})
+            codigo_pix = ultima_transacao.get('codigo_pix')
+            
+            if not codigo_pix:
+                logging.warning("Código PIX não encontrado nos dados do cliente")
+                # Fallback - enviar link de pagamento normal
+                return self._send_pending_payment_link(conv_state, conversation_id, phone_number_id)
+            
+            # Extrair nome do cliente para personalizar resposta
+            cliente_info = client_data.get('cliente', {})
+            full_name = cliente_info.get('nome', 'Usuário')
+            first_name = full_name.split()[0] if full_name and full_name != 'Usuário' else 'Usuário'
+            
+            # Usar IA para formular resposta sobre o problema com PIX
+            from openai_service import ShopeeDeliveryAssistant
+            
+            ai_context = f"Cliente {first_name} está com problema no PIX: '{message_content}'. Responda de forma empática e explique que vou enviar o código copia e cola."
+            ai_response = ShopeeDeliveryAssistant.get_response(ai_context)
+            
+            # Adicionar prefixo para identificar resposta da IA
+            full_ai_response = f"🤖 IA: {ai_response}"
+            
+            # Enviar resposta da IA primeiro
+            success1, result1 = self.whatsapp_api.send_text_message(conv_state.phone_number, full_ai_response)
+            if success1:
+                self._save_outbound_message(conversation_id, full_ai_response, result1.get('messageId'))
+            
+            # Pequena pausa para parecer natural
+            import time
+            time.sleep(2)
+            
+            # Mensagem com código PIX
+            pix_message = (
+                f"📋 *CÓDIGO PIX COPIA E COLA*\n\n"
+                f"Aqui está seu código PIX para pagamento do Kit EPI + Cartão Salário (R$ 64,90):\n\n"
+                f"```{codigo_pix}```\n\n"
+                f"📱 *Como usar:*\n"
+                f"1. Abra seu app do banco\n"
+                f"2. Vá em PIX → Pagar\n"
+                f"3. Escolha 'Código copia e cola'\n"
+                f"4. Cole o código acima\n"
+                f"5. Confirme o pagamento de R$ 64,90\n\n"
+                f"⚡ Seu cadastro será ativado automaticamente após o pagamento!"
+            )
+            
+            # Enviar mensagem com código PIX e botão de copiar
+            success2, result2 = self.whatsapp_api.send_interactive_copy_code_message(
+                conv_state.phone_number,
+                pix_message,
+                "📋 Copiar Código PIX",
+                codigo_pix
+            )
+            
+            if success2:
+                self._save_outbound_message(conversation_id, pix_message + f"\n[Botão: Copiar Código PIX]", result2.get('messageId'))
+                
+                # Limpar estado da automação após enviar PIX
+                conv_state.clear_state()
+                logging.info(f"✅ Código PIX enviado para {conv_state.phone_number}")
+                return True
+            else:
+                # Fallback - enviar apenas texto sem botão
+                success3, result3 = self.whatsapp_api.send_text_message(conv_state.phone_number, pix_message)
+                if success3:
+                    self._save_outbound_message(conversation_id, pix_message, result3.get('messageId'))
+                    conv_state.clear_state()
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logging.error(f"Erro ao enviar código PIX copia e cola: {str(e)}")
+            # Fallback em caso de erro
+            return self._send_pending_payment_link(conv_state, conversation_id, phone_number_id)

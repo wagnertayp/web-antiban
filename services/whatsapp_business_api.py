@@ -1163,6 +1163,74 @@ class WhatsAppBusinessAPI:
             logging.error(f"Error sending CTA URL button: {str(e)}")
             return False, {'error': str(e)}
     
+    def send_interactive_copy_code_message(self, phone: str, message: str, button_text: str, code_to_copy: str) -> Tuple[bool, Dict]:
+        """Send an interactive message with a copy code button"""
+        if not self.is_configured():
+            return False, {'error': 'WhatsApp Business API não configurada'}
+        
+        # Simulate typing indicator
+        self._simulate_typing_indicator(phone, len(message))
+        
+        try:
+            # Format phone number (same pattern as other methods)
+            formatted_phone = phone
+            if phone.startswith('55'):
+                formatted_phone = '+' + phone
+            elif not phone.startswith('+'):
+                formatted_phone = '+55' + phone
+            
+            payload = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual", 
+                "to": formatted_phone,
+                "type": "interactive",
+                "interactive": {
+                    "type": "button",
+                    "body": {
+                        "text": message
+                    },
+                    "action": {
+                        "buttons": [
+                            {
+                                "type": "reply",
+                                "reply": {
+                                    "id": "copy_code_button",
+                                    "title": button_text[:20]  # WhatsApp limit 20 chars
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+            
+            # Send via proxy pipeline
+            url_endpoint = f"{self.base_url}/{self.phone_number_id}/messages"
+            response = self._send_via_proxy_only(url_endpoint, payload, self._phone_number_id)
+            
+            if response.status_code == 200:
+                data = response.json()
+                # Automaticamente enviar o código após o botão (WhatsApp não suporta copia e cola nativo)
+                import time
+                time.sleep(1)
+                
+                # Enviar código em mensagem separada para facilitar cópia
+                code_message = f"📋 *CÓDIGO PIX:*\n```{code_to_copy}```\n\n💡 Toque e segure no código acima para copiar!"
+                
+                # Enviar código copia e cola
+                self.send_text_message(phone, code_message)
+                
+                return True, {
+                    'messageId': data.get('messages', [{}])[0].get('id', ''),
+                    'status': 'sent'
+                }
+            else:
+                logging.error(f"Copy code button failed: {response.status_code} - {response.text}")
+                return False, {'error': f'HTTP {response.status_code}'}
+                
+        except Exception as e:
+            logging.error(f"Error sending copy code button: {str(e)}")
+            return False, {'error': str(e)}
+    
     def get_message_status(self, message_id: str) -> Tuple[bool, Dict]:
         """Get message delivery status"""
         if not self.is_configured():
