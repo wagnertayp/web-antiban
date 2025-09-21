@@ -404,3 +404,119 @@ class ScheduledMessage(db.Model):
         self.status = 'failed'
         self.error_message = error
         db.session.commit()
+
+class PendingClient(db.Model):
+    """Modelo para rastrear clientes PENDING e follow-up automático"""
+    id = db.Column(db.Integer, primary_key=True)
+    cpf = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    phone_number = db.Column(db.String(20), nullable=False, index=True)
+    first_name = db.Column(db.String(100), nullable=False)
+    full_name = db.Column(db.String(200))
+    
+    # Status de pagamento da API Recoverify
+    payment_status = db.Column(db.String(20), default='PENDING', index=True)  # PENDING, APPROVED
+    last_checked_at = db.Column(db.DateTime, default=brasilia_now, index=True)
+    
+    # Controle de mensagens de follow-up
+    first_followup_sent = db.Column(db.Boolean, default=False)
+    first_followup_sent_at = db.Column(db.DateTime)
+    daily_followup_sent = db.Column(db.Boolean, default=False)
+    daily_followup_sent_at = db.Column(db.DateTime)
+    
+    # Dados adicionais do cliente
+    client_data = db.Column(db.Text)  # JSON com dados completos da API
+    
+    created_at = db.Column(db.DateTime, default=brasilia_now)
+    updated_at = db.Column(db.DateTime, default=brasilia_now, onupdate=brasilia_now)
+    
+    @staticmethod
+    def add_pending_client(cpf: str, phone_number: str, first_name: str, full_name: str = None, client_data: str = None):
+        """Adicionar ou atualizar cliente PENDING"""
+        try:
+            # Verificar se já existe
+            existing = PendingClient.query.filter_by(cpf=cpf).first()
+            
+            if existing:
+                # Atualizar dados se mudaram
+                existing.phone_number = phone_number
+                existing.first_name = first_name
+                if full_name:
+                    existing.full_name = full_name
+                if client_data:
+                    existing.client_data = client_data
+                existing.updated_at = brasilia_now()
+                db.session.commit()
+                return existing
+            else:
+                # Criar novo registro
+                client = PendingClient(
+                    cpf=cpf,
+                    phone_number=phone_number,
+                    first_name=first_name,
+                    full_name=full_name,
+                    client_data=client_data
+                )
+                db.session.add(client)
+                db.session.commit()
+                return client
+                
+        except Exception as e:
+            db.session.rollback()
+            import logging
+            logging.error(f"Erro ao adicionar cliente PENDING {cpf}: {str(e)}")
+            return None
+    
+    @staticmethod
+    def get_clients_for_check():
+        """Buscar clientes PENDING que precisam ser verificados"""
+        from datetime import timedelta
+        five_minutes_ago = brasilia_now() - timedelta(minutes=5)
+        
+        return PendingClient.query.filter(
+            PendingClient.payment_status == 'PENDING',
+            PendingClient.last_checked_at < five_minutes_ago
+        ).all()
+    
+    @staticmethod
+    def get_clients_for_first_followup():
+        """Buscar clientes que precisam receber primeira mensagem de follow-up"""
+        return PendingClient.query.filter(
+            PendingClient.payment_status == 'PENDING',
+            PendingClient.first_followup_sent == False
+        ).all()
+    
+    @staticmethod
+    def get_clients_for_daily_followup():
+        """Buscar clientes que precisam receber mensagem diária (12:00)"""
+        from datetime import date
+        today = date.today()
+        
+        # Clientes que ainda não receberam a mensagem diária de hoje
+        return PendingClient.query.filter(
+            PendingClient.payment_status == 'PENDING',
+            db.or_(
+                PendingClient.daily_followup_sent == False,
+                db.func.date(PendingClient.daily_followup_sent_at) < today
+            )
+        ).all()
+    
+    def update_payment_status(self, new_status: str):
+        """Atualizar status de pagamento"""
+        self.payment_status = new_status
+        self.last_checked_at = brasilia_now()
+        self.updated_at = brasilia_now()
+        db.session.commit()
+    
+    def mark_first_followup_sent(self):
+        """Marcar primeira mensagem de follow-up como enviada"""
+        self.first_followup_sent = True
+        self.first_followup_sent_at = brasilia_now()
+        self.updated_at = brasilia_now()
+        db.session.commit()
+    
+    def mark_daily_followup_sent(self):
+        """Marcar mensagem diária como enviada"""
+        self.daily_followup_sent = True
+        self.daily_followup_sent_at = brasilia_now()
+        self.updated_at = brasilia_now()
+        db.session.commit()
