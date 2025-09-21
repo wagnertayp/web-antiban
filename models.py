@@ -474,7 +474,10 @@ class PendingClient(db.Model):
         
         return PendingClient.query.filter(
             PendingClient.payment_status == 'PENDING',
-            PendingClient.last_checked_at < five_minutes_ago
+            db.or_(
+                PendingClient.last_checked_at.is_(None),  # Novos clientes nunca verificados
+                PendingClient.last_checked_at < five_minutes_ago  # Clientes não verificados há 5+ min
+            )
         ).all()
     
     @staticmethod
