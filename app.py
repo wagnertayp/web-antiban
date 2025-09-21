@@ -83,27 +83,21 @@ from services.proxy_service import init_proxy_service
 proxy_service = init_proxy_service(app, db)
 
 # ==================== API ERROR HANDLERS ====================
-@app.errorhandler(404)
-def handle_api_not_found(e):
-    """Garantir que rotas /api/* retornem JSON mesmo em erro 404"""
-    if request.path.startswith('/api/'):
-        return jsonify({'error': 'Endpoint não encontrado', 'path': request.path}), 404
-    return e
+from werkzeug.exceptions import HTTPException
 
-@app.errorhandler(500)
-def handle_api_server_error(e):
-    """Garantir que rotas /api/* retornem JSON mesmo em erro 500"""
+@app.errorhandler(HTTPException)
+def handle_api_http_exceptions(e):
+    """Garantir que rotas /api/* retornem JSON para erros HTTP padrão"""
     if request.path.startswith('/api/'):
-        logging.error(f"Erro 500 na API {request.path}: {str(e)}")
-        return jsonify({'error': 'Erro interno do servidor', 'details': str(e)}), 500
+        return jsonify({'error': e.description, 'code': e.code}), e.code
     return e
 
 @app.errorhandler(Exception)
 def handle_api_exceptions(e):
-    """Capturar todas as exceções em rotas /api/* e retornar JSON"""
+    """Capturar todas as exceções não-HTTP em rotas /api/* e retornar JSON"""
     if request.path.startswith('/api/'):
-        logging.error(f"Exceção não tratada na API {request.path}: {str(e)}")
-        return jsonify({'error': 'Erro inesperado', 'details': str(e)}), 500
+        logging.error(f"Exceção não tratada na API {request.path}: {type(e).__name__}")
+        return jsonify({'error': 'Erro interno do servidor'}), 500
     raise e
 
 @app.before_request
