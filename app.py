@@ -471,10 +471,17 @@ def get_phone_numbers():
         # Usar BM ID da sessão ou do parâmetro (sem hardcode da BM antiga)
         business_manager_id = request.args.get('business_manager_id') or session.get('whatsapp_business_manager_id', '').strip()
         
-        # Buscar phone numbers da BM
+        # Buscar phone numbers da BM com timeout rigoroso para não travar interface
         if business_manager_id:
             phones_url = f'https://graph.facebook.com/v23.0/{business_manager_id}/phone_numbers'
-            phones_response = requests.get(phones_url, headers=headers, timeout=10)
+            try:
+                phones_response = requests.get(phones_url, headers=headers, timeout=3)
+            except requests.exceptions.Timeout:
+                logging.warning(f"Timeout ao buscar phone numbers da BM {business_manager_id}")
+                return jsonify({'error': 'Timeout ao carregar números - tente novamente'}), 408
+            except requests.exceptions.RequestException as e:
+                logging.warning(f"Erro de conexão ao buscar phone numbers: {e}")
+                return jsonify({'error': 'Erro de conexão - tente novamente'}), 503
             
             if phones_response.status_code == 200:
                 phones_data = phones_response.json()
@@ -2085,10 +2092,7 @@ def send_message_to_conversation(conversation_id):
                         logging.error("❌ Falha ao recarregar objetos na thread")
                         return
                     
-                    # Configurar phone number ID do seletor
-                    whatsapp_service.set_phone_number_id(phone_number_id)
-                    
-                    # Enviar mensagem de texto livre (sem template)
+                    # Enviar mensagem de texto livre passando phone_number_id como parâmetro para evitar race condition
                     success, result = whatsapp_service.send_text_message(
                         phone=thread_conversation.contact.phone_number,
                         message=message_content,
@@ -2182,39 +2186,59 @@ def send_text_message_api():
             content=message_content
         )
         
-        # Enviar via WhatsApp Business API
-        try:
-            whatsapp_service.set_phone_number_id(phone_number_id)
-            
-            success, result = whatsapp_service.send_text_message(
-                phone=clean_phone,
-                message=message_content,
-                phone_number_id=phone_number_id
-            )
-            
-            if success:
-                whatsapp_message_id = result.get('messageId', result.get('whatsAppId', ''))
-                message.update_status('sent', whatsapp_message_id)
-                
-                # Atualizar conversa
-                conversation.last_message_at = message.created_at
-                conversation.updated_at = message.created_at
-                db.session.commit()
-                
-                return jsonify({
-                    'success': True,
-                    'message_id': message.id,
-                    'conversation_id': conversation.id,
-                    'whatsapp_message_id': whatsapp_message_id
-                })
-            else:
-                message.update_status('failed')
-                return jsonify({'error': result.get('error', 'Falha no envio')}), 500
-                
-        except Exception as send_error:
-            message.update_status('failed')
-            logging.error(f"Erro ao enviar mensagem: {send_error}")
-            return jsonify({'error': f'Erro no envio: {str(send_error)}'}), 500
+        # 🚀 ENVIO ASSÍNCRONO EM BACKGROUND THREAD (Solução Worker Timeout)
+        def send_new_message_background():
+            """Thread function para enviar nova mensagem sem bloquear worker"""
+            with app.app_context():
+                try:
+                    # Recarregar objetos na thread
+                    thread_message = ChatMessage.query.get(message.id)
+                    thread_conversation = Conversation.query.get(conversation.id)
+                    
+                    if not thread_message or not thread_conversation:
+                        logging.error("❌ Falha ao recarregar objetos na thread para nova mensagem")
+                        return
+                    
+                    # Enviar mensagem passando phone_number_id como parâmetro para evitar race condition
+                    success, result = whatsapp_service.send_text_message(
+                        phone=clean_phone,
+                        message=message_content,
+                        phone_number_id=phone_number_id
+                    )
+                    
+                    if success:
+                        whatsapp_message_id = result.get('messageId', result.get('whatsAppId', ''))
+                        thread_message.update_status('sent', whatsapp_message_id)
+                        
+                        # Atualizar conversa
+                        thread_conversation.last_message_at = thread_message.created_at
+                        thread_conversation.updated_at = thread_message.created_at
+                        db.session.commit()
+                        
+                        logging.info(f"✅ Nova mensagem enviada com sucesso: {whatsapp_message_id}")
+                    else:
+                        thread_message.update_status('failed')
+                        logging.error(f"❌ Falha no envio da nova mensagem: {result.get('error', 'Erro desconhecido')}")
+                        
+                except Exception as send_error:
+                    try:
+                        error_message = ChatMessage.query.get(message.id)
+                        if error_message:
+                            error_message.update_status('failed')
+                    except Exception as update_error:
+                        logging.error(f"❌ Erro ao atualizar status da nova mensagem: {update_error}")
+                    logging.error(f"❌ Erro no envio da nova mensagem: {send_error}")
+        
+        # ⚡ INICIAR THREAD E RETORNAR IMEDIATAMENTE
+        threading.Thread(target=send_new_message_background, daemon=True).start()
+        
+        # Retornar sucesso imediato (mensagem será enviada em background)
+        return jsonify({
+            'success': True,
+            'message_id': message.id,
+            'conversation_id': conversation.id,
+            'status': 'queued'  # Indica que foi enfileirada para envio
+        })
         
     except Exception as e:
         logging.error(f"Erro ao processar envio: {str(e)}")
