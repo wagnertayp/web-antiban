@@ -648,6 +648,10 @@ class ConversationAutomation:
                     
                     # Atualizar estado para aguardar resposta dos botões
                     conv_state.update_state('pending_questions')
+                    
+                    # ✅ SALVAR CLIENTE PENDING PARA RASTREAMENTO AUTOMÁTICO
+                    self._save_pending_client_for_tracking(conv_state, nome)
+                    
                     logging.info(f"✅ Fluxo PENDING iniciado para {conv_state.phone_number}: {nome[:20]}...")
                     return True
                 else:
@@ -1097,3 +1101,38 @@ class ConversationAutomation:
             logging.error(f"Erro ao enviar código PIX copia e cola: {str(e)}")
             # Fallback em caso de erro
             return self._send_pending_payment_link(conv_state, conversation_id, phone_number_id)
+    
+    def _save_pending_client_for_tracking(self, conv_state, nome: str):
+        """Salvar cliente PENDING na tabela para rastreamento automático"""
+        try:
+            from models import PendingClient
+            import json
+            
+            # Extrair dados do cliente
+            if not conv_state.client_data or not conv_state.original_cpf:
+                logging.warning(f"Dados insuficientes para salvar cliente PENDING: {conv_state.phone_number}")
+                return
+            
+            client_data = json.loads(conv_state.client_data)
+            cliente_info = client_data.get('cliente', {})
+            
+            # Extrair nome completo da API, se não tiver usa o passado
+            full_name = cliente_info.get('nome', nome)
+            first_name = nome.split()[0] if nome else 'Cliente'
+            
+            # Salvar na tabela PendingClient
+            pending_client = PendingClient.add_pending_client(
+                cpf=conv_state.original_cpf,
+                phone_number=conv_state.phone_number,
+                first_name=first_name,
+                full_name=full_name,
+                client_data=conv_state.client_data
+            )
+            
+            if pending_client:
+                logging.info(f"✅ Cliente PENDING salvo para rastreamento: {conv_state.original_cpf} - {first_name}")
+            else:
+                logging.error(f"❌ Erro ao salvar cliente PENDING: {conv_state.original_cpf}")
+                
+        except Exception as e:
+            logging.error(f"Erro ao salvar cliente PENDING para rastreamento: {str(e)}")
