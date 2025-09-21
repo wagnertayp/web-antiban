@@ -218,6 +218,7 @@ class ConversationState(db.Model):
     cpf_status = db.Column(db.String(20))  # APPROVED ou PENDING da API Recoverify
     original_cpf = db.Column(db.String(20))  # CPF original digitado pelo usuário
     question_count = db.Column(db.Integer, default=0)  # Contador de perguntas OpenAI
+    pushcut_notification_sent = db.Column(db.Boolean, default=False)  # Evitar duplicatas de notificação
     created_at = db.Column(db.DateTime, default=brasilia_now)
     updated_at = db.Column(db.DateTime, default=brasilia_now, onupdate=brasilia_now)
     
