@@ -194,7 +194,7 @@
         
         .unread-count {
             background-color: #22C063;
-            color: white;
+            color: #000;
             border-radius: 50%;
             width: 20px;
             height: 20px;
@@ -608,7 +608,7 @@
                         Whatsapp IA
                     </h5>
                     <button class="logout-icon" id="logoutBtn" title="Sair da conta">
-                        <i class="fas fa-sign-out-alt"></i>
+                        <i class="fas fa-power-off"></i>
                     </button>
                 </div>
                 
@@ -697,13 +697,6 @@
             }
             
             bindEvents() {
-                // Iniciar nova conversa
-                const startNewChatBtn = document.getElementById('startNewChat');
-                if (startNewChatBtn) {
-                    startNewChatBtn.addEventListener('click', () => {
-                        this.startNewChat();
-                    });
-                }
                 
                 // Enviar mensagem na conversa atual
                 const sendMessageBtn = document.getElementById('sendMessageBtn');
@@ -730,15 +723,6 @@
                     });
                 }
                 
-                const newChatPhone = document.getElementById('newChatPhone');
-                if (newChatPhone) {
-                    newChatPhone.addEventListener('keypress', (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            this.startNewChat();
-                        }
-                    });
-                }
                 
                 // Refresh conversas (se existir)
                 const refreshBtn = document.getElementById('refreshConversations');
@@ -1041,44 +1025,6 @@
                 }
             }
             
-            startNewChat() {
-                const phoneInput = document.getElementById('newChatPhone');
-                const phoneNumberSelect = document.getElementById('phoneNumberSelect');
-                
-                const phone = phoneInput.value.trim();
-                const phoneNumberId = phoneNumberSelect.value;
-                
-                if (!phone) {
-                    this.showError('Digite um número de telefone');
-                    return;
-                }
-                
-                if (!phoneNumberId) {
-                    this.showError('Selecione um número WhatsApp');
-                    return;
-                }
-                
-                // Criar objeto de conversa temporária
-                const newConversation = {
-                    id: 'new_' + Date.now(),
-                    contact: {
-                        name: phone,
-                        phone: phone
-                    },
-                    phone_number_id: phoneNumberId,
-                    last_message: {
-                        timestamp: new Date().toISOString(),
-                        body: 'Nova conversa'
-                    },
-                    messages: []
-                };
-                
-                // Abrir a conversa na área de chat
-                this.openConversation(newConversation);
-                
-                // Limpar o input
-                phoneInput.value = '';
-            }
             
             logout() {
                 // Desconectar da Business Manager
