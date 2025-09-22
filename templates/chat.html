@@ -764,8 +764,8 @@
                             </div>
                             
                             <div class="d-flex gap-2 mb-4">
-                                <button type="submit" class="btn btn-success flex-fill">
-                                    <i class="fas fa-plug me-2"></i>Conectar
+                                <button type="submit" class="btn flex-fill" style="background-color: #154d37; color: white; font-weight: bold; border: none;">
+                                    Conectar
                                 </button>
                                 <button type="button" class="btn btn-danger" id="disconnectBtn">
                                     <i class="fas fa-unplug me-2"></i>Desconectar
@@ -782,8 +782,8 @@
                             <input type="text" class="form-control" id="proxyInput" placeholder="host:port:user:password">
                             <small class="form-text text-muted">Formato: gate-us.proxylite.com:9595:usuario:senha</small>
                         </div>
-                        <button type="button" class="btn btn-outline-info" id="connectProxyBtn">
-                            <i class="fas fa-shield-alt me-2"></i>Conectar Proxy
+                        <button type="button" class="btn" id="connectProxyBtn" style="background-color: #154d37; color: white; font-weight: bold; border: none;">
+                            Conectar Proxy
                         </button>
                     </div>
                     
@@ -1001,9 +1001,19 @@
                         const data = await response.json();
                         iconEl.className = 'fas fa-check';
                         titleEl.textContent = 'Conectado';
+                        
+                        // Se não há dados no localStorage mas o backend está conectado, sincronizar
+                        if (!localStorage.getItem('whatsapp_connection') && data.length > 0) {
+                            // Buscar dados completos da conexão
+                            this.syncConnectionFromBackend();
+                        }
                     } else {
                         iconEl.className = 'fas fa-exclamation-triangle';
                         titleEl.textContent = 'Desconectado';
+                        
+                        // Se o backend está desconectado, limpar localStorage
+                        localStorage.removeItem('whatsapp_connection');
+                        this.connectionData = null;
                     }
                 } catch (error) {
                     const statusBox = document.getElementById('connectionStatus');
@@ -1011,6 +1021,23 @@
                     const titleEl = statusBox.querySelector('.status-title');
                     iconEl.className = 'fas fa-times';
                     titleEl.textContent = 'Erro';
+                    
+                    // Em caso de erro, limpar localStorage para evitar inconsistência
+                    localStorage.removeItem('whatsapp_connection');
+                    this.connectionData = null;
+                }
+            }
+
+            async syncConnectionFromBackend() {
+                try {
+                    const response = await fetch('/api/connection-info');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.connectionData = data;
+                        localStorage.setItem('whatsapp_connection', JSON.stringify(data));
+                    }
+                } catch (error) {
+                    console.error('Erro ao sincronizar conexão:', error);
                 }
             }
             
@@ -1407,6 +1434,12 @@
 
             updateConnectionInfo(connected) {
                 const connectionInfo = document.getElementById('connectionInfo');
+                
+                // Verificar se o elemento existe antes de tentar modificá-lo
+                if (!connectionInfo) {
+                    console.log('Elemento connectionInfo não encontrado');
+                    return;
+                }
                 
                 if (connected && this.connectionData) {
                     connectionInfo.innerHTML = `
