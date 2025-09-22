@@ -272,6 +272,31 @@
             color: #fff;
         }
         
+        .logout-icon {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 18px;
+            font-weight: 900;
+            padding: 8px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+        }
+        
+        .logout-icon:hover {
+            background-color: #1D1F1F;
+        }
+        
+        .logout-icon i {
+            font-weight: 900;
+        }
+        
         /* Área de chat */
         .chat-area {
             flex: 1;
@@ -582,6 +607,9 @@
                     <h5 class="mb-0" style="font-weight: 600;">
                         Whatsapp IA
                     </h5>
+                    <button class="logout-icon" id="logoutBtn" title="Sair da conta">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
                 </div>
                 
                 <!-- Status de conexão com menu de números -->
@@ -717,6 +745,14 @@
                 if (refreshBtn) {
                     refreshBtn.addEventListener('click', () => {
                         this.loadConversations();
+                    });
+                }
+                
+                // Botão de logout
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', () => {
+                        this.logout();
                     });
                 }
             }
@@ -1042,6 +1078,25 @@
                 
                 // Limpar o input
                 phoneInput.value = '';
+            }
+            
+            logout() {
+                // Desconectar da Business Manager
+                if (confirm('Tem certeza que deseja sair da conta?')) {
+                    // Limpar dados da sessão
+                    fetch('/disconnect', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    }).then(() => {
+                        // Redirecionar para a página inicial
+                        window.location.href = '/';
+                    }).catch(() => {
+                        // Mesmo se der erro, redirecionar
+                        window.location.href = '/';
+                    });
+                }
             }
             
             startPolling() {
