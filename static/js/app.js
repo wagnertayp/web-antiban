@@ -570,12 +570,29 @@ class WhatsAppSender {
     
     addTemplateEventListeners() {
         const checkboxes = document.querySelectorAll('.template-checkbox');
+        
+        // Debounce para evitar chamadas excessivas
+        const debouncedUpdate = this.debounce(() => {
+            this.updateDistributionInfo();
+            this.updateTemplateButtons();
+        }, 150);
+        
         checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', () => {
-                this.updateDistributionInfo();
-                this.updateTemplateButtons();
-            });
+            checkbox.addEventListener('change', debouncedUpdate);
         });
+    }
+    
+    // Função de debounce para otimizar performance
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
     }
     
     clearConnectionData() {
@@ -595,7 +612,11 @@ class WhatsAppSender {
     
     loadConnectionData() {
         if (this.connectionData) {
-            console.log(`${this.connectionData.phone_numbers.length} phone numbers carregados da conexão`);
+            // Reduzir logs para melhorar performance
+            if (!this._lastConnectionLog || Date.now() - this._lastConnectionLog > 30000) {
+                console.log(`${this.connectionData.phone_numbers.length} phone numbers carregados da conexão`);
+                this._lastConnectionLog = Date.now();
+            }
             this.updateDistributionInfo();
         }
     }

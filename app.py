@@ -102,17 +102,14 @@ with app.app_context():
 
 from services.whatsapp_business_api import WhatsAppBusinessAPI
 from services.message_service import MessageService
-# from mega_batch_simple import mega_batch  # Temporarily disabled
 from webhook_handler import WhatsAppWebhookHandler
-# from ultra_mega_batch import ultra_mega_batch  # Temporarily disabled
 from utils.validators import validate_cpf, format_phone_number, parse_leads
-from template_cloner import TemplateCloner
 
-# Initialize services
+# Initialize services - otimizado para performance
 whatsapp_service = WhatsAppBusinessAPI()
 message_service = MessageService(db, whatsapp_service, app)
 
-# 🔐 PROXY REATIVADO - Proteção contra ban da Meta
+# 🔐 PROXY - Inicialização otimizada
 from services.proxy_service import init_proxy_service
 proxy_service = init_proxy_service(app, db)
 
@@ -773,6 +770,13 @@ def connect_whatsapp():
 def get_phone_numbers():
     """Busca phone numbers da Business Manager especificada ou baseado no token"""
     try:
+        # Cache inteligente baseado no business_manager_id
+        business_manager_id = session.get('whatsapp_business_manager_id')
+        if business_manager_id:
+            cache_key = f"phone_numbers_{business_manager_id}"
+            cached_result = cache.get(cache_key)
+            if cached_result:
+                return jsonify(cached_result)
         # Primeiro tentar usar os phone numbers do whatsapp_service (já carregados)
         if hasattr(whatsapp_service, '_available_phones') and whatsapp_service._available_phones:
             phone_numbers = []
@@ -787,8 +791,14 @@ def get_phone_numbers():
                         'quality_rating': 'UNKNOWN'
                     })
             
-            logging.info(f"Carregados {len(phone_numbers)} phone numbers da BM {getattr(whatsapp_service, '_business_account_id', 'FALLBACK')}")
-            return jsonify({'phone_numbers': phone_numbers})
+            result = {'phone_numbers': phone_numbers}
+            # Cache por 10 minutos se tiver BM ID
+            if business_manager_id:
+                cache.set(f"phone_numbers_{business_manager_id}", result, timeout=600)
+            # Reduzir logs para melhor performance
+            if len(phone_numbers) > 0:
+                logging.info(f"Carregados {len(phone_numbers)} phone numbers da BM {getattr(whatsapp_service, '_business_account_id', 'FALLBACK')}")
+            return jsonify(result)
         
         # Fallback: buscar diretamente usando token da sessão ou ambiente  
         access_token = session.get('whatsapp_access_token') or os.getenv('WHATSAPP_ACCESS_TOKEN')
@@ -822,13 +832,17 @@ def get_phone_numbers():
                         'verified_name': phone.get('verified_name', 'N/A')
                     })
                 
-                logging.info(f"Carregados {len(formatted_phones)} phone numbers da BM {business_manager_id}")
-                
-                return jsonify({
+                result = {
                     'phone_numbers': formatted_phones,
                     'business_manager_id': business_manager_id,
                     'total_phones': len(formatted_phones)
-                })
+                }
+                
+                # Cache agressivo por 10 minutos
+                cache.set(f"phone_numbers_{business_manager_id}", result, timeout=600)
+                logging.info(f"Carregados {len(formatted_phones)} phone numbers da BM {business_manager_id}")
+                
+                return jsonify(result)
             else:
                 # Token expirado ou erro - retornar erro claro
                 logging.error(f"Erro ao buscar phones da BM {business_manager_id}: {phones_response.text}")
