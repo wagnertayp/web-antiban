@@ -193,8 +193,8 @@
         }
         
         .unread-count {
-            background-color: #22C063;
-            color: #000;
+            background-color: #22C063 !important;
+            color: #000000 !important;
             border-radius: 50%;
             width: 20px;
             height: 20px;
@@ -608,7 +608,7 @@
                         Whatsapp IA
                     </h5>
                     <button class="logout-icon" id="logoutBtn" title="Sair da conta">
-                        <i class="fas fa-power-off"></i>
+                        <i class="fas fa-sign-out-alt"></i>
                     </button>
                 </div>
                 
@@ -832,7 +832,7 @@
                 if (this.conversations.length === 0) {
                     container.innerHTML = `
                         <div class="text-center p-4">
-                            <i class="fas fa-comments fa-2x mb-3 text-muted"></i>
+                            <i class="far fa-comment-dots fa-2x mb-3 text-muted"></i>
                             <p class="text-muted">Nenhuma conversa encontrada</p>
                             <small class="text-muted">Inicie uma nova conversa acima</small>
                         </div>
@@ -930,7 +930,7 @@
                 if (this.messages.length === 0) {
                     container.innerHTML = `
                         <div class="empty-chat">
-                            <i class="fas fa-comments"></i>
+                            <i class="far fa-comment-dots"></i>
                             <h5>Conversa iniciada</h5>
                             <p>Envie a primeira mensagem para começar a conversa.</p>
                         </div>
