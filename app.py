@@ -250,6 +250,79 @@ def get_business_manager_id():
         logging.error(f"Erro ao buscar Business Manager ID: {str(e)}")
         return jsonify({'business_manager_id': ''})
 
+@app.route('/disconnect', methods=['POST'])
+def disconnect_whatsapp():
+    """Desconectar da Business Manager e limpar sessão"""
+    try:
+        # Limpar dados da sessão
+        session.pop('whatsapp_access_token', None)
+        session.pop('whatsapp_business_manager_id', None)
+        session.pop('whatsapp_phone_numbers', None)
+        session.pop('whatsapp_templates', None)
+        session.pop('whatsapp_connection', None)
+        session.pop('whatsapp_selected_phone_id', None)
+        
+        # Limpar credenciais do service
+        if hasattr(whatsapp_service, '_access_token'):
+            whatsapp_service._access_token = None
+        if hasattr(whatsapp_service, '_headers'):
+            whatsapp_service._headers = {}
+        if hasattr(whatsapp_service, '_business_account_id'):
+            whatsapp_service._business_account_id = None
+        if hasattr(whatsapp_service, '_phone_number_id'):
+            whatsapp_service._phone_number_id = None
+        if hasattr(whatsapp_service, '_available_phones'):
+            whatsapp_service._available_phones = []
+        
+        logging.info("🔌 Desconectado da Business Manager - Sessão limpa")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Desconectado com sucesso'
+        })
+        
+    except Exception as e:
+        logging.error(f"Erro ao desconectar: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Erro ao desconectar: {str(e)}'
+        }), 500
+
+@app.route('/api/connection-info', methods=['GET'])
+def get_connection_info():
+    """Retorna informações atuais da conexão"""
+    try:
+        # Verificar se há dados de conexão na sessão
+        connection_data = session.get('whatsapp_connection', {})
+        business_manager_id = session.get('whatsapp_business_manager_id')
+        phone_numbers = session.get('whatsapp_phone_numbers', [])
+        templates = session.get('whatsapp_templates', [])
+        
+        if connection_data and business_manager_id:
+            return jsonify({
+                'connected': True,
+                'business_manager_id': business_manager_id,
+                'phone_numbers': phone_numbers,
+                'templates': templates,
+                'connected_at': connection_data.get('connected_at')
+            })
+        else:
+            return jsonify({
+                'connected': False,
+                'business_manager_id': None,
+                'phone_numbers': [],
+                'templates': []
+            })
+        
+    except Exception as e:
+        logging.error(f"Erro ao buscar informações da conexão: {str(e)}")
+        return jsonify({
+            'connected': False,
+            'business_manager_id': None,
+            'phone_numbers': [],
+            'templates': []
+        }), 500
+
 @app.route('/api/connect-whatsapp', methods=['POST'])
 def connect_whatsapp():
     """Conecta com WhatsApp Business API usando token fornecido"""

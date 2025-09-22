@@ -1261,22 +1261,45 @@
             }
             
             
-            logout() {
-                // Desconectar da Business Manager
-                if (confirm('Tem certeza que deseja sair da conta?')) {
-                    // Limpar dados da sessão
-                    fetch('/disconnect', {
+            async logout() {
+                // Desconectar da Business Manager sem confirmação
+                try {
+                    // Limpar dados locais imediatamente
+                    localStorage.removeItem('whatsapp_connection');
+                    this.connectionData = null;
+                    this.conversations = [];
+                    this.currentConversationId = null;
+                    
+                    // Limpar mensagens da tela
+                    const chatMessages = document.getElementById('chatMessages');
+                    chatMessages.innerHTML = `
+                        <div class="empty-chat">
+                            <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager">
+                            <h5 style="color: #fff; font-weight: 300; font-size: 2.2rem; margin-bottom: 0.8rem;">Whatsapp Recovery IA</h5>
+                            <p style="color: #fff; font-weight: bold;">Selecione uma conversa à esquerda ou inicie uma nova conversa para começar.</p>
+                        </div>
+                    `;
+                    
+                    // Limpar lista de conversas
+                    this.renderConversations();
+                    
+                    // Desconectar no backend
+                    await fetch('/disconnect', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         }
-                    }).then(() => {
-                        // Redirecionar para a página inicial
-                        window.location.href = '/';
-                    }).catch(() => {
-                        // Mesmo se der erro, redirecionar
-                        window.location.href = '/';
                     });
+                    
+                    // Abrir aba de configurações
+                    this.openSettings();
+                    
+                    console.log('Desconectado com sucesso');
+                    
+                } catch (error) {
+                    console.error('Erro ao desconectar:', error);
+                    // Mesmo com erro, abrir configurações
+                    this.openSettings();
                 }
             }
 
@@ -1493,26 +1516,30 @@
                 }
             }
 
-            updateSettingsConnectionStatus() {
+            async updateSettingsConnectionStatus() {
                 const statusBox = document.getElementById('settingsConnectionStatus');
                 const statusDetails = document.getElementById('settingsConnectionDetails');
                 
                 if (!statusBox || !statusDetails) return;
                 
-                // Verificar se há uma conexão ativa
-                const savedConnection = localStorage.getItem('whatsapp_connection');
-                if (savedConnection) {
-                    try {
-                        const connectionData = JSON.parse(savedConnection);
+                try {
+                    // Verificar status real da conexão no backend
+                    const response = await fetch('/api/connection-info');
+                    const data = await response.json();
+                    
+                    if (data.connected && data.business_manager_id) {
+                        // Sincronizar localStorage com backend
+                        this.connectionData = data;
+                        localStorage.setItem('whatsapp_connection', JSON.stringify(data));
                         
                         // Atualizar para status conectado (verde)
                         statusBox.style.backgroundColor = '#103529';
                         statusBox.querySelector('.status-title').textContent = 'Conectado';
                         statusDetails.innerHTML = `
                             <div style="color: #8b949e; font-size: 0.85rem;">
-                                <div>BM ID: ${connectionData.business_manager_id}</div>
-                                <div>Números: ${connectionData.phone_numbers?.length || 0}</div>
-                                <div>Templates: ${connectionData.templates?.length || 0}</div>
+                                <div>BM ID: ${data.business_manager_id}</div>
+                                <div>Números: ${data.phone_numbers?.length || 0}</div>
+                                <div>Templates: ${data.templates?.length || 0}</div>
                             </div>
                         `;
                         
@@ -1521,11 +1548,32 @@
                         if (icon) {
                             icon.className = 'fas fa-check-circle';
                         }
-                    } catch (error) {
-                        console.error('Erro ao analisar dados de conexão:', error);
+                        
+                        // Preencher campos com dados do backend
+                        const accessTokenField = document.getElementById('accessToken');
+                        const businessIdField = document.getElementById('businessId');
+                        if (accessTokenField) accessTokenField.value = '***TOKEN_CONECTADO***';
+                        if (businessIdField) businessIdField.value = data.business_manager_id;
+                        
+                    } else {
+                        // Limpar localStorage se backend não está conectado
+                        localStorage.removeItem('whatsapp_connection');
+                        this.connectionData = null;
                         this.showDisconnectedStatus(statusBox, statusDetails);
+                        
+                        // Limpar campos
+                        const accessTokenField = document.getElementById('accessToken');
+                        const businessIdField = document.getElementById('businessId');
+                        if (accessTokenField) accessTokenField.value = '';
+                        if (businessIdField) businessIdField.value = '';
                     }
-                } else {
+                    
+                } catch (error) {
+                    console.error('Erro ao verificar status da conexão:', error);
+                    
+                    // Em caso de erro, limpar localStorage e mostrar desconectado
+                    localStorage.removeItem('whatsapp_connection');
+                    this.connectionData = null;
                     this.showDisconnectedStatus(statusBox, statusDetails);
                 }
             }
