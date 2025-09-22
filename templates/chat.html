@@ -315,61 +315,54 @@
             justify-content: center;
         }
         
-        .input-group {
-            display: flex;
-            align-items: flex-end;
-            position: relative;
-            width: 100%;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        
-        .message-input {
-            flex: 1;
-            resize: none;
-            border: none;
-            border-radius: 25px;
-            padding: 12px 50px 12px 20px;
-            background-color: #232626;
-            color: #f0f6fc;
-            max-height: 120px;
-            min-height: 44px;
-            outline: none;
-            box-sizing: border-box;
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            font-size: 14px;
-            -webkit-border-radius: 25px;
-            -moz-border-radius: 25px;
-        }
-        
-        .send-button {
-            position: absolute;
-            right: 4px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: none;
-            background-color: #22C063;
-            color: white;
-            display: flex;
+        .input-pill {
+            display: grid;
+            grid-template-columns: 1fr auto;
             align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 16px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-            -webkit-border-radius: 50%;
-            -moz-border-radius: 50%;
+            gap: 8px;
+            background: #232626;
+            border-radius: 9999px;
             overflow: hidden;
+            padding: 8px;
+            width: 100%;
+            max-width: min(900px, calc(100% - 32px));
+            margin: 0 auto;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
         }
         
-        .send-button:hover {
+        .input-pill .message-input {
+            background: transparent;
+            border: 0;
+            color: #f0f6fc;
+            resize: none;
+            min-height: 44px;
+            max-height: 120px;
+            padding: 6px 8px 6px 12px;
+            outline: none;
+            font: 14px/1.4 'Helvetica Neue', Arial, sans-serif;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        
+        .input-pill .send-button {
+            width: 40px;
+            height: 40px;
+            border: 0;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: #22C063;
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 16px;
+        }
+        
+        .input-pill .send-button:hover {
             background-color: #1da851;
         }
         
-        .send-button:disabled {
+        .input-pill .send-button:disabled {
             background-color: #6b7280;
             cursor: not-allowed;
         }
@@ -591,7 +584,7 @@
             
             <!-- Input de mensagem -->
             <div class="chat-input" id="chatInput" style="display: none;">
-                <div class="input-group">
+                <div class="input-pill">
                     <textarea class="message-input" 
                               id="messageInput" 
                               placeholder="Digite sua mensagem..."
