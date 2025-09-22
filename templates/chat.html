@@ -205,6 +205,12 @@
             font-weight: bold;
             text-shadow: none !important;
         }
+
+        /* Força cor preta para texto da bolinha */
+        .menu-counter, .unread-count, .badge {
+            color: #000000 !important;
+            text-shadow: none !important;
+        }
         
         .badge {
             border-radius: 0px !important;
@@ -572,7 +578,7 @@
         <!-- Menu Sidebar -->
         <div class="menu-sidebar">            
             <button class="menu-icon active" title="Conversas">
-                <i class="fas fa-comment"></i>
+                <img src="{{ url_for('static', filename='message-icon.png') }}" alt="Message icon" style="width: 20px; height: 20px;">
                 <div class="menu-counter" id="conversationsCounter">
                     0
                 </div>
