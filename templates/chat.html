@@ -777,6 +777,11 @@
                     <!-- Proxy -->
                     <div class="config-section">
                         <h6 class="config-title">Configurações de Proxy</h6>
+                        <div class="form-group mb-3">
+                            <label for="proxyInput" class="form-label">Servidor Proxy:</label>
+                            <input type="text" class="form-control" id="proxyInput" placeholder="host:port:user:password">
+                            <small class="form-text text-muted">Formato: gate-us.proxylite.com:9595:usuario:senha</small>
+                        </div>
                         <button type="button" class="btn btn-outline-info" id="connectProxyBtn">
                             <i class="fas fa-shield-alt me-2"></i>Conectar Proxy
                         </button>
@@ -785,8 +790,16 @@
                     <!-- Status -->
                     <div class="config-section">
                         <h6 class="config-title">Status da Conexão</h6>
-                        <div class="status-info" id="connectionInfo">
-                            <p class="text-muted">Conecte-se para ver o status</p>
+                        <div class="connection-status-box" id="settingsConnectionStatus">
+                            <div class="connection-icon">
+                                <i class="fas fa-plug"></i>
+                            </div>
+                            <div class="connection-text">
+                                <div class="status-title">Verificando conexão...</div>
+                                <div class="status-subtitle" id="settingsConnectionDetails">
+                                    Carregando status...
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1255,6 +1268,12 @@
                             <p style="color: #fff; font-weight: bold;">Selecione uma conversa à esquerda ou inicie uma nova conversa para começar.</p>
                         </div>
                     `;
+                    
+                    // Carregar dados salvos nos campos
+                    this.loadSavedConnectionData();
+                    
+                    // Atualizar status da conexão nas configurações
+                    this.updateSettingsConnectionStatus();
                 }
             }
 
@@ -1312,6 +1331,7 @@
                         this.connectionData = result.data;
                         localStorage.setItem('whatsapp_connection', JSON.stringify(this.connectionData));
                         this.updateConnectionInfo(true);
+                        this.updateSettingsConnectionStatus(); // Atualizar status nas configurações
                         this.showSuccess('Conectado com sucesso!');
                         this.loadPhoneNumbers(); // Recarregar números
                     } else {
@@ -1335,6 +1355,7 @@
                     this.connectionData = null;
                     localStorage.removeItem('whatsapp_connection');
                     this.updateConnectionInfo(false);
+                    this.updateSettingsConnectionStatus(); // Atualizar status nas configurações
                     this.showSuccess('Desconectado com sucesso');
                     
                     // Limpar formulário
@@ -1344,7 +1365,15 @@
             }
 
             async connectProxy() {
+                const proxyInput = document.getElementById('proxyInput');
                 const proxyBtn = document.getElementById('connectProxyBtn');
+                const proxyConnection = proxyInput.value.trim();
+                
+                if (!proxyConnection) {
+                    this.showError('Digite a configuração do proxy');
+                    return;
+                }
+                
                 const originalText = proxyBtn.innerHTML;
                 proxyBtn.disabled = true;
                 proxyBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Conectando...';
@@ -1354,7 +1383,10 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
-                        }
+                        },
+                        body: JSON.stringify({
+                            proxy_connection: proxyConnection
+                        })
                     });
                     
                     const result = await response.json();
@@ -1398,6 +1430,81 @@
                     `;
                 } else {
                     connectionInfo.innerHTML = '<p class="text-muted">Conecte-se para ver o status</p>';
+                }
+            }
+
+            loadSavedConnectionData() {
+                // Carregar dados da conexão atual do localStorage
+                const savedConnection = localStorage.getItem('whatsapp_connection');
+                if (savedConnection) {
+                    try {
+                        const connectionData = JSON.parse(savedConnection);
+                        
+                        // Pré-preencher campos se houver dados salvos
+                        if (connectionData.access_token) {
+                            const accessTokenField = document.getElementById('accessToken');
+                            if (accessTokenField) {
+                                accessTokenField.value = connectionData.access_token;
+                            }
+                        }
+                        
+                        if (connectionData.business_manager_id) {
+                            const businessIdField = document.getElementById('businessId');
+                            if (businessIdField) {
+                                businessIdField.value = connectionData.business_manager_id;
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Erro ao carregar dados salvos:', error);
+                    }
+                }
+            }
+
+            updateSettingsConnectionStatus() {
+                const statusBox = document.getElementById('settingsConnectionStatus');
+                const statusDetails = document.getElementById('settingsConnectionDetails');
+                
+                if (!statusBox || !statusDetails) return;
+                
+                // Verificar se há uma conexão ativa
+                const savedConnection = localStorage.getItem('whatsapp_connection');
+                if (savedConnection) {
+                    try {
+                        const connectionData = JSON.parse(savedConnection);
+                        
+                        // Atualizar para status conectado (verde)
+                        statusBox.style.backgroundColor = '#103529';
+                        statusBox.querySelector('.status-title').textContent = 'Conectado';
+                        statusDetails.innerHTML = `
+                            <div style="color: #8b949e; font-size: 0.85rem;">
+                                <div>BM ID: ${connectionData.business_manager_id}</div>
+                                <div>Números: ${connectionData.phone_numbers?.length || 0}</div>
+                                <div>Templates: ${connectionData.templates?.length || 0}</div>
+                            </div>
+                        `;
+                        
+                        // Atualizar ícone para check
+                        const icon = statusBox.querySelector('.connection-icon i');
+                        if (icon) {
+                            icon.className = 'fas fa-check-circle';
+                        }
+                    } catch (error) {
+                        console.error('Erro ao analisar dados de conexão:', error);
+                        this.showDisconnectedStatus(statusBox, statusDetails);
+                    }
+                } else {
+                    this.showDisconnectedStatus(statusBox, statusDetails);
+                }
+            }
+
+            showDisconnectedStatus(statusBox, statusDetails) {
+                statusBox.style.backgroundColor = '#232626';
+                statusBox.querySelector('.status-title').textContent = 'Desconectado';
+                statusDetails.textContent = 'Configure token para conectar';
+                
+                const icon = statusBox.querySelector('.connection-icon i');
+                if (icon) {
+                    icon.className = 'fas fa-plug';
                 }
             }
 
