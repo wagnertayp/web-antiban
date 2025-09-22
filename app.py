@@ -1440,6 +1440,8 @@ webhook_handler = WhatsAppWebhookHandler(db=db)
 def whatsapp_webhook():
     """Endpoint para receber webhooks do WhatsApp Business API"""
     logging.info(f"🔗 WEBHOOK CHAMADO - Método: {request.method}, IP: {request.remote_addr}")
+    logging.info(f"🌐 Headers recebidos: {dict(request.headers)}")
+    logging.info(f"🔍 User-Agent: {request.headers.get('User-Agent', 'N/A')}")
     
     if request.method == 'GET':
         # Verificação inicial do webhook
@@ -1448,41 +1450,60 @@ def whatsapp_webhook():
         challenge = request.args.get('hub.challenge')
         
         logging.info(f"🔑 WEBHOOK VERIFICATION - Mode: {mode}, Token: {token}, Challenge: {challenge}")
+        logging.info(f"🔍 Todos os parâmetros GET: {dict(request.args)}")
         
         if mode and token and challenge:
             challenge_response = webhook_handler.verify_webhook(mode, token, challenge)
             if challenge_response:
-                logging.info(f"✅ WEBHOOK VERIFICADO - Challenge: {challenge}")
+                logging.info(f"✅ WEBHOOK VERIFICADO - Challenge retornado: {challenge_response}")
                 return challenge_response
             else:
-                logging.warning("❌ WEBHOOK VERIFICATION FAILED")
+                logging.error("❌ WEBHOOK VERIFICATION FAILED - Token incorreto")
                 return "Forbidden", 403
         else:
-            logging.warning("❌ WEBHOOK VERIFICATION - Missing parameters")
+            logging.error("❌ WEBHOOK VERIFICATION - Missing parameters:")
+            logging.error(f"   Mode: {mode}")
+            logging.error(f"   Token: {token}")
+            logging.error(f"   Challenge: {challenge}")
             return "Bad Request", 400
     
     elif request.method == 'POST':
         # Processar webhook recebido
         try:
+            # Log de debugging detalhado
+            logging.info(f"📥 WEBHOOK POST RECEBIDO")
+            logging.info(f"🌐 Content-Type: {request.content_type}")
+            logging.info(f"📊 Content-Length: {request.content_length}")
+            
+            # Tentar obter dados JSON
             webhook_data = request.get_json()
             
             if not webhook_data:
-                logging.warning("❌ WEBHOOK POST - No data received")
+                logging.error("❌ WEBHOOK POST - No JSON data received")
+                logging.error(f"📄 Raw data: {request.get_data(as_text=True)}")
                 return "Bad Request", 400
             
-            # Log do webhook recebido
-            logging.info(f"📨 WEBHOOK RECEBIDO: {str(webhook_data)}")
+            # Log do webhook recebido (limitado para não logar dados sensíveis)
+            logging.info(f"📨 WEBHOOK RECEBIDO - Estrutura: {str(webhook_data)[:500]}...")
+            
+            # Verificar se vem do WhatsApp
+            if 'entry' in webhook_data:
+                logging.info(f"✅ Webhook válido do WhatsApp com {len(webhook_data.get('entry', []))} entries")
+            else:
+                logging.warning(f"⚠️ Webhook sem estrutura esperada do WhatsApp: {list(webhook_data.keys())}")
             
             # Processar webhook
             result = webhook_handler.process_webhook(webhook_data)
             
-            logging.info(f"✅ WEBHOOK PROCESSADO: {result}")
+            logging.info(f"✅ WEBHOOK PROCESSADO COM SUCESSO: {result.get('success', False)}, Events: {result.get('processed_events', 0)}")
             
             # Responder com status 200 (obrigatório para WhatsApp)
             return jsonify(result), 200
             
         except Exception as e:
             logging.error(f"❌ ERRO AO PROCESSAR WEBHOOK: {str(e)}")
+            import traceback
+            logging.error(f"📊 Stack trace: {traceback.format_exc()}")
             return "Internal Server Error", 500
 
 @app.route('/api/ultra-speed', methods=['POST'])

@@ -17,18 +17,26 @@ class WhatsAppWebhookHandler:
         # Require secure webhook token
         verify_token = os.getenv('WHATSAPP_WEBHOOK_VERIFY_TOKEN')
         if not verify_token:
-            # For development, use a default token
+            # For development and production, use the same token that's in the interface
             verify_token = 'webhook_verify_token_12345_dev_only'
-            logging.warning("Using default webhook verify token for development. Set WHATSAPP_WEBHOOK_VERIFY_TOKEN for production.")
+            logging.info("✅ Using interface webhook verify token: webhook_verify_token_12345_dev_only")
+        else:
+            logging.info(f"✅ Using environment webhook verify token: {verify_token}")
         self.verify_token = verify_token
+        logging.info(f"🔑 Webhook Handler inicializado com token: {verify_token}")
         
     def verify_webhook(self, mode: str, token: str, challenge: str) -> Optional[str]:
         """Verificar webhook do WhatsApp (processo de configuração inicial)"""
+        logging.info(f"🔍 VERIFICANDO WEBHOOK - Mode: {mode}, Token recebido: {token}, Expected token: {self.verify_token}")
+        
         if mode == 'subscribe' and token == self.verify_token:
-            logging.info("Webhook verificado com sucesso")
+            logging.info(f"✅ WEBHOOK VERIFICADO COM SUCESSO! Challenge: {challenge}")
             return challenge
         else:
-            logging.error(f"Falha na verificação do webhook: mode={mode}, token={token}")
+            logging.error(f"❌ FALHA NA VERIFICAÇÃO DO WEBHOOK:")
+            logging.error(f"   Mode esperado: 'subscribe', recebido: '{mode}'")
+            logging.error(f"   Token esperado: '{self.verify_token}', recebido: '{token}'")
+            logging.error(f"   Challenge: {challenge}")
             return None
     
     def process_webhook(self, webhook_data: Dict[str, Any]) -> Dict[str, Any]:
