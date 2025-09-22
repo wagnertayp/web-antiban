@@ -203,6 +203,7 @@
             align-items: center;
             justify-content: center;
             font-weight: bold;
+            text-shadow: none !important;
         }
         
         .badge {
@@ -832,7 +833,7 @@
                 if (this.conversations.length === 0) {
                     container.innerHTML = `
                         <div class="text-center p-4">
-                            <i class="far fa-comment-dots fa-2x mb-3 text-muted"></i>
+                            <img src="{{ url_for('static', filename='message-icon.png') }}" alt="Message icon" style="width: 48px; height: 48px; opacity: 0.6;" class="mb-3">
                             <p class="text-muted">Nenhuma conversa encontrada</p>
                             <small class="text-muted">Inicie uma nova conversa acima</small>
                         </div>
@@ -930,7 +931,7 @@
                 if (this.messages.length === 0) {
                     container.innerHTML = `
                         <div class="empty-chat">
-                            <i class="far fa-comment-dots"></i>
+                            <img src="{{ url_for('static', filename='message-icon.png') }}" alt="Message icon" style="width: 20px; height: 20px;">
                             <h5>Conversa iniciada</h5>
                             <p>Envie a primeira mensagem para começar a conversa.</p>
                         </div>
