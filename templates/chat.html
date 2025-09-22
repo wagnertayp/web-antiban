@@ -6,17 +6,12 @@
     <title>WhatsApp Business Chat - Automação de Conversas</title>
     <link rel="icon" type="image/webp" href="{{ url_for('static', filename='favicon.webp') }}">
     
-    <!-- ✅ PRELOAD CRÍTICO - CARREGAMENTO INSTANTÂNEO DE TODAS AS IMAGENS -->
-    <link rel="preload" href="/static/recovery-logo.png" as="image" fetchpriority="high">
-    <link rel="preload" href="/static/message-icon.png" as="image" fetchpriority="high">
-    <link rel="preload" href="/static/meta-ai-icon.png" as="image" fetchpriority="high">
-    <link rel="preload" href="/static/whatsapp-bg.webp" as="image" fetchpriority="high">
-    <link rel="preload" href="/static/favicon.webp" as="image">
+    <!-- ✅ PRELOAD APENAS CRÍTICOS -->
+    <link rel="preload" href="/static/recovery-logo.png" as="image">
     
-    <!-- ✅ DNS PREFETCH PARA PERFORMANCE -->
+    <!-- ✅ DNS PREFETCH REDUZIDO -->
     <link rel="dns-prefetch" href="//cdn.replit.com">
     <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
-    <link rel="dns-prefetch" href="//fonts.googleapis.com">
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
