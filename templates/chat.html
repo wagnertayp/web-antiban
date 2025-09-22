@@ -871,12 +871,16 @@
                 this.init();
             }
             
-            init() {
+            async init() {
                 this.bindEvents();
+                
+                // Primeiro, sincronizar estado de conexão com o backend
+                await this.checkConnectionStatus();
+                await this.updateSettingsConnectionStatus();
+                
                 this.loadConversations();
                 this.loadPhoneNumbers();
                 this.startPolling();
-                this.checkConnectionStatus();
             }
             
             bindEvents() {
@@ -926,8 +930,8 @@
                 // Botão de configurações
                 const settingsBtn = document.getElementById('settingsBtn');
                 if (settingsBtn) {
-                    settingsBtn.addEventListener('click', () => {
-                        this.openSettings();
+                    settingsBtn.addEventListener('click', async () => {
+                        await this.openSettings();
                     });
                 }
 
@@ -1314,8 +1318,8 @@
                         }
                     });
                     
-                    // Abrir aba de configurações
-                    this.openSettings();
+                    // Abrir aba de configurações e recarregar dados
+                    await this.openSettings();
                     
                     console.log('Desconectado com sucesso');
                     
@@ -1326,7 +1330,7 @@
                 }
             }
 
-            openSettings() {
+            async openSettings() {
                 const settingsOverlay = document.getElementById('settingsOverlay');
                 const chatMessages = document.getElementById('chatMessages');
                 
@@ -1342,11 +1346,11 @@
                         </div>
                     `;
                     
-                    // Carregar dados salvos nos campos
-                    this.loadSavedConnectionData();
+                    // Carregar dados salvos nos campos (agora sincronizado com backend)
+                    await this.loadSavedConnectionData();
                     
                     // Atualizar status da conexão nas configurações
-                    this.updateSettingsConnectionStatus();
+                    await this.updateSettingsConnectionStatus();
                 }
             }
 
@@ -1548,30 +1552,60 @@
                 }
             }
 
-            loadSavedConnectionData() {
-                // Carregar dados da conexão atual do localStorage
-                const savedConnection = localStorage.getItem('whatsapp_connection');
-                if (savedConnection) {
-                    try {
-                        const connectionData = JSON.parse(savedConnection);
+            async loadSavedConnectionData() {
+                try {
+                    // Verificar dados no backend primeiro
+                    const response = await fetch('/api/connection-info');
+                    const backendData = await response.json();
+                    
+                    const accessTokenField = document.getElementById('accessToken');
+                    const businessIdField = document.getElementById('businessId');
+                    const connectBtn = document.getElementById('connectBtn');
+                    const disconnectBtn = document.getElementById('disconnectBtn');
+                    
+                    if (backendData.connected && backendData.business_manager_id) {
+                        // Sistema está conectado - mostrar dados mascarados
+                        if (accessTokenField) accessTokenField.value = '***TOKEN_CONECTADO***';
+                        if (businessIdField) businessIdField.value = backendData.business_manager_id;
                         
-                        // Pré-preencher campos se houver dados salvos
-                        if (connectionData.access_token) {
-                            const accessTokenField = document.getElementById('accessToken');
-                            if (accessTokenField) {
-                                accessTokenField.value = connectionData.access_token;
-                            }
-                        }
+                        // Sincronizar localStorage
+                        this.connectionData = backendData;
+                        localStorage.setItem('whatsapp_connection', JSON.stringify(backendData));
                         
-                        if (connectionData.business_manager_id) {
-                            const businessIdField = document.getElementById('businessId');
-                            if (businessIdField) {
-                                businessIdField.value = connectionData.business_manager_id;
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Erro ao carregar dados salvos:', error);
+                        // Mostrar botão desconectar
+                        if (connectBtn) connectBtn.style.display = 'none';
+                        if (disconnectBtn) disconnectBtn.style.display = 'block';
+                        
+                    } else {
+                        // Sistema não está conectado - limpar campos
+                        if (accessTokenField) accessTokenField.value = '';
+                        if (businessIdField) businessIdField.value = '';
+                        
+                        // Limpar localStorage
+                        localStorage.removeItem('whatsapp_connection');
+                        this.connectionData = null;
+                        
+                        // Mostrar botão conectar
+                        if (connectBtn) connectBtn.style.display = 'block';
+                        if (disconnectBtn) disconnectBtn.style.display = 'none';
                     }
+                    
+                } catch (error) {
+                    console.error('Erro ao carregar conexão salva:', error);
+                    
+                    // Em caso de erro, limpar tudo
+                    const accessTokenField = document.getElementById('accessToken');
+                    const businessIdField = document.getElementById('businessId');
+                    const connectBtn = document.getElementById('connectBtn');
+                    const disconnectBtn = document.getElementById('disconnectBtn');
+                    
+                    if (accessTokenField) accessTokenField.value = '';
+                    if (businessIdField) businessIdField.value = '';
+                    if (connectBtn) connectBtn.style.display = 'block';
+                    if (disconnectBtn) disconnectBtn.style.display = 'none';
+                    
+                    localStorage.removeItem('whatsapp_connection');
+                    this.connectionData = null;
                 }
             }
 
