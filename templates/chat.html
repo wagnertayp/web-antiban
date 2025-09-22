@@ -309,32 +309,38 @@
             position: fixed;
             bottom: 0;
             left: 320px;
-            right: 0;
+            right: 20px;
             z-index: 100;
+            max-width: calc(100vw - 360px);
         }
         
         .input-group {
             display: flex;
-            gap: 8px;
             align-items: flex-end;
+            position: relative;
         }
         
         .message-input {
             flex: 1;
             resize: none;
             border: none;
-            border-radius: 20px;
-            padding: 10px 15px;
+            border-radius: 25px;
+            padding: 10px 50px 10px 15px;
             background-color: #232626;
             color: #f0f6fc;
             max-height: 120px;
             min-height: 40px;
             outline: none;
+            width: 100%;
         }
         
         .send-button {
-            width: 40px;
-            height: 40px;
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             border: none;
             background-color: #22C063;
@@ -344,6 +350,7 @@
             justify-content: center;
             cursor: pointer;
             transition: background-color 0.2s;
+            font-size: 12px;
         }
         
         .send-button:hover {
