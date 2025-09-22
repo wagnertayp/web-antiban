@@ -132,24 +132,6 @@ def index():
     """Redireciona automaticamente para o chat"""
     return redirect('/chat')
 
-@app.route('/static/images/<path:filename>')
-def optimized_images(filename):
-    """Serve imagens com cache otimizado para performance"""
-    from flask import send_from_directory, make_response
-    
-    response = make_response(send_from_directory('static', filename))
-    
-    # ✅ CACHE AGRESSIVO PARA IMAGENS (30 dias)
-    response.headers['Cache-Control'] = 'public, max-age=2592000, immutable'
-    response.headers['Expires'] = 'Thu, 31 Dec 2099 23:59:59 GMT'
-    response.headers['Last-Modified'] = 'Mon, 01 Jan 2024 00:00:00 GMT'
-    
-    # ✅ HEADERS DE PERFORMANCE
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['Accept-Ranges'] = 'bytes'
-    
-    return response
-
 @app.route('/admin/sent-numbers')
 def admin_sent_numbers():
     """Admin page to view and manage sent numbers"""
@@ -280,7 +262,15 @@ def disconnect_whatsapp():
         session.pop('whatsapp_connection', None)
         session.pop('whatsapp_selected_phone_id', None)
         
-        # ✅ LIMPEZA APENAS DA SESSÃO - BANCO DE DADOS REMOVIDO PARA PERFORMANCE
+        # ✅ LIMPAR CONFIGURAÇÕES GLOBAIS DO BANCO DE DADOS
+        from models import SystemConfig
+        
+        SystemConfig.delete_config('whatsapp_access_token')
+        SystemConfig.delete_config('whatsapp_business_manager_id')
+        SystemConfig.delete_config('whatsapp_phone_numbers')
+        SystemConfig.delete_config('whatsapp_templates')
+        SystemConfig.delete_config('whatsapp_connected')
+        SystemConfig.delete_config('whatsapp_connected_at')
         
         # Limpar credenciais do service
         if hasattr(whatsapp_service, '_access_token'):
@@ -310,13 +300,51 @@ def disconnect_whatsapp():
 
 @app.route('/api/connection-info', methods=['GET'])
 def get_connection_info():
-    """Retorna informações atuais da conexão - APENAS SESSÃO PARA PERFORMANCE"""
+    """Retorna informações atuais da conexão"""
     try:
-        # ✅ APENAS SESSÃO - BANCO DE DADOS REMOVIDO PARA PERFORMANCE MÁXIMA
+        from models import SystemConfig
+        import json
+        
+        # ✅ PRIMEIRA PRIORIDADE: Verificar se há dados de conexão na sessão
         connection_data = session.get('whatsapp_connection', {})
         business_manager_id = session.get('whatsapp_business_manager_id')
         phone_numbers = session.get('whatsapp_phone_numbers', [])
         templates = session.get('whatsapp_templates', [])
+        
+        # ✅ SEGUNDA PRIORIDADE: Buscar dados globais do banco se sessão estiver vazia
+        if not connection_data or not business_manager_id:
+            global_connected = SystemConfig.get_config('whatsapp_connected')
+            if global_connected == 'true':
+                access_token = SystemConfig.get_config('whatsapp_access_token')
+                business_manager_id = SystemConfig.get_config('whatsapp_business_manager_id')
+                connected_at = SystemConfig.get_config('whatsapp_connected_at')
+                
+                # Carregar phone numbers e templates do banco
+                try:
+                    phone_numbers_json = SystemConfig.get_config('whatsapp_phone_numbers', '[]')
+                    templates_json = SystemConfig.get_config('whatsapp_templates', '[]')
+                    phone_numbers = json.loads(phone_numbers_json)
+                    templates = json.loads(templates_json)
+                    connection_data = {
+                        'access_token': access_token,
+                        'business_manager_id': business_manager_id,
+                        'connected_at': connected_at
+                    }
+                    
+                    # ✅ RESTAURAR DADOS NA SESSÃO PARA PERFORMANCE
+                    session['whatsapp_access_token'] = access_token
+                    session['whatsapp_business_manager_id'] = business_manager_id
+                    session['whatsapp_phone_numbers'] = phone_numbers
+                    session['whatsapp_templates'] = templates
+                    session['whatsapp_connection'] = connection_data
+                    session.permanent = True
+                    
+                    logging.info(f"✅ Conexão restaurada do banco de dados: BM {business_manager_id}")
+                    
+                except json.JSONDecodeError:
+                    logging.error("Erro ao decodificar dados salvos no banco")
+                    phone_numbers = []
+                    templates = []
         
         if connection_data and business_manager_id:
             return jsonify({
@@ -663,8 +691,18 @@ def connect_whatsapp():
         session['last_business_manager_id'] = discovered_bm_id
         session.permanent = True  # Manter sessão persistente
         
-        # ✅ PERSISTÊNCIA REMOVIDA - APENAS SESSÃO PARA PERFORMANCE
-        logging.info("✅ Conexão salva apenas na sessão (performance otimizada)")
+        # ✅ PERSISTÊNCIA GLOBAL NO BANCO DE DADOS
+        from models import SystemConfig
+        import json
+        
+        SystemConfig.set_config('whatsapp_access_token', access_token)
+        SystemConfig.set_config('whatsapp_business_manager_id', discovered_bm_id)
+        SystemConfig.set_config('whatsapp_phone_numbers', json.dumps(phone_numbers))
+        SystemConfig.set_config('whatsapp_templates', json.dumps(templates))
+        SystemConfig.set_config('whatsapp_connected', 'true')
+        SystemConfig.set_config('whatsapp_connected_at', datetime.now(timezone(timedelta(hours=-3))).isoformat())
+        
+        logging.info("✅ Conexão salva globalmente no banco de dados")
         
         # ✅ ATUALIZAR WHATSAPP SERVICE DIRETAMENTE (sem env)
         try:
