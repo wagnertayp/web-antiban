@@ -1245,7 +1245,7 @@
                     const isActive = conv.id === this.currentConversationId ? 'active' : '';
                     
                     return `
-                        <div class="conversation-item ${isActive}" onclick="chatApp.selectConversation(${conv.id})">
+                        <div class="conversation-item ${isActive}" onclick="whatsappChat.selectConversation(${conv.id})">
                             <div class="conversation-avatar"></div>
                             <div class="conversation-info">
                                 <div class="conversation-name">${conv.contact.name}</div>
@@ -1264,6 +1264,10 @@
             }
             
             selectConversation(conversationId) {
+                // ✅ FECHAR ABAS INSTANTANEAMENTE
+                this.closeSettings();
+                this.closeLeads();
+                
                 this.currentConversationId = conversationId;
                 const conversation = this.conversations.find(c => c.id === conversationId);
                 
@@ -1284,17 +1288,23 @@
                 if (chatHeader) chatHeader.style.display = 'flex';
                 if (chatInput) chatInput.style.display = 'block';
                 
-                // ✅ FEEDBACK VISUAL INSTANTÂNEO
+                // ✅ FEEDBACK VISUAL INSTANTÂNEO - Atualizar conversas ativas
                 document.querySelectorAll('.conversation-item').forEach(item => {
                     item.classList.remove('active');
                 });
-                event.target.closest('.conversation-item').classList.add('active');
                 
-                // ✅ PLACEHOLDER INSTANTÂNEO
+                // Encontrar e marcar conversa ativa
+                const activeConv = document.querySelector(`[onclick*="selectConversation(${conversationId})"]`);
+                if (activeConv) {
+                    activeConv.classList.add('active');
+                }
+                
+                // ✅ PLACEHOLDER INSTANTÂNEO - Mostrar carregando
                 if (chatMessages) {
                     chatMessages.innerHTML = `
-                        <div style="text-align: center; padding: 20px; color: #8b949e;">
-                            <i class="fas fa-circle-notch fa-spin"></i> Carregando mensagens...
+                        <div style="text-align: center; padding: 40px; color: #8b949e;">
+                            <i class="fas fa-circle-notch fa-spin" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                            <h5 style="color: #8b949e; margin: 0;">Carregando conversa...</h5>
                         </div>
                     `;
                 }
