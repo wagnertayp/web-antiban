@@ -120,6 +120,10 @@ proxy_service = init_proxy_service(app, db)
 @app.before_request
 def load_session_credentials():
     """🔒 Carrega credenciais da sessão antes de cada request (Solução Replit)"""
+    # ✅ Não recarregar se foi explicitamente desconectado
+    if session.get('explicitly_disconnected'):
+        return
+        
     # Só processar se tiver token na sessão e não for um arquivo estático
     if (request.endpoint and 
         not request.endpoint.startswith('static') and 
@@ -285,6 +289,9 @@ def get_business_manager_id():
 def disconnect_whatsapp():
     """Desconectar da Business Manager e limpar sessão"""
     try:
+        # ✅ Marcar como explicitamente desconectado para impedir recarregamento automático
+        session['explicitly_disconnected'] = True
+        
         # Limpar dados da sessão
         session.pop('whatsapp_access_token', None)
         session.pop('whatsapp_business_manager_id', None)
@@ -710,6 +717,7 @@ def connect_whatsapp():
             logging.warning(f"Erro ao buscar templates: {templates_response.status_code}")
         
         # 🔒 PERSISTÊNCIA DE TOKEN VIA SESSÃO (Solução Replit)
+        session.pop('explicitly_disconnected', None)  # ✅ Remover flag de desconexão
         session['whatsapp_access_token'] = access_token
         session['whatsapp_business_manager_id'] = discovered_bm_id
         session['whatsapp_phone_numbers'] = phone_numbers
