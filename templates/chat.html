@@ -1828,6 +1828,9 @@
             // === FUNÇÕES DE LEADS ===
             
             async openLeads() {
+                // Fechar aba de configurações se estiver aberta
+                this.closeSettings();
+                
                 const leadsOverlay = document.getElementById('leadsOverlay');
                 const chatMessages = document.getElementById('chatMessages');
                 
