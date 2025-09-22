@@ -1976,15 +1976,19 @@ def get_conversations():
     try:
         from models import Conversation, Contact, ChatMessage
         
-        # Buscar conversas ordenadas por última mensagem
+        # Buscar conversas com join para carregar contato
         conversations = db.session.query(Conversation)\
-            .join(Contact)\
-            .outerjoin(ChatMessage, Conversation.last_message_id == ChatMessage.id)\
+            .join(Contact, Conversation.contact_id == Contact.id)\
             .order_by(Conversation.last_message_at.desc().nullsfirst())\
             .all()
         
         result = []
         for conv in conversations:
+            # Buscar contato relacionado
+            contact = Contact.query.get(conv.contact_id)
+            if not contact:
+                continue
+                
             # Buscar última mensagem
             last_msg = ChatMessage.query.filter_by(conversation_id=conv.id)\
                 .order_by(ChatMessage.created_at.desc()).first()
@@ -1992,9 +1996,9 @@ def get_conversations():
             result.append({
                 'id': conv.id,
                 'contact': {
-                    'name': conv.contact.name,
-                    'phone_number': conv.contact.phone_number,
-                    'profile_picture_url': conv.contact.profile_picture_url
+                    'name': contact.name or f'Cliente {contact.phone_number[-4:]}',
+                    'phone_number': contact.phone_number,
+                    'profile_picture_url': contact.profile_picture_url
                 },
                 'last_message': {
                     'content': last_msg.content if last_msg else '',
