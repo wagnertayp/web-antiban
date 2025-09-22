@@ -12,7 +12,7 @@
             padding: 0;
             height: 100vh;
             overflow: hidden;
-            background-color: #0d1117;
+            background-color: #161717;
         }
         
         .chat-container {
@@ -24,16 +24,16 @@
         /* Sidebar de conversas */
         .conversations-sidebar {
             width: 350px;
-            border-right: 1px solid #30363d;
-            background-color: #161b22;
+            border-right: 1px solid #2a2f36;
+            background-color: #161717;
             display: flex;
             flex-direction: column;
         }
         
         .sidebar-header {
             padding: 20px;
-            background-color: #21262d;
-            border-bottom: 1px solid #30363d;
+            background-color: #161717;
+            border-bottom: 1px solid #2a2f36;
         }
         
         .conversations-list {
@@ -44,7 +44,7 @@
         
         .conversation-item {
             padding: 12px 20px;
-            border-bottom: 1px solid #30363d;
+            border-bottom: 1px solid #2a2f36;
             cursor: pointer;
             transition: background-color 0.2s;
             display: flex;
@@ -53,18 +53,18 @@
         }
         
         .conversation-item:hover {
-            background-color: #21262d;
+            background-color: #2a2f36;
         }
         
         .conversation-item.active {
-            background-color: #0969da;
+            background-color: #2a2f36;
         }
         
         .conversation-avatar {
             width: 48px;
             height: 48px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #25d366, #075e54);
+            background: linear-gradient(135deg, #22C063, #075e54);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -107,7 +107,7 @@
         }
         
         .unread-count {
-            background-color: #25d366;
+            background-color: #22C063;
             color: white;
             border-radius: 50%;
             padding: 2px 6px;
@@ -121,13 +121,13 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            background-color: #0d1117;
+            background-color: #161717;
         }
         
         .chat-header {
             padding: 20px;
-            background-color: #21262d;
-            border-bottom: 1px solid #30363d;
+            background-color: #161717;
+            border-bottom: 1px solid #2a2f36;
             display: flex;
             align-items: center;
             gap: 12px;
@@ -146,7 +146,7 @@
             flex: 1;
             overflow-y: auto;
             padding: 20px;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60"><defs><pattern id="whatsapp-bg" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse"><circle cx="30" cy="30" r="1.5" fill="%23ffffff" opacity="0.05"/></pattern></defs><rect width="100%" height="100%" fill="url(%23whatsapp-bg)"/></svg>') #0d1117;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60"><defs><pattern id="whatsapp-bg" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse"><circle cx="30" cy="30" r="1.5" fill="%23ffffff" opacity="0.02"/></pattern></defs><rect width="100%" height="100%" fill="url(%23whatsapp-bg)"/></svg>') #161717;
         }
         
         .message {
@@ -172,12 +172,12 @@
         }
         
         .message.outbound .message-bubble {
-            background-color: #0969da;
+            background-color: #22C063;
             color: white;
         }
         
         .message.inbound .message-bubble {
-            background-color: #21262d;
+            background-color: #2a2f36;
             color: #f0f6fc;
         }
         
@@ -208,14 +208,14 @@
         }
         
         .message-status.read {
-            color: #0969da;
+            color: #22C063;
         }
         
         /* Input de mensagem */
         .chat-input {
             padding: 20px;
-            background-color: #21262d;
-            border-top: 1px solid #30363d;
+            background-color: #161717;
+            border-top: 1px solid #2a2f36;
         }
         
         .input-group {
@@ -227,10 +227,10 @@
         .message-input {
             flex: 1;
             resize: none;
-            border: 1px solid #30363d;
+            border: 1px solid #2a2f36;
             border-radius: 20px;
             padding: 10px 15px;
-            background-color: #0d1117;
+            background-color: #161717;
             color: #f0f6fc;
             max-height: 120px;
             min-height: 40px;
@@ -241,7 +241,7 @@
             height: 40px;
             border-radius: 50%;
             border: none;
-            background-color: #25d366;
+            background-color: #22C063;
             color: white;
             display: flex;
             align-items: center;
@@ -251,7 +251,7 @@
         }
         
         .send-button:hover {
-            background-color: #22c55e;
+            background-color: #1da851;
         }
         
         .send-button:disabled {
@@ -273,14 +273,14 @@
         .empty-chat i {
             font-size: 4rem;
             margin-bottom: 1rem;
-            color: #25d366;
+            color: #22C063;
         }
         
         /* Nova conversa */
         .new-chat-section {
             padding: 20px;
-            background-color: #21262d;
-            border-bottom: 1px solid #30363d;
+            background-color: #161717;
+            border-bottom: 1px solid #2a2f36;
         }
         
         .new-chat-form {
@@ -319,13 +319,13 @@
         
         .conversations-list::-webkit-scrollbar-thumb,
         .chat-messages::-webkit-scrollbar-thumb {
-            background: #30363d;
+            background: #2a2f36;
             border-radius: 3px;
         }
         
         .conversations-list::-webkit-scrollbar-thumb:hover,
         .chat-messages::-webkit-scrollbar-thumb:hover {
-            background: #484f58;
+            background: #3a3f46;
         }
         
         /* Responsive */
