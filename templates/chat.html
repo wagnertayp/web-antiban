@@ -764,7 +764,7 @@
                     
                     return `
                         <div class="conversation-item ${isActive}" onclick="chatApp.selectConversation(${conv.id})">
-                            <div class="conversation-avatar">${initials}</div>
+                            <div class="conversation-avatar"></div>
                             <div class="conversation-info">
                                 <div class="conversation-name">${conv.contact.name}</div>
                                 <div class="conversation-last-message">
@@ -823,7 +823,7 @@
             
             updateChatHeader(conversation) {
                 const initials = this.getInitials(conversation.contact.name);
-                document.getElementById('currentChatAvatar').textContent = initials;
+                document.getElementById('currentChatAvatar').textContent = '';
                 document.getElementById('currentChatName').textContent = conversation.contact.name;
                 document.getElementById('currentChatPhone').textContent = conversation.contact.phone_number;
             }
