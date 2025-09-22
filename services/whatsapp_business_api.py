@@ -201,6 +201,36 @@ class WhatsAppBusinessAPI:
         # Só usar environment se não tiver credenciais da sessão
         new_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
         
+        # ✅ FALLBACK: Se não há token no ambiente, carregar do banco
+        if not new_token:
+            try:
+                # Criar contexto de aplicação se necessário
+                from flask import current_app
+                try:
+                    # Verificar se já estamos em um contexto
+                    current_app.config
+                    app_context = None
+                except RuntimeError:
+                    # Criar contexto se não existir
+                    from app import app
+                    app_context = app.app_context()
+                    app_context.push()
+                
+                try:
+                    from models import SystemConfig
+                    stored_token = SystemConfig.get_config('whatsapp_access_token')
+                    stored_connected = SystemConfig.get_config('whatsapp_connected')
+                    if stored_token and stored_connected == 'true':
+                        new_token = stored_token
+                        logging.info(f"🔄 Token carregado do banco: ...{new_token[-4:]}")
+                finally:
+                    # Limpar contexto se criamos um
+                    if app_context:
+                        app_context.pop()
+                        
+            except Exception as e:
+                logging.warning(f"Erro ao carregar token do banco: {e}")
+        
         if new_token:
             self._access_token = new_token
             logging.info(f"🔄 Token carregado do ambiente: ...{new_token[-4:]}")
