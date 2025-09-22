@@ -671,7 +671,7 @@
     <div class="chat-container">
         <!-- Menu Sidebar -->
         <div class="menu-sidebar">            
-            <button class="menu-icon active" title="Conversas">
+            <button class="menu-icon active" id="conversationsBtn" title="Conversas">
                 <img src="{{ url_for('static', filename='message-icon.png') }}" alt="Message icon" style="height: 16px; width: auto; object-fit: contain;">
                 <div class="menu-counter" id="conversationsCounter">
                     0
@@ -1010,6 +1010,15 @@
                 if (logoutBtn) {
                     logoutBtn.addEventListener('click', () => {
                         this.logout();
+                    });
+                }
+
+                // Botão de conversas - fechar todas as abas
+                const conversationsBtn = document.getElementById('conversationsBtn');
+                if (conversationsBtn) {
+                    conversationsBtn.addEventListener('click', () => {
+                        this.closeSettings();
+                        this.closeLeads();
                     });
                 }
 
