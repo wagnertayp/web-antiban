@@ -304,14 +304,14 @@
         
         /* Input de mensagem */
         .chat-input {
-            padding: 20px;
+            padding: 20px 40px 20px 20px;
             background: transparent;
             position: fixed;
             bottom: 0;
             left: 320px;
-            right: 20px;
+            right: 40px;
             z-index: 100;
-            max-width: calc(100vw - 360px);
+            width: auto;
         }
         
         .input-group {
@@ -324,23 +324,24 @@
             flex: 1;
             resize: none;
             border: none;
-            border-radius: 25px;
-            padding: 10px 50px 10px 15px;
+            border-radius: 50px;
+            padding: 12px 45px 12px 20px;
             background-color: #232626;
             color: #f0f6fc;
             max-height: 120px;
-            min-height: 40px;
+            min-height: 44px;
             outline: none;
             width: 100%;
+            box-sizing: border-box;
         }
         
         .send-button {
             position: absolute;
-            right: 5px;
+            right: 8px;
             top: 50%;
             transform: translateY(-50%);
-            width: 30px;
-            height: 30px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             border: none;
             background-color: #22C063;
@@ -350,7 +351,8 @@
             justify-content: center;
             cursor: pointer;
             transition: background-color 0.2s;
-            font-size: 12px;
+            font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
         .send-button:hover {
