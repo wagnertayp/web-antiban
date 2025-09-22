@@ -754,34 +754,44 @@
                 }).join('');
             }
             
-            async selectConversation(conversationId) {
+            selectConversation(conversationId) {
                 this.currentConversationId = conversationId;
                 const conversation = this.conversations.find(c => c.id === conversationId);
                 
                 if (!conversation) return;
                 
-                // ✅ RESPOSTA INSTANTÂNEA - Atualizar UI imediatamente
+                // ✅ INSTANTÂNEO - UI atualiza imediatamente
                 this.updateChatHeader(conversation);
-                document.getElementById('emptyState').style.display = 'none';
-                document.getElementById('chatContent').style.display = 'flex';
-                document.getElementById('chatHeader').style.display = 'flex';
-                document.getElementById('chatInput').style.display = 'block';
                 
-                // ✅ FEEDBACK VISUAL INSTANTÂNEO - Marcar como ativa
+                // Verificar e atualizar elementos com segurança
+                const emptyState = document.getElementById('emptyState');
+                const chatContent = document.getElementById('chatContent');
+                const chatHeader = document.getElementById('chatHeader');
+                const chatInput = document.getElementById('chatInput');
+                const chatMessages = document.getElementById('chatMessages');
+                
+                if (emptyState) emptyState.style.display = 'none';
+                if (chatContent) chatContent.style.display = 'flex';
+                if (chatHeader) chatHeader.style.display = 'flex';
+                if (chatInput) chatInput.style.display = 'block';
+                
+                // ✅ FEEDBACK VISUAL INSTANTÂNEO
                 document.querySelectorAll('.conversation-item').forEach(item => {
                     item.classList.remove('active');
                 });
                 event.target.closest('.conversation-item').classList.add('active');
                 
-                // ✅ PLACEHOLDER INSTANTÂNEO - Mostrar carregando
-                document.getElementById('chatMessages').innerHTML = `
-                    <div style="text-align: center; padding: 20px; color: #8b949e;">
-                        <i class="fas fa-circle-notch fa-spin"></i> Carregando mensagens...
-                    </div>
-                `;
+                // ✅ PLACEHOLDER INSTANTÂNEO
+                if (chatMessages) {
+                    chatMessages.innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: #8b949e;">
+                            <i class="fas fa-circle-notch fa-spin"></i> Carregando mensagens...
+                        </div>
+                    `;
+                }
                 
-                // ✅ CARREGAR DADOS EM SEGUNDO PLANO - Não bloquear UI
-                setTimeout(() => this.loadMessages(conversationId, true), 0);
+                // ✅ CARREGAR EM BACKGROUND - Sem bloquear
+                requestAnimationFrame(() => this.loadMessages(conversationId, true));
             }
             
             updateChatHeader(conversation) {
