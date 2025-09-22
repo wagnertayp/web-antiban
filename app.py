@@ -49,6 +49,10 @@ def compress_response(response):
     if response.status_code < 200 or response.status_code >= 300:
         return response
     
+    # 🚫 NEVER COMPRESS WEBHOOK RESPONSES - Critical for Meta validation
+    if request.endpoint == 'whatsapp_webhook':
+        return response
+    
     # Skip if already compressed
     if response.headers.get('Content-Encoding'):
         return response
