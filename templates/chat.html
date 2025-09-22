@@ -764,14 +764,30 @@
                             </div>
                             
                             <div class="d-flex gap-2 mb-4">
-                                <button type="submit" class="btn flex-fill" style="background-color: #154d37; color: white; font-weight: bold; border: none;">
+                                <button type="submit" class="btn flex-fill" id="connectBtn" style="background-color: #154d37; color: white; font-weight: bold; border: none;">
                                     Conectar
                                 </button>
-                                <button type="button" class="btn btn-danger" id="disconnectBtn">
+                                <button type="button" class="btn btn-danger" id="disconnectBtn" style="display: none;">
                                     <i class="fas fa-unplug me-2"></i>Desconectar
                                 </button>
                             </div>
                         </form>
+                    </div>
+                    
+                    <!-- Webhook Configuration -->
+                    <div class="config-section">
+                        <h6 class="config-title">Configuração de Webhook</h6>
+                        <div class="form-group mb-3">
+                            <label class="form-label">URL de Callback:</label>
+                            <input type="text" class="form-control" id="webhookUrl" value="{{request.host_url}}webhook" readonly>
+                            <small class="text-muted">Esta é a URL que deve ser configurada no Facebook Business Manager</small>
+                        </div>
+                        
+                        <div class="form-group mb-4">
+                            <label class="form-label">Token de Verificação:</label>
+                            <input type="text" class="form-control" id="verifyToken" value="webhook_verify_token_12345_dev_only" readonly>
+                            <small class="text-muted">Use este token ao configurar o webhook no Facebook</small>
+                        </div>
                     </div>
                     
                     <!-- Proxy -->
@@ -1384,6 +1400,13 @@
                         this.updateSettingsConnectionStatus(); // Atualizar status nas configurações
                         this.showSuccess('Conectado com sucesso!');
                         this.loadPhoneNumbers(); // Recarregar números
+                        
+                        // Ajustar exibição dos botões após conectar
+                        const connectBtn = document.getElementById('connectBtn');
+                        const disconnectBtn = document.getElementById('disconnectBtn');
+                        if (connectBtn) connectBtn.style.display = 'none';
+                        if (disconnectBtn) disconnectBtn.style.display = 'block';
+                        
                     } else {
                         if (response.status === 401 || result.message.includes('expired')) {
                             this.showError('TOKEN EXPIRADO: Obtenha um novo token do Facebook Business Manager.');
@@ -1400,8 +1423,17 @@
                 }
             }
 
-            disconnectBM() {
-                if (confirm('Tem certeza que deseja desconectar da Business Manager?')) {
+            async disconnectBM() {
+                try {
+                    // Desconectar no backend
+                    await fetch('/disconnect', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    // Limpar dados locais
                     this.connectionData = null;
                     localStorage.removeItem('whatsapp_connection');
                     this.updateConnectionInfo(false);
@@ -1411,6 +1443,16 @@
                     // Limpar formulário
                     document.getElementById('accessToken').value = '';
                     document.getElementById('businessId').value = '';
+                    
+                    // Ajustar exibição dos botões após desconectar
+                    const connectBtn = document.getElementById('connectBtn');
+                    const disconnectBtn = document.getElementById('disconnectBtn');
+                    if (connectBtn) connectBtn.style.display = 'block';
+                    if (disconnectBtn) disconnectBtn.style.display = 'none';
+                    
+                } catch (error) {
+                    console.error('Erro ao desconectar:', error);
+                    this.showError('Erro ao desconectar');
                 }
             }
 
@@ -1555,6 +1597,12 @@
                         if (accessTokenField) accessTokenField.value = '***TOKEN_CONECTADO***';
                         if (businessIdField) businessIdField.value = data.business_manager_id;
                         
+                        // Mostrar botão desconectar, esconder conectar
+                        const connectBtn = document.getElementById('connectBtn');
+                        const disconnectBtn = document.getElementById('disconnectBtn');
+                        if (connectBtn) connectBtn.style.display = 'none';
+                        if (disconnectBtn) disconnectBtn.style.display = 'block';
+                        
                     } else {
                         // Limpar localStorage se backend não está conectado
                         localStorage.removeItem('whatsapp_connection');
@@ -1566,6 +1614,12 @@
                         const businessIdField = document.getElementById('businessId');
                         if (accessTokenField) accessTokenField.value = '';
                         if (businessIdField) businessIdField.value = '';
+                        
+                        // Mostrar botão conectar, esconder desconectar
+                        const connectBtn = document.getElementById('connectBtn');
+                        const disconnectBtn = document.getElementById('disconnectBtn');
+                        if (connectBtn) connectBtn.style.display = 'block';
+                        if (disconnectBtn) disconnectBtn.style.display = 'none';
                     }
                     
                 } catch (error) {
