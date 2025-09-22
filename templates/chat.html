@@ -518,9 +518,9 @@
         <div class="conversations-sidebar">
             <div class="sidebar-header">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4 class="mb-0" style="font-weight: 400;">
+                    <h5 class="mb-0" style="font-weight: 600;">
                         Whatsapp IA
-                    </h4>
+                    </h5>
                 </div>
                 
                 <!-- Status de conexão -->
@@ -624,40 +624,55 @@
             
             bindEvents() {
                 // Enviar nova mensagem
-                document.getElementById('sendNewMessage').addEventListener('click', () => {
-                    this.sendNewMessage();
-                });
+                const sendNewMessageBtn = document.getElementById('sendNewMessage');
+                if (sendNewMessageBtn) {
+                    sendNewMessageBtn.addEventListener('click', () => {
+                        this.sendNewMessage();
+                    });
+                }
                 
                 // Enviar mensagem na conversa atual
-                document.getElementById('sendMessageBtn').addEventListener('click', () => {
-                    this.sendMessage();
-                });
+                const sendMessageBtn = document.getElementById('sendMessageBtn');
+                if (sendMessageBtn) {
+                    sendMessageBtn.addEventListener('click', () => {
+                        this.sendMessage();
+                    });
+                }
                 
                 // Enter para enviar
-                document.getElementById('messageInput').addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        this.sendMessage();
-                    }
-                });
+                const messageInput = document.getElementById('messageInput');
+                if (messageInput) {
+                    messageInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            this.sendMessage();
+                        }
+                    });
+                    
+                    // Auto-resize textarea
+                    messageInput.addEventListener('input', (e) => {
+                        e.target.style.height = 'auto';
+                        e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                    });
+                }
                 
-                document.getElementById('newChatMessage').addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        this.sendNewMessage();
-                    }
-                });
+                const newChatMessage = document.getElementById('newChatMessage');
+                if (newChatMessage) {
+                    newChatMessage.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            this.sendNewMessage();
+                        }
+                    });
+                }
                 
-                // Refresh conversas
-                document.getElementById('refreshConversations').addEventListener('click', () => {
-                    this.loadConversations();
-                });
-                
-                // Auto-resize textarea
-                document.getElementById('messageInput').addEventListener('input', (e) => {
-                    e.target.style.height = 'auto';
-                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-                });
+                // Refresh conversas (se existir)
+                const refreshBtn = document.getElementById('refreshConversations');
+                if (refreshBtn) {
+                    refreshBtn.addEventListener('click', () => {
+                        this.loadConversations();
+                    });
+                }
             }
             
             async loadPhoneNumbers() {
