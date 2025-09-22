@@ -210,6 +210,52 @@
             border-radius: 0px !important;
         }
         
+        .connection-status-container {
+            width: 100%;
+        }
+        
+        .connection-status-box {
+            background-color: #103529;
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+        }
+        
+        .connection-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #22C063;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .connection-icon i {
+            color: #fff;
+            font-size: 16px;
+        }
+        
+        .connection-text {
+            flex: 1;
+        }
+        
+        .status-title {
+            color: #fff;
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 2px;
+        }
+        
+        .status-subtitle {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+        }
+        
         /* Área de chat */
         .chat-area {
             flex: 1;
@@ -524,10 +570,15 @@
                 </div>
                 
                 <!-- Status de conexão -->
-                <div class="d-flex align-items-center gap-2 mb-3">
-                    <div class="badge bg-secondary" id="connectionStatus">
-                        <i class="fas fa-plug me-1"></i>
-                        Verificando conexão...
+                <div class="connection-status-container mb-3">
+                    <div class="connection-status-box" id="connectionStatus">
+                        <div class="connection-icon">
+                            <i class="fas fa-plug"></i>
+                        </div>
+                        <div class="connection-text">
+                            <div class="status-title">Verificando conexão...</div>
+                            <div class="status-subtitle">[MENU DOS NÚMEROS]</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -719,20 +770,24 @@
             async checkConnectionStatus() {
                 try {
                     const response = await fetch('/api/phone-numbers');
-                    const statusEl = document.getElementById('connectionStatus');
+                    const statusBox = document.getElementById('connectionStatus');
+                    const iconEl = statusBox.querySelector('.connection-icon i');
+                    const titleEl = statusBox.querySelector('.status-title');
                     
                     if (response.ok) {
                         const data = await response.json();
-                        statusEl.innerHTML = '<i class="fas fa-check-circle me-1"></i>Conectado';
-                        statusEl.className = 'badge bg-success';
+                        iconEl.className = 'fas fa-check';
+                        titleEl.textContent = 'Conectado';
                     } else {
-                        statusEl.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Desconectado';
-                        statusEl.className = 'badge bg-warning';
+                        iconEl.className = 'fas fa-exclamation-triangle';
+                        titleEl.textContent = 'Desconectado';
                     }
                 } catch (error) {
-                    const statusEl = document.getElementById('connectionStatus');
-                    statusEl.innerHTML = '<i class="fas fa-times-circle me-1"></i>Erro';
-                    statusEl.className = 'badge bg-danger';
+                    const statusBox = document.getElementById('connectionStatus');
+                    const iconEl = statusBox.querySelector('.connection-icon i');
+                    const titleEl = statusBox.querySelector('.status-title');
+                    iconEl.className = 'fas fa-times';
+                    titleEl.textContent = 'Erro';
                 }
             }
             
