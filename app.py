@@ -323,6 +323,192 @@ def get_connection_info():
             'templates': []
         }), 500
 
+@app.route('/api/leads', methods=['GET'])
+def get_leads():
+    """Lista leads/contatos com paginação e filtros"""
+    try:
+        # Parâmetros de paginação
+        page = request.args.get('page', 1, type=int)
+        limit = request.args.get('limit', 20, type=int)
+        search = request.args.get('search', '', type=str)
+        status_filter = request.args.get('status', '', type=str)
+        
+        # Importar modelos
+        from models import Contact, PendingClient, Conversation, ChatMessage
+        
+        # Query base - join Contact com PendingClient e dados de conversa
+        query = db.session.query(
+            Contact.id,
+            Contact.phone_number,
+            Contact.name,
+            Contact.last_message_at,
+            Contact.created_at,
+            PendingClient.cpf,
+            PendingClient.payment_status,
+            PendingClient.updated_at.label('last_contact')
+        ).outerjoin(
+            PendingClient, Contact.phone_number == PendingClient.phone_number
+        )
+        
+        # Aplicar filtros
+        if search:
+            search_term = f'%{search}%'
+            query = query.filter(
+                db.or_(
+                    Contact.name.ilike(search_term),
+                    Contact.phone_number.ilike(search_term),
+                    PendingClient.cpf.ilike(search_term)
+                )
+            )
+        
+        if status_filter:
+            query = query.filter(PendingClient.payment_status == status_filter)
+        
+        # Ordenar por última atividade
+        query = query.order_by(
+            db.desc(db.func.coalesce(Contact.last_message_at, Contact.created_at))
+        )
+        
+        # Paginação
+        total_items = query.count()
+        total_pages = (total_items + limit - 1) // limit
+        offset = (page - 1) * limit
+        
+        leads_data = query.offset(offset).limit(limit).all()
+        
+        # Formatar dados
+        leads = []
+        for lead in leads_data:
+            leads.append({
+                'id': lead.id,
+                'name': lead.name or f'Cliente {lead.phone_number[-4:]}',
+                'phone': lead.phone_number,
+                'cpf': lead.cpf or 'N/A',
+                'status': lead.payment_status or 'UNKNOWN',
+                'last_contact': lead.last_contact.isoformat() if lead.last_contact else None,
+                'created_at': lead.created_at.isoformat() if lead.created_at else None
+            })
+        
+        # Informações de paginação
+        pagination = {
+            'current_page': page,
+            'total_pages': total_pages,
+            'total_items': total_items,
+            'items_per_page': limit,
+            'has_prev': page > 1,
+            'has_next': page < total_pages
+        }
+        
+        return jsonify({
+            'leads': leads,
+            'pagination': pagination
+        })
+        
+    except Exception as e:
+        logging.error(f"Erro ao buscar leads: {str(e)}")
+        return jsonify({'error': f'Erro interno: {str(e)}'}), 500
+
+@app.route('/api/leads/export', methods=['GET'])
+def export_leads():
+    """Exporta leads em formato CSV"""
+    try:
+        from models import Contact, PendingClient
+        import csv
+        import io
+        
+        # Buscar todos os leads
+        query = db.session.query(
+            Contact.phone_number,
+            Contact.name,
+            Contact.last_message_at,
+            Contact.created_at,
+            PendingClient.cpf,
+            PendingClient.payment_status,
+            PendingClient.first_name,
+            PendingClient.full_name
+        ).outerjoin(
+            PendingClient, Contact.phone_number == PendingClient.phone_number
+        ).order_by(Contact.created_at.desc())
+        
+        leads_data = query.all()
+        
+        # Criar CSV em memória
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Cabeçalho
+        writer.writerow([
+            'Nome', 'Telefone', 'CPF', 'Status', 'Nome Completo', 
+            'Último Contato', 'Data de Cadastro'
+        ])
+        
+        # Dados
+        for lead in leads_data:
+            writer.writerow([
+                lead.name or lead.first_name or f'Cliente {lead.phone_number[-4:]}',
+                lead.phone_number,
+                lead.cpf or 'N/A',
+                lead.payment_status or 'UNKNOWN',
+                lead.full_name or 'N/A',
+                lead.last_message_at.strftime('%d/%m/%Y %H:%M') if lead.last_message_at else 'Nunca',
+                lead.created_at.strftime('%d/%m/%Y %H:%M') if lead.created_at else 'N/A'
+            ])
+        
+        output.seek(0)
+        
+        # Criar resposta
+        from flask import Response
+        return Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': f'attachment; filename=leads_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
+                'Content-Type': 'text/csv; charset=utf-8'
+            }
+        )
+        
+    except Exception as e:
+        logging.error(f"Erro ao exportar leads: {str(e)}")
+        return jsonify({'error': f'Erro interno: {str(e)}'}), 500
+
+@app.route('/api/leads/<int:lead_id>', methods=['DELETE'])
+def delete_lead(lead_id):
+    """Deleta um lead/contato"""
+    try:
+        from models import Contact, PendingClient, Conversation, ChatMessage
+        
+        # Buscar o contato
+        contact = Contact.query.get_or_404(lead_id)
+        
+        # Deletar dados relacionados
+        # 1. Mensagens das conversas
+        conversations = Conversation.query.filter_by(contact_id=lead_id).all()
+        for conv in conversations:
+            ChatMessage.query.filter_by(conversation_id=conv.id).delete()
+        
+        # 2. Conversas
+        Conversation.query.filter_by(contact_id=lead_id).delete()
+        
+        # 3. Cliente pendente (se existir)
+        PendingClient.query.filter_by(phone_number=contact.phone_number).delete()
+        
+        # 4. Contato principal
+        db.session.delete(contact)
+        
+        db.session.commit()
+        
+        logging.info(f"Lead {lead_id} ({contact.phone_number}) deletado com sucesso")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Lead deletado com sucesso'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Erro ao deletar lead {lead_id}: {str(e)}")
+        return jsonify({'error': f'Erro interno: {str(e)}'}), 500
+
 @app.route('/api/connect-whatsapp', methods=['POST'])
 def connect_whatsapp():
     """Conecta com WhatsApp Business API usando token fornecido"""

@@ -682,7 +682,7 @@
                 <i class="fas fa-cog"></i>
             </button>
             
-            <button class="menu-icon" title="Grupos">
+            <button class="menu-icon" id="leadsBtn" title="Grupos">
                 <i class="fas fa-users"></i>
             </button>
             
@@ -822,6 +822,92 @@
             </div>
         </div>
         
+        <!-- Aba de Leads/Grupos -->
+        <div class="settings-overlay" id="leadsOverlay" style="display: none;">
+            <div class="settings-panel">
+                <div class="settings-header">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="mb-0" style="color: #fff; font-weight: 600;">
+                            <i class="fas fa-users me-2"></i>Leads e Contatos
+                        </h5>
+                        <button class="close-settings" id="closeLeadsBtn">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Botão de Exportar -->
+                    <div class="mb-4">
+                        <button class="btn" id="exportLeadsBtn" style="background-color: #154d37; color: white; font-weight: bold; border: none;">
+                            <i class="fas fa-download me-2"></i>Exportar Leads
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="settings-content">
+                    <!-- Lista de Leads -->
+                    <div class="config-section">
+                        <h6 class="config-title">Lista de Contatos</h6>
+                        
+                        <!-- Filtros -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" id="searchLeads" placeholder="Buscar por nome ou telefone...">
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-control" id="statusFilter">
+                                    <option value="">Todos os status</option>
+                                    <option value="PENDING">Pendente</option>
+                                    <option value="APPROVED">Aprovado</option>
+                                    <option value="REJECTED">Rejeitado</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-light w-100" id="filterLeadsBtn">
+                                    <i class="fas fa-search me-2"></i>Filtrar
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Tabela de Leads -->
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped" id="leadsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Telefone</th>
+                                        <th>CPF</th>
+                                        <th>Status</th>
+                                        <th>Último Contato</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leadsTableBody">
+                                    <!-- Dados serão carregados via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Loading -->
+                        <div class="text-center" id="leadsLoading" style="display: none;">
+                            <i class="fas fa-spinner fa-spin"></i> Carregando leads...
+                        </div>
+                        
+                        <!-- Paginação -->
+                        <nav aria-label="Paginação de leads" class="mt-4">
+                            <ul class="pagination justify-content-center" id="leadsPagination">
+                                <!-- Paginação será gerada via JavaScript -->
+                            </ul>
+                        </nav>
+                        
+                        <!-- Informações da paginação -->
+                        <div class="text-center text-muted mt-2" id="leadsInfo">
+                            <!-- Info será gerada via JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Área de Chat -->
         <div class="chat-area">
             <!-- Header do chat -->
@@ -940,6 +1026,48 @@
                 if (closeSettingsBtn) {
                     closeSettingsBtn.addEventListener('click', () => {
                         this.closeSettings();
+                    });
+                }
+
+                // Botão de leads
+                const leadsBtn = document.getElementById('leadsBtn');
+                if (leadsBtn) {
+                    leadsBtn.addEventListener('click', async () => {
+                        await this.openLeads();
+                    });
+                }
+
+                // Botão de fechar leads
+                const closeLeadsBtn = document.getElementById('closeLeadsBtn');
+                if (closeLeadsBtn) {
+                    closeLeadsBtn.addEventListener('click', () => {
+                        this.closeLeads();
+                    });
+                }
+
+                // Botão de exportar leads
+                const exportLeadsBtn = document.getElementById('exportLeadsBtn');
+                if (exportLeadsBtn) {
+                    exportLeadsBtn.addEventListener('click', () => {
+                        this.exportLeads();
+                    });
+                }
+
+                // Botão de filtrar leads
+                const filterLeadsBtn = document.getElementById('filterLeadsBtn');
+                if (filterLeadsBtn) {
+                    filterLeadsBtn.addEventListener('click', () => {
+                        this.filterLeads();
+                    });
+                }
+
+                // Campo de busca de leads
+                const searchLeads = document.getElementById('searchLeads');
+                if (searchLeads) {
+                    searchLeads.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            this.filterLeads();
+                        }
                     });
                 }
 
@@ -1694,6 +1822,255 @@
                 }
             }
 
+            // === FUNÇÕES DE LEADS ===
+            
+            async openLeads() {
+                const leadsOverlay = document.getElementById('leadsOverlay');
+                const chatMessages = document.getElementById('chatMessages');
+                
+                if (leadsOverlay && chatMessages) {
+                    leadsOverlay.style.display = 'block';
+                    
+                    // Escurecer a área de chat e mostrar texto padrão
+                    chatMessages.innerHTML = `
+                        <div class="empty-chat">
+                            <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager">
+                            <h5 style="color: #fff; font-weight: 300; font-size: 2.2rem; margin-bottom: 0.8rem;">Whatsapp Recovery IA</h5>
+                            <p style="color: #fff; font-weight: bold;">Gerenciando leads e contatos.</p>
+                        </div>
+                    `;
+                    
+                    // Carregar leads
+                    this.currentLeadsPage = 1;
+                    await this.loadLeads();
+                }
+            }
+
+            closeLeads() {
+                const leadsOverlay = document.getElementById('leadsOverlay');
+                
+                if (leadsOverlay) {
+                    leadsOverlay.style.display = 'none';
+                    
+                    // Restaurar área de chat
+                    if (this.currentConversationId) {
+                        this.renderMessages();
+                    } else {
+                        const chatMessages = document.getElementById('chatMessages');
+                        chatMessages.innerHTML = `
+                            <div class="empty-chat">
+                                <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager">
+                                <h5 style="color: #fff; font-weight: 300; font-size: 2.2rem; margin-bottom: 0.8rem;">Whatsapp Recovery IA</h5>
+                                <p style="color: #fff; font-weight: bold;">Selecione uma conversa à esquerda ou inicie uma nova conversa para começar.</p>
+                            </div>
+                        `;
+                    }
+                }
+            }
+
+            async loadLeads(page = 1) {
+                try {
+                    const loadingEl = document.getElementById('leadsLoading');
+                    const tableBody = document.getElementById('leadsTableBody');
+                    
+                    // Mostrar loading
+                    if (loadingEl) loadingEl.style.display = 'block';
+                    if (tableBody) tableBody.innerHTML = '';
+                    
+                    // Preparar parâmetros de busca
+                    const searchTerm = document.getElementById('searchLeads')?.value || '';
+                    const statusFilter = document.getElementById('statusFilter')?.value || '';
+                    
+                    const params = new URLSearchParams({
+                        page: page,
+                        limit: 20,
+                        search: searchTerm,
+                        status: statusFilter
+                    });
+                    
+                    const response = await fetch(`/api/leads?${params}`);
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        this.renderLeadsTable(data.leads);
+                        this.renderLeadsPagination(data.pagination);
+                        this.updateLeadsInfo(data.pagination);
+                    } else {
+                        this.showError(data.error || 'Erro ao carregar leads');
+                        if (tableBody) {
+                            tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Erro ao carregar dados</td></tr>';
+                        }
+                    }
+                    
+                } catch (error) {
+                    console.error('Erro ao carregar leads:', error);
+                    this.showError('Erro de conexão ao carregar leads');
+                    
+                    const tableBody = document.getElementById('leadsTableBody');
+                    if (tableBody) {
+                        tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Erro de conexão</td></tr>';
+                    }
+                } finally {
+                    const loadingEl = document.getElementById('leadsLoading');
+                    if (loadingEl) loadingEl.style.display = 'none';
+                }
+            }
+
+            renderLeadsTable(leads) {
+                const tableBody = document.getElementById('leadsTableBody');
+                if (!tableBody) return;
+                
+                if (!leads || leads.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhum lead encontrado</td></tr>';
+                    return;
+                }
+                
+                tableBody.innerHTML = leads.map(lead => {
+                    const statusBadge = this.getStatusBadge(lead.status);
+                    const lastContact = lead.last_contact ? new Date(lead.last_contact).toLocaleDateString('pt-BR') : 'Nunca';
+                    
+                    return `
+                        <tr>
+                            <td>${lead.name || 'N/A'}</td>
+                            <td>${lead.phone || 'N/A'}</td>
+                            <td>${lead.cpf || 'N/A'}</td>
+                            <td>${statusBadge}</td>
+                            <td>${lastContact}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-light" onclick="whatsappChat.viewLead('${lead.id}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger ms-1" onclick="whatsappChat.deleteLead('${lead.id}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            getStatusBadge(status) {
+                const badges = {
+                    'PENDING': '<span class="badge bg-warning">Pendente</span>',
+                    'APPROVED': '<span class="badge bg-success">Aprovado</span>',
+                    'REJECTED': '<span class="badge bg-danger">Rejeitado</span>'
+                };
+                return badges[status] || '<span class="badge bg-secondary">Desconhecido</span>';
+            }
+
+            renderLeadsPagination(pagination) {
+                const paginationEl = document.getElementById('leadsPagination');
+                if (!paginationEl || !pagination) return;
+                
+                const { current_page, total_pages, has_prev, has_next } = pagination;
+                
+                let paginationHTML = '';
+                
+                // Botão Anterior
+                paginationHTML += `
+                    <li class="page-item ${!has_prev ? 'disabled' : ''}">
+                        <a class="page-link" href="#" onclick="whatsappChat.loadLeads(${current_page - 1})">Anterior</a>
+                    </li>
+                `;
+                
+                // Páginas
+                const startPage = Math.max(1, current_page - 2);
+                const endPage = Math.min(total_pages, current_page + 2);
+                
+                for (let i = startPage; i <= endPage; i++) {
+                    paginationHTML += `
+                        <li class="page-item ${i === current_page ? 'active' : ''}">
+                            <a class="page-link" href="#" onclick="whatsappChat.loadLeads(${i})">${i}</a>
+                        </li>
+                    `;
+                }
+                
+                // Botão Próximo
+                paginationHTML += `
+                    <li class="page-item ${!has_next ? 'disabled' : ''}">
+                        <a class="page-link" href="#" onclick="whatsappChat.loadLeads(${current_page + 1})">Próximo</a>
+                    </li>
+                `;
+                
+                paginationEl.innerHTML = paginationHTML;
+            }
+
+            updateLeadsInfo(pagination) {
+                const infoEl = document.getElementById('leadsInfo');
+                if (!infoEl || !pagination) return;
+                
+                const { current_page, total_pages, total_items, items_per_page } = pagination;
+                const startItem = ((current_page - 1) * items_per_page) + 1;
+                const endItem = Math.min(current_page * items_per_page, total_items);
+                
+                infoEl.textContent = `Mostrando ${startItem}-${endItem} de ${total_items} leads (Página ${current_page} de ${total_pages})`;
+            }
+
+            async filterLeads() {
+                this.currentLeadsPage = 1;
+                await this.loadLeads(1);
+            }
+
+            async exportLeads() {
+                try {
+                    const btn = document.getElementById('exportLeadsBtn');
+                    const originalText = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Exportando...';
+                    
+                    const response = await fetch('/api/leads/export');
+                    
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `leads_${new Date().toISOString().split('T')[0]}.csv`;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                        
+                        this.showSuccess('Leads exportados com sucesso!');
+                    } else {
+                        const data = await response.json();
+                        this.showError(data.error || 'Erro ao exportar leads');
+                    }
+                    
+                } catch (error) {
+                    console.error('Erro ao exportar leads:', error);
+                    this.showError('Erro de conexão ao exportar leads');
+                } finally {
+                    const btn = document.getElementById('exportLeadsBtn');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-download me-2"></i>Exportar Leads';
+                }
+            }
+
+            async viewLead(leadId) {
+                // Implementar visualização detalhada do lead
+                console.log('Visualizar lead:', leadId);
+            }
+
+            async deleteLead(leadId) {
+                if (!confirm('Tem certeza que deseja deletar este lead?')) return;
+                
+                try {
+                    const response = await fetch(`/api/leads/${leadId}`, { method: 'DELETE' });
+                    
+                    if (response.ok) {
+                        this.showSuccess('Lead deletado com sucesso!');
+                        await this.loadLeads(this.currentLeadsPage);
+                    } else {
+                        const data = await response.json();
+                        this.showError(data.error || 'Erro ao deletar lead');
+                    }
+                } catch (error) {
+                    console.error('Erro ao deletar lead:', error);
+                    this.showError('Erro de conexão ao deletar lead');
+                }
+            }
+
             showSuccess(message) {
                 // Implementar notificação de sucesso
                 console.log('Success:', message);
@@ -1777,12 +2154,12 @@
             }
         }
         
-        // Initialize chat app
-        const chatApp = new WhatsAppChat();
+        // Initialize chat app - variável global para funções onclick
+        const whatsappChat = new WhatsAppChat();
         
         // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
-            chatApp.stopPolling();
+            whatsappChat.stopPolling();
         });
     </script>
 </body>
