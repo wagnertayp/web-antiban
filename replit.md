@@ -1,7 +1,7 @@
-# WhatsApp Bulk Messaging System
+# WhatsApp Chat Business API System
 
 ## Overview
-This project is a Flask-based web application designed for sending bulk WhatsApp messages. It enables users to upload lead lists, create personalized message templates with variables and interactive buttons, and monitor message delivery in real-time. The system aims to provide a robust solution for businesses to engage with their audience through personalized WhatsApp communication, leveraging high-speed message delivery capabilities.
+This project is a Flask-based web application designed for WhatsApp Business API chat functionality. It provides webhook integration for receiving client messages, conversational automation, and a clean interface for managing WhatsApp Business connections. The system focuses on real-time chat interactions and automated conversation flows.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -23,16 +23,12 @@ Preferred communication style: Simple, everyday language.
 - **Real-time Updates**: Polling-based status checking
 
 ### Core Features
-- **Lead Management**: Bulk import, validation (CPF, phone numbers), and duplicate filtering.
-- **Message Templating**: Personalized messages using variables ({nome}, {cpf}, {numero}), interactive buttons with URL personalization.
-- **Campaign Management**: Creation, real-time progress monitoring, and status tracking.
-- **Ultra-Speed Messaging**: Optimized for high-throughput, supporting parallel processing with automatic load balancing across multiple WhatsApp Phone Numbers. **Each phone number supports up to 1,000 messages per batch** (WhatsApp Business API limit).
+- **Webhook Integration**: Real-time webhook processing for receiving WhatsApp messages from clients.
 - **Dynamic API Integration**: Automatic discovery and configuration of WhatsApp Business Manager IDs, Phone Number IDs, and available templates based on the provided access token.
 - **Robust Error Handling**: Intelligent fallback mechanisms (where applicable), automatic retries, and comprehensive logging.
-- **Deployment**: Optimized for Heroku with support for various dyno configurations.
-- **Anti-Duplication**: Tracks successfully sent numbers in a database to prevent re-sending to the same contacts.
+- **Deployment**: Optimized for Replit with support for both development and production environments.
 
-### **NEW: Conversational Automation System**
+### **Conversational Automation System**
 - **Dual Conversation Flows**: Automatic detection of Recoverify API status (APPROVED vs PENDING) with conditional message flows
 - **CPF Validation & API Integration**: Real-time CPF validation using external Recoverify API with personalized responses
 - **OpenAI Integration**: GPT-5 powered intelligent responses for customer questions with specialized Shopee delivery context
@@ -44,9 +40,9 @@ Preferred communication style: Simple, everyday language.
 - **Typing Indicator Simulation**: Intelligent delay system (1-4 seconds based on message length) before all message types for natural conversation flow
 
 ### System Design
-- **Scalability**: Designed to handle large volumes of messages through multi-threading, connection pooling, and distributed sending across multiple WhatsApp Phone Numbers.
+- **Scalability**: Designed to handle real-time chat interactions with efficient webhook processing and conversation state management.
 - **Modularity**: Separation of concerns with distinct models, services, and utilities.
-- **User Experience**: Intuitive interface with real-time progress indicators, message previews, and streamlined workflow.
+- **User Experience**: Intuitive interface with webhook configuration, WhatsApp Business connection, and chat functionality.
 - **Security**: Environment variable-based configuration for sensitive data like API tokens and database credentials.
 
 ## External Dependencies
