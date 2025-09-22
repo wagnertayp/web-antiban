@@ -909,6 +909,31 @@
                         this.closeSettings();
                     });
                 }
+
+                // Formulário de conexão
+                const connectionForm = document.getElementById('connectionForm');
+                if (connectionForm) {
+                    connectionForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        this.connectWhatsApp();
+                    });
+                }
+
+                // Botão de desconectar
+                const disconnectBtn = document.getElementById('disconnectBtn');
+                if (disconnectBtn) {
+                    disconnectBtn.addEventListener('click', () => {
+                        this.disconnectBM();
+                    });
+                }
+
+                // Botão de conectar proxy
+                const connectProxyBtn = document.getElementById('connectProxyBtn');
+                if (connectProxyBtn) {
+                    connectProxyBtn.addEventListener('click', () => {
+                        this.connectProxy();
+                    });
+                }
             }
             
             async loadPhoneNumbers() {
@@ -1253,6 +1278,133 @@
                         `;
                     }
                 }
+            }
+
+            async connectWhatsApp() {
+                const accessToken = document.getElementById('accessToken').value.trim();
+                const businessId = document.getElementById('businessId').value.trim();
+                
+                if (!accessToken) {
+                    this.showError('Token de acesso é obrigatório');
+                    return;
+                }
+                
+                const submitBtn = document.querySelector('#connectionForm button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Conectando...';
+                
+                try {
+                    const response = await fetch('/api/connect-whatsapp', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            access_token: accessToken,
+                            business_manager_id: businessId || null
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.connectionData = result.data;
+                        localStorage.setItem('whatsapp_connection', JSON.stringify(this.connectionData));
+                        this.updateConnectionInfo(true);
+                        this.showSuccess('Conectado com sucesso!');
+                        this.loadPhoneNumbers(); // Recarregar números
+                    } else {
+                        if (response.status === 401 || result.message.includes('expired')) {
+                            this.showError('TOKEN EXPIRADO: Obtenha um novo token do Facebook Business Manager.');
+                        } else {
+                            this.showError(result.message || 'Erro ao conectar');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erro de conexão:', error);
+                    this.showError('Erro de conexão com o servidor');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+
+            disconnectBM() {
+                if (confirm('Tem certeza que deseja desconectar da Business Manager?')) {
+                    this.connectionData = null;
+                    localStorage.removeItem('whatsapp_connection');
+                    this.updateConnectionInfo(false);
+                    this.showSuccess('Desconectado com sucesso');
+                    
+                    // Limpar formulário
+                    document.getElementById('accessToken').value = '';
+                    document.getElementById('businessId').value = '';
+                }
+            }
+
+            async connectProxy() {
+                const proxyBtn = document.getElementById('connectProxyBtn');
+                const originalText = proxyBtn.innerHTML;
+                proxyBtn.disabled = true;
+                proxyBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Conectando...';
+                
+                try {
+                    const response = await fetch('/api/connect-proxy', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.showSuccess('Proxy conectado com sucesso!');
+                    } else {
+                        this.showError(result.message || 'Erro ao conectar proxy');
+                    }
+                } catch (error) {
+                    console.error('Erro ao conectar proxy:', error);
+                    this.showError('Erro de conexão com o proxy');
+                } finally {
+                    proxyBtn.disabled = false;
+                    proxyBtn.innerHTML = originalText;
+                }
+            }
+
+            updateConnectionInfo(connected) {
+                const connectionInfo = document.getElementById('connectionInfo');
+                
+                if (connected && this.connectionData) {
+                    connectionInfo.innerHTML = `
+                        <div class="alert alert-success" role="alert">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    <strong>Conectado com sucesso!</strong>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="row">
+                                <div class="col-12">
+                                    <small><strong>Business Manager ID:</strong> ${this.connectionData.business_manager_id}</small>
+                                    <br><small><strong>Phone Numbers:</strong> ${this.connectionData.phone_numbers?.length || 0}</small>
+                                    <br><small><strong>Templates:</strong> ${this.connectionData.templates?.length || 0}</small>
+                                    <br><small><strong>Status:</strong> <span class="text-success">Online</span></small>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    connectionInfo.innerHTML = '<p class="text-muted">Conecte-se para ver o status</p>';
+                }
+            }
+
+            showSuccess(message) {
+                // Implementar notificação de sucesso
+                console.log('Success:', message);
+                // Você pode adicionar uma notificação toast aqui
             }
             
             startPolling() {
