@@ -523,3 +523,40 @@ class PendingClient(db.Model):
         self.daily_followup_sent_at = brasilia_now()
         self.updated_at = brasilia_now()
         db.session.commit()
+
+class SystemConfig(db.Model):
+    """Configurações globais do sistema para persistência entre sessões"""
+    id = db.Column(db.Integer, primary_key=True)
+    config_key = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    config_value = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=brasilia_now)
+    updated_at = db.Column(db.DateTime, default=brasilia_now, onupdate=brasilia_now)
+    
+    @staticmethod
+    def set_config(key: str, value: str):
+        """Define ou atualiza uma configuração"""
+        config = SystemConfig.query.filter_by(config_key=key).first()
+        if config:
+            config.config_value = value
+            config.updated_at = brasilia_now()
+        else:
+            config = SystemConfig(config_key=key, config_value=value)
+            db.session.add(config)
+        db.session.commit()
+        return config
+    
+    @staticmethod
+    def get_config(key: str, default=None):
+        """Busca uma configuração"""
+        config = SystemConfig.query.filter_by(config_key=key).first()
+        return config.config_value if config else default
+    
+    @staticmethod
+    def delete_config(key: str):
+        """Remove uma configuração"""
+        config = SystemConfig.query.filter_by(config_key=key).first()
+        if config:
+            db.session.delete(config)
+            db.session.commit()
+            return True
+        return False
