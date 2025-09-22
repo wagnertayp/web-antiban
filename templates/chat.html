@@ -33,15 +33,21 @@
         }
         
         .menu-counter {
+            position: absolute;
+            top: 8px;
+            right: 8px;
             background-color: #22C063;
             color: white;
-            border-radius: 12px;
-            padding: 4px 8px;
-            font-size: 12px;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 11px;
             font-weight: bold;
-            margin-bottom: 20px;
-            min-width: 24px;
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 20px;
+            z-index: 10;
         }
         
         .menu-icon {
@@ -58,6 +64,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
         }
         
         .menu-icon:hover {
@@ -66,7 +73,7 @@
         }
         
         .menu-icon.active {
-            background-color: #22C063;
+            background-color: transparent;
             color: white;
         }
         
@@ -425,13 +432,12 @@
 <body>
     <div class="chat-container">
         <!-- Menu Sidebar -->
-        <div class="menu-sidebar">
-            <div class="menu-counter" id="conversationsCounter">
-                0
-            </div>
-            
+        <div class="menu-sidebar">            
             <button class="menu-icon active" title="Conversas">
                 <i class="fas fa-comment"></i>
+                <div class="menu-counter" id="conversationsCounter">
+                    0
+                </div>
             </button>
             
             <button class="menu-icon" title="Configurações">
