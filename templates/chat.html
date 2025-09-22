@@ -1008,35 +1008,42 @@
 
             async checkConnectionStatus() {
                 try {
-                    const response = await fetch('/api/phone-numbers');
+                    const response = await fetch('/api/connection-info');
+                    const data = await response.json();
                     const statusBox = document.getElementById('connectionStatus');
+                    
+                    if (!statusBox) return; // Verificar se elemento existe
+                    
                     const iconEl = statusBox.querySelector('.connection-icon i');
                     const titleEl = statusBox.querySelector('.status-title');
                     
-                    if (response.ok) {
-                        const data = await response.json();
-                        iconEl.className = 'fas fa-check';
-                        titleEl.textContent = 'Conectado';
+                    if (data.connected && data.business_manager_id) {
+                        // Sincronizar localStorage com backend
+                        this.connectionData = data;
+                        localStorage.setItem('whatsapp_connection', JSON.stringify(data));
                         
-                        // Se não há dados no localStorage mas o backend está conectado, sincronizar
-                        if (!localStorage.getItem('whatsapp_connection') && data.length > 0) {
-                            // Buscar dados completos da conexão
-                            this.syncConnectionFromBackend();
-                        }
+                        if (iconEl) iconEl.className = 'fas fa-check';
+                        if (titleEl) titleEl.textContent = 'Conectado';
+                        
                     } else {
-                        iconEl.className = 'fas fa-exclamation-triangle';
-                        titleEl.textContent = 'Desconectado';
-                        
                         // Se o backend está desconectado, limpar localStorage
                         localStorage.removeItem('whatsapp_connection');
                         this.connectionData = null;
+                        
+                        if (iconEl) iconEl.className = 'fas fa-exclamation-triangle';
+                        if (titleEl) titleEl.textContent = 'Desconectado';
                     }
                 } catch (error) {
+                    console.error('Erro ao verificar status da conexão:', error);
+                    
                     const statusBox = document.getElementById('connectionStatus');
-                    const iconEl = statusBox.querySelector('.connection-icon i');
-                    const titleEl = statusBox.querySelector('.status-title');
-                    iconEl.className = 'fas fa-times';
-                    titleEl.textContent = 'Erro';
+                    if (statusBox) {
+                        const iconEl = statusBox.querySelector('.connection-icon i');
+                        const titleEl = statusBox.querySelector('.status-title');
+                        
+                        if (iconEl) iconEl.className = 'fas fa-times';
+                        if (titleEl) titleEl.textContent = 'Erro';
+                    }
                     
                     // Em caso de erro, limpar localStorage para evitar inconsistência
                     localStorage.removeItem('whatsapp_connection');
@@ -1396,8 +1403,12 @@
                     if (result.success) {
                         this.connectionData = result.data;
                         localStorage.setItem('whatsapp_connection', JSON.stringify(this.connectionData));
+                        
+                        // Atualizar status imediatamente em TODAS as áreas
                         this.updateConnectionInfo(true);
                         this.updateSettingsConnectionStatus(); // Atualizar status nas configurações
+                        this.checkConnectionStatus(); // Atualizar status na página principal
+                        
                         this.showSuccess('Conectado com sucesso!');
                         this.loadPhoneNumbers(); // Recarregar números
                         
@@ -1436,13 +1447,19 @@
                     // Limpar dados locais
                     this.connectionData = null;
                     localStorage.removeItem('whatsapp_connection');
+                    
+                    // Atualizar status imediatamente em TODAS as áreas
                     this.updateConnectionInfo(false);
                     this.updateSettingsConnectionStatus(); // Atualizar status nas configurações
+                    this.checkConnectionStatus(); // Atualizar status na página principal
+                    
                     this.showSuccess('Desconectado com sucesso');
                     
                     // Limpar formulário
-                    document.getElementById('accessToken').value = '';
-                    document.getElementById('businessId').value = '';
+                    const accessTokenField = document.getElementById('accessToken');
+                    const businessIdField = document.getElementById('businessId');
+                    if (accessTokenField) accessTokenField.value = '';
+                    if (businessIdField) businessIdField.value = '';
                     
                     // Ajustar exibição dos botões após desconectar
                     const connectBtn = document.getElementById('connectBtn');
