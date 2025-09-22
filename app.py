@@ -6,6 +6,7 @@ from flask import Flask, render_template, request, jsonify, session, redirect
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_caching import Cache
 import threading
 import time
 from datetime import datetime, timezone, timedelta
@@ -30,14 +31,47 @@ db = SQLAlchemy(model_class=Base)
 
 # Create the app
 app = Flask(__name__)
-# Require SESSION_SECRET in production
-session_secret = os.environ.get("SESSION_SECRET")
-if not session_secret:
-    # For development, use a default session secret
-    session_secret = "dev-secret-key-for-development-only"
-    logging.warning("Using default session secret for development. Set SESSION_SECRET for production.")
-app.secret_key = session_secret
+# Require SESSION_SECRET - fail if not set
+app.secret_key = os.environ.get("SESSION_SECRET")
+if not app.secret_key:
+    raise RuntimeError("SESSION_SECRET environment variable must be set for security. Cannot start application without it.")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+# Configure caching for performance optimization
+app.config['CACHE_TYPE'] = 'simple'  # In-memory cache for development/production
+app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes default
+cache = Cache(app)
+
+# Simple compression for static responses
+@app.after_request
+def compress_response(response):
+    """Apply gzip compression to suitable responses"""
+    if response.status_code < 200 or response.status_code >= 300:
+        return response
+    
+    # Skip if already compressed
+    if response.headers.get('Content-Encoding'):
+        return response
+        
+    accept_encoding = request.headers.get('Accept-Encoding', '')
+    
+    if 'gzip' not in accept_encoding.lower():
+        return response
+        
+    # Only compress text-based content and larger responses
+    if (response.content_type and 
+        ('text/' in response.content_type or 'application/json' in response.content_type) and
+        (response.content_length is None or response.content_length > 1000)):
+        
+        response.direct_passthrough = False
+        import gzip
+        gzipped_data = gzip.compress(response.get_data())
+        response.set_data(gzipped_data)
+        response.headers['Content-Encoding'] = 'gzip'
+        response.headers['Content-Length'] = len(gzipped_data)
+        response.headers.setdefault('Vary', 'Accept-Encoding')
+        
+    return response
 
 # Configure the database for Heroku optimization
 database_url = os.environ.get("DATABASE_URL")
@@ -113,16 +147,12 @@ def load_session_credentials():
                 
                 logging.debug(f"🔄 Token carregado da sessão: ...{session_token[-6:]}")
                 
-                # Armazenar token válido globalmente para automação
-                app._current_valid_token = session_token
+                # Não armazenar token globalmente por segurança
+                # Cada serviço deve usar seus próprios tokens seguros
                 
-                # Salvar token ativo no cache para o scheduler usar
-                try:
-                    from services.conversation_automation import ConversationAutomation
-                    ConversationAutomation._save_active_token(session_token)
-                    logging.info(f"🔑 Token ativo salvo no cache para scheduler: ...{session_token[-5:]}")
-                except Exception as e:
-                    logging.warning(f"Falha ao salvar token no cache: {e}")
+                # Tokens são mantidos apenas na sessão por segurança
+                # Serviços de background devem usar configuração própria e segura
+                logging.info(f"🔑 Token de sessão validado: ...{session_token[-5:]}")
                 
             except Exception as e:
                 logging.warning(f"Erro ao carregar credenciais da sessão: {e}")
