@@ -760,19 +760,28 @@
                 
                 if (!conversation) return;
                 
-                // Atualizar interface
+                // ✅ RESPOSTA INSTANTÂNEA - Atualizar UI imediatamente
                 this.updateChatHeader(conversation);
+                document.getElementById('emptyState').style.display = 'none';
+                document.getElementById('chatContent').style.display = 'flex';
                 document.getElementById('chatHeader').style.display = 'flex';
                 document.getElementById('chatInput').style.display = 'block';
                 
-                // Marcar como ativa
+                // ✅ FEEDBACK VISUAL INSTANTÂNEO - Marcar como ativa
                 document.querySelectorAll('.conversation-item').forEach(item => {
                     item.classList.remove('active');
                 });
                 event.target.closest('.conversation-item').classList.add('active');
                 
-                // Carregar mensagens (primeira vez que abre conversa - ir para o final)
-                await this.loadMessages(conversationId, true);
+                // ✅ PLACEHOLDER INSTANTÂNEO - Mostrar carregando
+                document.getElementById('chatMessages').innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #8b949e;">
+                        <i class="fas fa-circle-notch fa-spin"></i> Carregando mensagens...
+                    </div>
+                `;
+                
+                // ✅ CARREGAR DADOS EM SEGUNDO PLANO - Não bloquear UI
+                setTimeout(() => this.loadMessages(conversationId, true), 0);
             }
             
             updateChatHeader(conversation) {
