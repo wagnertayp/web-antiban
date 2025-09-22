@@ -5,7 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WhatsApp Business Chat - Automação de Conversas</title>
     <link rel="icon" type="image/webp" href="{{ url_for('static', filename='favicon.webp') }}">
-    <link rel="preload" href="/static/recovery-logo.png" as="image">
+    
+    <!-- ✅ PRELOAD CRÍTICO - CARREGAMENTO INSTANTÂNEO DE TODAS AS IMAGENS -->
+    <link rel="preload" href="/static/recovery-logo.png" as="image" fetchpriority="high">
+    <link rel="preload" href="/static/message-icon.png" as="image" fetchpriority="high">
+    <link rel="preload" href="/static/meta-ai-icon.png" as="image" fetchpriority="high">
+    <link rel="preload" href="/static/whatsapp-bg.webp" as="image" fetchpriority="high">
+    <link rel="preload" href="/static/favicon.webp" as="image">
+    
+    <!-- ✅ DNS PREFETCH PARA PERFORMANCE -->
+    <link rel="dns-prefetch" href="//cdn.replit.com">
+    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -591,6 +602,31 @@
             width: 250px;
             height: auto;
             margin-bottom: 1rem;
+            /* ✅ OTIMIZAÇÕES DE PERFORMANCE PARA CARREGAMENTO INSTANTÂNEO */
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            transform: translateZ(0);
+            will-change: auto;
+            content-visibility: auto;
+            contain: layout style paint;
+        }
+        
+        /* ✅ OTIMIZAÇÕES GLOBAIS PARA TODAS AS IMAGENS */
+        img {
+            /* Evitar layout shift durante carregamento */
+            display: block;
+            /* Forçar GPU acceleration para renderização mais rápida */
+            transform: translateZ(0);
+            will-change: auto;
+        }
+        
+        /* Cache de imagens críticas para carregamento instantâneo */
+        .menu-icon img, 
+        .chat-header img,
+        .recovery-logo {
+            content-visibility: auto;
+            contain: layout style paint;
+            image-rendering: -webkit-optimize-contrast;
         }
         
         /* Nova conversa */
@@ -673,7 +709,7 @@
         <!-- Menu Sidebar -->
         <div class="menu-sidebar">            
             <button class="menu-icon active" id="conversationsBtn" title="Conversas">
-                <img src="{{ url_for('static', filename='message-icon.png') }}" alt="Message icon" style="height: 16px; width: auto; object-fit: contain;">
+                <img src="{{ url_for('static', filename='message-icon.png') }}" alt="Message icon" style="height: 16px; width: auto; object-fit: contain;" loading="eager" fetchpriority="high">
                 <div class="menu-counter" id="conversationsCounter">
                     0
                 </div>
@@ -688,7 +724,7 @@
             </button>
             
             <button class="menu-icon" title="Meta AI">
-                <img src="{{ url_for('static', filename='meta-ai-icon.png') }}" alt="Meta AI" style="height: 20px; width: auto; object-fit: contain;">
+                <img src="{{ url_for('static', filename='meta-ai-icon.png') }}" alt="Meta AI" style="height: 20px; width: auto; object-fit: contain;" loading="eager" fetchpriority="high">
             </button>
             
             <div class="menu-spacer"></div>
@@ -925,7 +961,7 @@
             <!-- Mensagens -->
             <div class="chat-messages" id="chatMessages">
                 <div class="empty-chat">
-                    <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager">
+                    <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager" fetchpriority="high" decoding="sync">
                     <h5 style="color: #fff; font-weight: 300; font-size: 2.2rem; margin-bottom: 0.8rem;">Whatsapp Recovery IA</h5>
                     <p style="color: #fff; font-weight: bold;">Selecione uma conversa à esquerda ou inicie uma nova conversa para começar.</p>
                 </div>
@@ -1238,7 +1274,7 @@
                 if (this.conversations.length === 0) {
                     container.innerHTML = `
                         <div class="text-center p-4">
-                            <img src="{{ url_for('static', filename='message-icon.png') }}" alt="Message icon" style="height: 48px; width: auto; object-fit: contain; opacity: 0.6;" class="mb-3">
+                            <img src="{{ url_for('static', filename='message-icon.png') }}" alt="Message icon" style="height: 48px; width: auto; object-fit: contain; opacity: 0.6;" class="mb-3" loading="eager" fetchpriority="high">
                             <p class="text-muted">Nenhuma conversa encontrada</p>
                             <small class="text-muted">Inicie uma nova conversa acima</small>
                         </div>
@@ -1420,7 +1456,7 @@
                 if (this.messages.length === 0) {
                     container.innerHTML = `
                         <div class="empty-chat">
-                            <img src="{{ url_for('static', filename='message-icon.png') }}" alt="Message icon" style="height: 20px; width: auto; object-fit: contain;">
+                            <img src="{{ url_for('static', filename='message-icon.png') }}" alt="Message icon" style="height: 20px; width: auto; object-fit: contain;" loading="eager" fetchpriority="high">
                             <h5>Conversa iniciada</h5>
                             <p>Envie a primeira mensagem para começar a conversa.</p>
                         </div>
@@ -1529,7 +1565,7 @@
                     const chatMessages = document.getElementById('chatMessages');
                     chatMessages.innerHTML = `
                         <div class="empty-chat">
-                            <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager">
+                            <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager" fetchpriority="high" decoding="sync">
                             <h5 style="color: #fff; font-weight: 300; font-size: 2.2rem; margin-bottom: 0.8rem;">Whatsapp Recovery IA</h5>
                             <p style="color: #fff; font-weight: bold;">Selecione uma conversa à esquerda ou inicie uma nova conversa para começar.</p>
                         </div>
@@ -1571,7 +1607,7 @@
                     // Escurecer a área de chat e mostrar texto padrão
                     chatMessages.innerHTML = `
                         <div class="empty-chat">
-                            <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager">
+                            <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager" fetchpriority="high" decoding="sync">
                             <h5 style="color: #fff; font-weight: 300; font-size: 2.2rem; margin-bottom: 0.8rem;">Whatsapp Recovery IA</h5>
                             <p style="color: #fff; font-weight: bold;">Selecione uma conversa à esquerda ou inicie uma nova conversa para começar.</p>
                         </div>
@@ -1598,7 +1634,7 @@
                         const chatMessages = document.getElementById('chatMessages');
                         chatMessages.innerHTML = `
                             <div class="empty-chat">
-                                <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager">
+                                <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager" fetchpriority="high" decoding="sync">
                                 <h5 style="color: #fff; font-weight: 300; font-size: 2.2rem; margin-bottom: 0.8rem;">Whatsapp Recovery IA</h5>
                                 <p style="color: #fff; font-weight: bold;">Selecione uma conversa à esquerda ou inicie uma nova conversa para começar.</p>
                             </div>
@@ -1940,7 +1976,7 @@
                     // Escurecer a área de chat e mostrar texto padrão
                     chatMessages.innerHTML = `
                         <div class="empty-chat">
-                            <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager">
+                            <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager" fetchpriority="high" decoding="sync">
                             <h5 style="color: #fff; font-weight: 300; font-size: 2.2rem; margin-bottom: 0.8rem;">Whatsapp Recovery IA</h5>
                             <p style="color: #fff; font-weight: bold;">Gerenciando leads e contatos.</p>
                         </div>
@@ -1965,7 +2001,7 @@
                         const chatMessages = document.getElementById('chatMessages');
                         chatMessages.innerHTML = `
                             <div class="empty-chat">
-                                <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager">
+                                <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager" fetchpriority="high" decoding="sync">
                                 <h5 style="color: #fff; font-weight: 300; font-size: 2.2rem; margin-bottom: 0.8rem;">Whatsapp Recovery IA</h5>
                                 <p style="color: #fff; font-weight: bold;">Selecione uma conversa à esquerda ou inicie uma nova conversa para começar.</p>
                             </div>

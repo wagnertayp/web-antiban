@@ -132,6 +132,24 @@ def index():
     """Redireciona automaticamente para o chat"""
     return redirect('/chat')
 
+@app.route('/static/images/<path:filename>')
+def optimized_images(filename):
+    """Serve imagens com cache otimizado para performance"""
+    from flask import send_from_directory, make_response
+    
+    response = make_response(send_from_directory('static', filename))
+    
+    # ✅ CACHE AGRESSIVO PARA IMAGENS (30 dias)
+    response.headers['Cache-Control'] = 'public, max-age=2592000, immutable'
+    response.headers['Expires'] = 'Thu, 31 Dec 2099 23:59:59 GMT'
+    response.headers['Last-Modified'] = 'Mon, 01 Jan 2024 00:00:00 GMT'
+    
+    # ✅ HEADERS DE PERFORMANCE
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Accept-Ranges'] = 'bytes'
+    
+    return response
+
 @app.route('/admin/sent-numbers')
 def admin_sent_numbers():
     """Admin page to view and manage sent numbers"""
