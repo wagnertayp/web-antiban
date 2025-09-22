@@ -610,12 +610,8 @@
                            class="form-control form-control-sm phone-input" 
                            id="newChatPhone" 
                            placeholder="5511999999999">
-                    <input type="text" 
-                           class="form-control form-control-sm quick-message-input" 
-                           id="newChatMessage" 
-                           placeholder="Mensagem...">
-                    <button class="btn btn-success btn-sm" id="sendNewMessage">
-                        <i class="fas fa-paper-plane"></i>
+                    <button class="btn btn-success btn-sm" id="startNewChat">
+                        <i class="fas fa-comment"></i>
                     </button>
                 </div>
             </div>
@@ -687,11 +683,11 @@
             }
             
             bindEvents() {
-                // Enviar nova mensagem
-                const sendNewMessageBtn = document.getElementById('sendNewMessage');
-                if (sendNewMessageBtn) {
-                    sendNewMessageBtn.addEventListener('click', () => {
-                        this.sendNewMessage();
+                // Iniciar nova conversa
+                const startNewChatBtn = document.getElementById('startNewChat');
+                if (startNewChatBtn) {
+                    startNewChatBtn.addEventListener('click', () => {
+                        this.startNewChat();
                     });
                 }
                 
@@ -720,12 +716,12 @@
                     });
                 }
                 
-                const newChatMessage = document.getElementById('newChatMessage');
-                if (newChatMessage) {
-                    newChatMessage.addEventListener('keypress', (e) => {
+                const newChatPhone = document.getElementById('newChatPhone');
+                if (newChatPhone) {
+                    newChatPhone.addEventListener('keypress', (e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
-                            this.sendNewMessage();
+                            this.startNewChat();
                         }
                     });
                 }
@@ -1023,17 +1019,15 @@
                 }
             }
             
-            async sendNewMessage() {
+            startNewChat() {
                 const phoneInput = document.getElementById('newChatPhone');
-                const messageInput = document.getElementById('newChatMessage');
                 const phoneNumberSelect = document.getElementById('phoneNumberSelect');
                 
                 const phone = phoneInput.value.trim();
-                const message = messageInput.value.trim();
                 const phoneNumberId = phoneNumberSelect.value;
                 
-                if (!phone || !message) {
-                    this.showError('Telefone e mensagem são obrigatórios');
+                if (!phone) {
+                    this.showError('Digite um número de telefone');
                     return;
                 }
                 
@@ -1042,43 +1036,26 @@
                     return;
                 }
                 
-                const sendBtn = document.getElementById('sendNewMessage');
-                sendBtn.disabled = true;
+                // Criar objeto de conversa temporária
+                const newConversation = {
+                    id: 'new_' + Date.now(),
+                    contact: {
+                        name: phone,
+                        phone: phone
+                    },
+                    phone_number_id: phoneNumberId,
+                    last_message: {
+                        timestamp: new Date().toISOString(),
+                        body: 'Nova conversa'
+                    },
+                    messages: []
+                };
                 
-                try {
-                    const response = await fetch('/api/send-text-message', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            phone_number: phone,
-                            content: message,
-                            phone_number_id: phoneNumberId
-                        })
-                    });
-                    
-                    if (response.ok) {
-                        const result = await response.json();
-                        phoneInput.value = '';
-                        messageInput.value = '';
-                        
-                        // Recarregar conversas e selecionar a nova
-                        await this.loadConversations();
-                        if (result.conversation_id) {
-                            // selectConversation já carrega mensagens com scroll automático
-                            await this.selectConversation(result.conversation_id);
-                        }
-                    } else {
-                        const error = await response.json();
-                        this.showError(error.error || 'Erro ao enviar mensagem');
-                    }
-                } catch (error) {
-                    // ✅ SILENCIAR ERRO - Não incomodar o usuário
-                    console.debug('Erro ao enviar nova mensagem:', error);
-                } finally {
-                    sendBtn.disabled = false;
-                }
+                // Abrir a conversa na área de chat
+                this.openConversation(newConversation);
+                
+                // Limpar o input
+                phoneInput.value = '';
             }
             
             startPolling() {
