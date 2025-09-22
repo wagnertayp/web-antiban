@@ -954,6 +954,12 @@
                 this.messages = [];
                 this.pollingInterval = null;
                 
+                // ✅ CACHE PARA PERFORMANCE ULTRA-RÁPIDA
+                this.messagesCache = new Map(); // Cache de mensagens por conversa
+                this.lastUpdateTime = new Date();
+                this.pendingRequests = new Set(); // Evitar requests duplicados
+                this.preloadedConversations = new Set(); // Conversas já pré-carregadas
+                
                 this.init();
             }
             
@@ -1264,6 +1270,9 @@
             }
             
             selectConversation(conversationId) {
+                // ✅ DEBOUNCE PARA EVITAR CLIQUES MÚLTIPLOS
+                if (this.currentConversationId === conversationId) return;
+                
                 // ✅ FECHAR ABAS INSTANTANEAMENTE
                 this.closeSettings();
                 this.closeLeads();
@@ -1299,18 +1308,30 @@
                     activeConv.classList.add('active');
                 }
                 
-                // ✅ PLACEHOLDER INSTANTÂNEO - Mostrar carregando
-                if (chatMessages) {
-                    chatMessages.innerHTML = `
-                        <div style="text-align: center; padding: 40px; color: #8b949e;">
-                            <i class="fas fa-circle-notch fa-spin" style="font-size: 2rem; margin-bottom: 1rem;"></i>
-                            <h5 style="color: #8b949e; margin: 0;">Carregando conversa...</h5>
-                        </div>
-                    `;
+                // ✅ VERIFICAR CACHE PRIMEIRO - CARREGAMENTO ULTRA-RÁPIDO
+                const cacheKey = `conv_${conversationId}`;
+                if (this.messagesCache.has(cacheKey)) {
+                    // ✅ CARREGAMENTO INSTANTÂNEO DO CACHE
+                    const cachedData = this.messagesCache.get(cacheKey);
+                    this.messages = cachedData.messages;
+                    this.renderMessages(true);
+                    
+                    // ✅ ATUALIZAR EM BACKGROUND SILENCIOSAMENTE
+                    setTimeout(() => this.updateMessagesInBackground(conversationId), 100);
+                } else {
+                    // ✅ PLACEHOLDER APENAS SE NÃO HOUVER CACHE
+                    if (chatMessages) {
+                        chatMessages.innerHTML = `
+                            <div style="text-align: center; padding: 40px; color: #8b949e;">
+                                <i class="fas fa-circle-notch fa-spin" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                                <h5 style="color: #8b949e; margin: 0;">Carregando conversa...</h5>
+                            </div>
+                        `;
+                    }
+                    
+                    // ✅ CARREGAR IMEDIATAMENTE
+                    this.loadMessages(conversationId, true);
                 }
-                
-                // ✅ CARREGAR EM BACKGROUND - Sem bloquear
-                requestAnimationFrame(() => this.loadMessages(conversationId, true));
             }
             
             updateChatHeader(conversation) {
@@ -1322,14 +1343,73 @@
             
             async loadMessages(conversationId, forceScrollToBottom = false) {
                 try {
+                    // ✅ VERIFICAR CACHE PRIMEIRO - RESPOSTA INSTANTÂNEA
+                    const cacheKey = `conv_${conversationId}`;
+                    
+                    if (this.messagesCache.has(cacheKey)) {
+                        const cachedData = this.messagesCache.get(cacheKey);
+                        this.messages = cachedData.messages;
+                        this.renderMessages(forceScrollToBottom);
+                        
+                        // ✅ ATUALIZAR EM BACKGROUND - SEM BLOQUEAR
+                        setTimeout(() => this.updateMessagesInBackground(conversationId), 100);
+                        return;
+                    }
+                    
+                    // ✅ EVITAR REQUESTS DUPLICADOS
+                    if (this.pendingRequests.has(cacheKey)) {
+                        return;
+                    }
+                    
+                    this.pendingRequests.add(cacheKey);
+                    
                     const response = await fetch(`/api/conversations/${conversationId}/messages`);
                     if (response.ok) {
                         const data = await response.json();
+                        
+                        // ✅ SALVAR NO CACHE
+                        this.messagesCache.set(cacheKey, {
+                            messages: data.messages,
+                            timestamp: new Date()
+                        });
+                        
                         this.messages = data.messages;
                         this.renderMessages(forceScrollToBottom);
                     }
+                    
+                    this.pendingRequests.delete(cacheKey);
                 } catch (error) {
+                    this.pendingRequests.delete(`conv_${conversationId}`);
                     console.error('Erro ao carregar mensagens:', error);
+                }
+            }
+            
+            // ✅ FUNÇÃO PARA ATUALIZAR CACHE EM BACKGROUND
+            async updateMessagesInBackground(conversationId) {
+                try {
+                    const cacheKey = `conv_${conversationId}`;
+                    const response = await fetch(`/api/conversations/${conversationId}/messages`);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const cachedData = this.messagesCache.get(cacheKey);
+                        
+                        // ✅ ATUALIZAR APENAS SE MUDOU
+                        if (!cachedData || cachedData.messages.length !== data.messages.length) {
+                            this.messagesCache.set(cacheKey, {
+                                messages: data.messages,
+                                timestamp: new Date()
+                            });
+                            
+                            // ✅ RENDERIZAR APENAS SE É A CONVERSA ATIVA
+                            if (this.currentConversationId === conversationId) {
+                                this.messages = data.messages;
+                                this.renderMessages(false);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    // ✅ SILENCIAR ERROS DE BACKGROUND
                 }
             }
             
@@ -2103,13 +2183,57 @@
             }
             
             startPolling() {
-                // Atualizar conversas a cada 5 segundos
+                // ✅ POLLING MAIS INTELIGENTE - 10 segundos para não sobrecarregar
                 this.pollingInterval = setInterval(() => {
-                    this.loadConversations();
-                    if (this.currentConversationId) {
-                        this.loadMessages(this.currentConversationId);
+                    // ✅ CARREGAR CONVERSAS APENAS SE NECESSÁRIO
+                    const timeSinceLastUpdate = new Date() - this.lastUpdateTime;
+                    if (timeSinceLastUpdate > 8000) { // 8 segundos
+                        this.loadConversations();
+                        this.lastUpdateTime = new Date();
                     }
-                }, 5000);
+                    
+                    // ✅ ATUALIZAR CONVERSA ATIVA EM BACKGROUND
+                    if (this.currentConversationId) {
+                        this.updateMessagesInBackground(this.currentConversationId);
+                    }
+                }, 10000); // Reduzido para 10 segundos
+                
+                // ✅ PRÉ-CARREGAR CONVERSAS RECENTES PARA VELOCIDADE MÁXIMA
+                setTimeout(() => this.preloadRecentConversations(), 2000);
+            }
+            
+            // ✅ PRÉ-CARREGAMENTO INTELIGENTE DAS CONVERSAS MAIS USADAS
+            async preloadRecentConversations() {
+                try {
+                    // Pré-carregar as 3 conversas mais recentes
+                    const recentConversations = this.conversations.slice(0, 3);
+                    
+                    for (const conv of recentConversations) {
+                        if (!this.preloadedConversations.has(conv.id)) {
+                            // ✅ CARREGAR EM BACKGROUND SEM BLOQUEAR UI
+                            setTimeout(async () => {
+                                try {
+                                    const response = await fetch(`/api/conversations/${conv.id}/messages`);
+                                    if (response.ok) {
+                                        const data = await response.json();
+                                        
+                                        // ✅ SALVAR NO CACHE PARA ACESSO INSTANTÂNEO
+                                        this.messagesCache.set(`conv_${conv.id}`, {
+                                            messages: data.messages,
+                                            timestamp: new Date()
+                                        });
+                                        
+                                        this.preloadedConversations.add(conv.id);
+                                    }
+                                } catch (error) {
+                                    // ✅ SILENCIAR ERROS DE PRÉ-CARREGAMENTO
+                                }
+                            }, conv.id * 500); // Espaçar requests
+                        }
+                    }
+                } catch (error) {
+                    // ✅ SILENCIAR ERROS
+                }
             }
             
             stopPolling() {
