@@ -1459,6 +1459,9 @@
             }
 
             async openSettings() {
+                // Fechar aba de leads se estiver aberta
+                this.closeLeads();
+                
                 const settingsOverlay = document.getElementById('settingsOverlay');
                 const chatMessages = document.getElementById('chatMessages');
                 
