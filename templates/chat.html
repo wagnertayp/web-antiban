@@ -893,6 +893,22 @@
                         this.logout();
                     });
                 }
+
+                // Botão de configurações
+                const settingsBtn = document.getElementById('settingsBtn');
+                if (settingsBtn) {
+                    settingsBtn.addEventListener('click', () => {
+                        this.openSettings();
+                    });
+                }
+
+                // Botão de fechar configurações
+                const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+                if (closeSettingsBtn) {
+                    closeSettingsBtn.addEventListener('click', () => {
+                        this.closeSettings();
+                    });
+                }
             }
             
             async loadPhoneNumbers() {
@@ -1196,6 +1212,46 @@
                         // Mesmo se der erro, redirecionar
                         window.location.href = '/';
                     });
+                }
+            }
+
+            openSettings() {
+                const settingsOverlay = document.getElementById('settingsOverlay');
+                const chatMessages = document.getElementById('chatMessages');
+                
+                if (settingsOverlay && chatMessages) {
+                    settingsOverlay.style.display = 'block';
+                    
+                    // Escurecer a área de chat e mostrar texto padrão
+                    chatMessages.innerHTML = `
+                        <div class="empty-chat">
+                            <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager">
+                            <h5 style="color: #fff; font-weight: 300; font-size: 2.2rem; margin-bottom: 0.8rem;">Whatsapp Recovery IA</h5>
+                            <p style="color: #fff; font-weight: bold;">Selecione uma conversa à esquerda ou inicie uma nova conversa para começar.</p>
+                        </div>
+                    `;
+                }
+            }
+
+            closeSettings() {
+                const settingsOverlay = document.getElementById('settingsOverlay');
+                
+                if (settingsOverlay) {
+                    settingsOverlay.style.display = 'none';
+                    
+                    // Restaurar área de chat
+                    if (this.currentConversationId) {
+                        this.renderMessages();
+                    } else {
+                        const chatMessages = document.getElementById('chatMessages');
+                        chatMessages.innerHTML = `
+                            <div class="empty-chat">
+                                <img src="/static/recovery-logo.png" alt="Whatsapp Recovery IA" loading="eager">
+                                <h5 style="color: #fff; font-weight: 300; font-size: 2.2rem; margin-bottom: 0.8rem;">Whatsapp Recovery IA</h5>
+                                <p style="color: #fff; font-weight: bold;">Selecione uma conversa à esquerda ou inicie uma nova conversa para começar.</p>
+                            </div>
+                        `;
+                    }
                 }
             }
             
