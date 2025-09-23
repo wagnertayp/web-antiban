@@ -1,6 +1,7 @@
 from app import db
 from datetime import datetime, timezone, timedelta
 import time
+import logging
 from typing import Optional
 
 # 🇧🇷 TIMEZONE BRASILEIRO
