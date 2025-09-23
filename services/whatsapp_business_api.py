@@ -331,7 +331,9 @@ class WhatsAppBusinessAPI:
             try:
                 # 🔐 Conectar diretamente (sem proxy para debugging)
                 logging.info(f"🔍 Testing token with /me endpoint...")
-                logging.info(f"🔍 Headers being sent: {headers}")
+                # Obfuscar token para segurança
+                safe_headers = {k: v if k != 'Authorization' else f"Bearer ...{v[-4:]}" if v.startswith('Bearer ') else '***' for k, v in headers.items()}
+                logging.info(f"🔍 Headers being sent: {safe_headers}")
                 logging.info(f"🔍 URL: {self.base_url}/me")
                 
                 me_response = requests.get(f"{self.base_url}/me", headers=headers, timeout=10)

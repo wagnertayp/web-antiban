@@ -1511,8 +1511,11 @@ def get_batch_status():
     """Get current batch processing status"""
     try:
         # Use only the mega_batch system
-        mega_status = mega_batch.get_status()
-        return jsonify(mega_status), 200
+        if 'mega_batch' in globals():
+            mega_status = globals()['mega_batch'].get_status()
+            return jsonify(mega_status), 200
+        else:
+            return jsonify({'status': 'not_running', 'message': 'Batch system not initialized'}), 200
     except Exception as e:
         logging.error(f"Error getting batch status: {str(e)}")
         return jsonify({'error': 'Erro ao obter status'}), 500
@@ -1522,8 +1525,11 @@ def stop_batch_processing():
     """Stop current batch processing"""
     try:
         # Stop the mega batch system
-        mega_batch.is_running = False
-        return jsonify({'success': True, 'message': 'Processamento será interrompido'}), 200
+        if 'mega_batch' in globals():
+            globals()['mega_batch'].is_running = False
+            return jsonify({'success': True, 'message': 'Processamento será interrompido'}), 200
+        else:
+            return jsonify({'success': False, 'message': 'Batch system não está rodando'}), 200
     except Exception as e:
         logging.error(f"Error stopping batch: {str(e)}")
         return jsonify({'error': 'Erro ao parar processamento'}), 500
@@ -1843,7 +1849,7 @@ def send_smart_distribution():
 webhook_handler = WhatsAppWebhookHandler(db=db)
 
 @app.route('/webhook', methods=['GET', 'POST'])
-def whatsapp_webhook():
+def whatsapp_webhook() -> tuple[str, int]:
     """Ultra-fast webhook with message logging"""
     logging.info(f"🔥 WEBHOOK FUNCTION CALLED - Method: {request.method}")
     try:
@@ -1927,8 +1933,7 @@ def ultra_speed_smart_distribution():
         
         # Initialize session progress
         global progress_sessions
-        if 'progress_sessions' not in globals():
-            progress_sessions = {}
+        progress_sessions = globals().get('progress_sessions', {})
         
         progress_sessions[session_id] = {
             'total': 0,
@@ -1985,8 +1990,9 @@ def ultra_speed_smart_distribution():
             return jsonify({'error': 'Nenhum lead válido fornecido'}), 400
         
         # Update progress total
-        progress_sessions[session_id]['total'] = len(leads)
-        progress_sessions[session_id]['status'] = 'running'
+        if session_id in progress_sessions:
+            progress_sessions[session_id]['total'] = len(leads)
+            progress_sessions[session_id]['status'] = 'running'
         
         # SMART DISTRIBUTION: Up to 1000 messages per phone number with randomized templates
         def ultra_speed_smart_distribution():
