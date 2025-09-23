@@ -1816,7 +1816,7 @@ webhook_handler = WhatsAppWebhookHandler(db=db)
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def whatsapp_webhook():
-    """Ultra-fast webhook without any blocking operations"""
+    """Ultra-fast webhook with message logging"""
     try:
         if request.method == 'GET':
             mode = request.args.get('hub.mode')
@@ -1828,9 +1828,31 @@ def whatsapp_webhook():
             return "Forbidden", 403
                 
         # POST - mensagem recebida
-        return "OK", 200
+        if request.method == 'POST':
+            try:
+                # Log básico sem processamento pesado
+                user_agent = request.headers.get('User-Agent', 'Unknown')
+                logging.info(f"📨 WEBHOOK POST - User-Agent: {user_agent}")
+                
+                # Tentar obter dados JSON (não bloquear se falhar)
+                try:
+                    data = request.get_json()
+                    if data and 'entry' in data:
+                        entries = len(data.get('entry', []))
+                        logging.info(f"✅ Webhook recebido - {entries} entradas")
+                    else:
+                        logging.info(f"📨 Webhook POST sem dados esperados")
+                except:
+                    logging.info(f"📨 Webhook POST - dados não JSON")
+                    
+            except Exception as e:
+                logging.warning(f"Erro no webhook POST: {str(e)}")
+                
+            # SEMPRE retornar OK imediatamente
+            return "OK", 200
         
-    except:
+    except Exception as e:
+        logging.error(f"Erro geral no webhook: {str(e)}")
         return "OK", 200
 
 @app.route('/test-webhook', methods=['GET', 'POST'])
