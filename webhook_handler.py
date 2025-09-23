@@ -411,35 +411,5 @@ class WhatsAppWebhookHandler:
                               message_id: str = None, 
                               hours_back: int = 24) -> list:
         """Obter interações de botões dos últimos X horas"""
-        try:
-            if not self.db:
-                return []
-                
-            from models import ButtonInteraction
-            from datetime import datetime, timedelta
-            
-            # Construir query
-            query = ButtonInteraction.query
-            
-            # Filtrar por telefone se especificado
-            if phone_number:
-                query = query.filter(ButtonInteraction.from_phone.like(f'%{phone_number}%'))
-            
-            # Filtrar por message_id se especificado
-            if message_id:
-                query = query.filter(ButtonInteraction.message_id == message_id)
-            
-            # Filtrar por tempo
-            time_limit = datetime.utcnow() - timedelta(hours=hours_back)
-            query = query.filter(ButtonInteraction.created_at >= time_limit)
-            
-            # Ordenar por mais recente
-            query = query.order_by(ButtonInteraction.created_at.desc())
-            
-            interactions = query.all()
-            
-            return [interaction.to_dict() for interaction in interactions]
-            
-        except Exception as e:
-            logging.error(f"Erro ao obter interações: {str(e)}")
-            return []
+        # ButtonInteraction model não existe ainda - retornar vazio por enquanto
+        return []
