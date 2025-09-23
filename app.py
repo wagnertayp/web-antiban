@@ -1848,7 +1848,7 @@ def send_smart_distribution():
 # Inicializar webhook handler
 webhook_handler = WhatsAppWebhookHandler(db=db)
 
-@app.route('/webhook', methods=['GET', 'POST'])
+@app.route('/webhook', methods=['GET', 'POST'], strict_slashes=False)
 def whatsapp_webhook() -> tuple[str, int]:
     """Ultra-fast webhook with message logging"""
     logging.info(f"🔥 WEBHOOK FUNCTION CALLED - Method: {request.method}")
