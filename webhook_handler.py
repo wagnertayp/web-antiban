@@ -407,8 +407,8 @@ class WhatsAppWebhookHandler:
             if self.db:
                 self.db.session.rollback()
     
-    def get_button_interactions(self, phone_number: str = None, 
-                              message_id: str = None, 
+    def get_button_interactions(self, phone_number: str = "", 
+                              message_id: str = "", 
                               hours_back: int = 24) -> list:
         """Obter interações de botões dos últimos X horas"""
         # ButtonInteraction model não existe ainda - retornar vazio por enquanto
