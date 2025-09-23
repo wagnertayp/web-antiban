@@ -1132,7 +1132,7 @@
                         phoneNumbers.forEach(phone => {
                             const option = document.createElement('option');
                             option.value = phone.id;
-                            option.textContent = `${phone.display_phone_number} (${phone.quality_rating})`;
+                            option.textContent = `${phone.verified_name || phone.display_phone_number} (${phone.quality_rating})`;
                             select.appendChild(option);
                         });
                         
