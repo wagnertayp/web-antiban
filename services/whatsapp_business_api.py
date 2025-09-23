@@ -257,28 +257,29 @@ class WhatsAppBusinessAPI:
                     self._has_error_135000 = discovered.get('has_error_135000', False)
                     logging.info(f"📱 DESCOBERTO VIA API: {len(self._available_phones)} números da BM {self._business_account_id}")
                 else:
-                    # Fallback para BM configurada via secrets
+                    # ✅ USAR SECRETS DIRETAMENTE - SEM API CALLS
                     bm_from_env = os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID')
-                    if bm_from_env:
-                        logging.info(f"📍 USANDO BM DAS SECRETS: {bm_from_env}")
+                    phone_from_env = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
+                    
+                    if bm_from_env and phone_from_env:
+                        logging.info(f"📍 USANDO CREDENCIAIS DAS SECRETS: BM {bm_from_env}, Phone {phone_from_env}")
                         self._business_account_id = bm_from_env
-                        # Tentar descobrir phones desta BM específica
-                        discovered_phones = self._discover_phones_from_bm(bm_from_env)
-                        if discovered_phones:
-                            self._available_phones = discovered_phones
-                            self._has_error_135000 = False
-                            logging.info(f"✅ PHONES DESCOBERTOS DA BM: {len(self._available_phones)} números encontrados")
-                        else:
-                            # Sem fallback - usar seleção do usuário apenas
-                            self._available_phones = []
-                            self._has_error_135000 = False
-                            logging.warning(f"📱 NENHUM PHONE DESCOBERTO DA BM {bm_from_env} - USAR SELEÇÃO DO USUÁRIO")
+                        self._phone_number_id = phone_from_env
+                        
+                        # Usar dados hardcoded conhecidos (sem API calls)
+                        self._available_phones = [{
+                            'id': phone_from_env,
+                            'display_phone_number': '15558234393',
+                            'quality_rating': 'GREEN',
+                            'verified_name': 'Alex da Hora'
+                        }]
+                        self._has_error_135000 = False
+                        logging.info(f"✅ CREDENCIAIS CARREGADAS DAS SECRETS: BM e Phone configurados")
                     else:
-                        # Sem fallback final - depender da seleção do usuário
-                        logging.warning("⚠️ NENHUMA BM RECONHECIDA - USAR SELEÇÃO DO USUÁRIO")
-                        self._business_account_id = None
+                        # Sem secrets - deixar vazio para seleção do usuário
                         self._available_phones = []
                         self._has_error_135000 = False
+                        logging.warning(f"⚠️ SECRETS NÃO ENCONTRADAS - USAR SELEÇÃO DO USUÁRIO")
             
             # Usar primeiro phone disponível ou None se não há phones
             new_phone_id = self._available_phones[0] if self._available_phones else None

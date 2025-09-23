@@ -131,7 +131,7 @@ class WhatsAppSender {
                     <div class="card border-primary">
                         <div class="card-body p-2">
                             <h6 class="card-title mb-1">Aba ${tabNumber}</h6>
-                            <small class="text-muted">Phone: ${phone.display_phone_number}</small>
+                            <small class="text-muted">Phone: ${phone.verified_name || phone.display_phone_number}</small>
                             <div class="input-group input-group-sm mt-1">
                                 <input type="text" class="form-control" value="${url}" readonly>
                                 <button class="btn btn-outline-primary" onclick="navigator.clipboard.writeText('${url}')">
@@ -512,8 +512,8 @@ class WhatsAppSender {
             html += `
                 <div class="d-flex align-items-center justify-content-between mb-2 p-2 bg-dark rounded">
                     <div>
-                        <strong>${phone.display_phone_number}</strong>
-                        ${phone.verified_name ? `<br><small class="text-muted">${phone.verified_name}</small>` : ''}
+                        <strong>${phone.verified_name || phone.display_phone_number}</strong>
+                        <br><small class="text-muted">${phone.display_phone_number}</small>
                         <br><small class="text-info">ID: ${phone.id.slice(0, 15)}...</small>
                     </div>
                     <div class="d-flex align-items-center gap-2">
@@ -593,7 +593,7 @@ class WhatsAppSender {
             if (phoneData) {
                 const tabIndicator = document.getElementById('tabIndicator');
                 if (tabIndicator) {
-                    tabIndicator.innerHTML = `Aba #${this.tabNumber} - ${phoneData.display_phone_number}`;
+                    tabIndicator.innerHTML = `Aba #${this.tabNumber} - ${phoneData.verified_name || phoneData.display_phone_number}`;
                 }
             }
         }
