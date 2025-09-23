@@ -4,6 +4,7 @@ Webhook Handler para capturar interações do WhatsApp Business API
 Detecta cliques em botões, respostas de usuários, status de entrega, etc.
 """
 import logging
+import time
 from datetime import datetime
 from typing import Dict, Any, Optional
 import json
@@ -272,7 +273,8 @@ class WhatsAppWebhookHandler:
                 message_content = f"Lista selecionada: {list_data.get('list_title', 'N/A')}"
                 message_type = 'list_reply'
             
-            if not phone_number or not message_content:
+            if not phone_number or not message_content or not phone_number_id:
+                logging.warning(f"Dados incompletos: phone={phone_number}, content={message_content}, phone_id={phone_number_id}")
                 return
             
             # Normalizar número (remover + e garantir formato consistente)
@@ -306,7 +308,7 @@ class WhatsAppWebhookHandler:
             # Criar mensagem (apenas se não existe)
             message = ChatMessage.create_inbound(
                 conversation_id=conversation.id,
-                whatsapp_message_id=whatsapp_message_id,
+                whatsapp_message_id=whatsapp_message_id or f"fallback_{conversation.id}_{int(time.time())}",
                 content=message_content,
                 message_type=message_type,
                 webhook_data=json.dumps(interaction_data)
