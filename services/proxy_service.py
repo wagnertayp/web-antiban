@@ -72,7 +72,8 @@ class ProxyService:
                     proxy_dict = specific_proxy
                     # Don't change self.current_proxy for external proxy calls
                 else:
-                    proxy_dict = self.get_next_proxy()
+                    # ✅ TEMPORARIAMENTE DESABILITADO - Resolver timeouts de produção
+                    proxy_dict = None  # self.get_next_proxy()
                 
                 # Add proxy to request if available
                 if proxy_dict:

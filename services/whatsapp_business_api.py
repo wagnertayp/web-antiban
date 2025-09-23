@@ -100,15 +100,15 @@ class WhatsAppBusinessAPI:
         # Initialize optimized HTTP session for maximum speed
         self.session = requests.Session()
         
-        # EXTREME 200+ MSG/SEC VELOCITY connection pooling - MAXIMUM CAPACITY
+        # ✅ OTIMIZADO PARA REPLIT - Performance balanceada
         retry_strategy = Retry(
-            total=0,  # No retries for absolute maximum speed
-            backoff_factor=0,  # Zero backoff para 200+ msg/sec
-            status_forcelist=[],  # No status retries
+            total=2,  # Duas tentativas para melhor confiabilidade
+            backoff_factor=0.3,  # Backoff moderado
+            status_forcelist=[500, 502, 503, 504],  # Retry em erros de servidor
         )
         adapter = HTTPAdapter(
-            pool_connections=100000000,  # 100M connection pools para 500+ msg/sec
-            pool_maxsize=500000000,      # 500M connections per adapter para absolute maximum throughput
+            pool_connections=10,  # 10 pools - suficiente para WhatsApp
+            pool_maxsize=20,      # 20 connections por pool - otimizado
             max_retries=retry_strategy
         )
         self.session.mount("http://", adapter)
@@ -118,7 +118,7 @@ class WhatsAppBusinessAPI:
         self._refresh_credentials()
         
         if self._access_token:
-            logging.info("WhatsApp Business API initialized - 200+ MSG/SEC EXTREME CAPACITY com 100M conexões simultâneas")
+            logging.info("✅ WhatsApp Business API otimizado para Replit - Performance balanceada")
         else:
             logging.warning("WhatsApp Business API credentials not found in environment variables")
     
