@@ -172,11 +172,21 @@ class ChatMessage(db.Model):
         # Atualizar conversa
         conversation = Conversation.query.get(conversation_id)
         if conversation:
-            conversation.last_message_at = message.created_at
+            # Usar timestamp atual explicitamente
+            current_time = brasilia_now()
+            message.created_at = current_time  # Garantir que está definido
+            conversation.last_message_at = current_time
+            conversation.last_message_id = None  # Será atualizado após commit
             conversation.unread_count += 1
-            conversation.updated_at = message.created_at
+            conversation.updated_at = current_time
         
         db.session.commit()
+        
+        # Atualizar last_message_id após commit (quando message.id já existe)
+        if conversation:
+            conversation.last_message_id = message.id
+            db.session.commit()
+            
         return message
     
     @staticmethod
