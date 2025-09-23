@@ -17,13 +17,10 @@ class WhatsAppWebhookHandler:
         # Require secure webhook token
         verify_token = os.getenv('WHATSAPP_WEBHOOK_VERIFY_TOKEN')
         if not verify_token:
-            # For development and production, use the same token that's in the interface
+            # For development, use a default token
             verify_token = 'webhook_verify_token_12345_dev_only'
-            logging.info("✅ Using interface webhook verify token: webhook_verify_token_12345_dev_only")
-        else:
-            logging.info(f"✅ Using environment webhook verify token: {verify_token}")
+            logging.warning("Using default webhook verify token for development. Set WHATSAPP_WEBHOOK_VERIFY_TOKEN for production.")
         self.verify_token = verify_token
-        logging.info(f"🔑 Webhook Handler inicializado com token: {verify_token}")
         
     def verify_webhook(self, mode: str, token: str, challenge: str) -> Optional[str]:
         """Verificar webhook do WhatsApp (processo de configuração inicial)"""
@@ -81,6 +78,31 @@ class WhatsAppWebhookHandler:
             messaging_product = messages_data.get('messaging_product', 'whatsapp')
             metadata = messages_data.get('metadata', {})
             phone_number_id = metadata.get('phone_number_id')
+            
+            # 🔧 FALLBACK: Se phone_number_id for None, obter do sistema
+            if not phone_number_id:
+                try:
+                    # Importar aqui para evitar circular import
+                    from app import get_whatsapp_service
+                    whatsapp_service = get_whatsapp_service()
+                    
+                    # Usar primeiro phone disponível do sistema
+                    if whatsapp_service._available_phones:
+                        phone_number_id = whatsapp_service._available_phones[0]
+                        logging.info(f"✅ phone_number_id obtido do sistema: {phone_number_id}")
+                    else:
+                        # Se não há phones descobertos, usar phone_number_id atual da service
+                        phone_number_id = whatsapp_service._phone_number_id
+                        if phone_number_id:
+                            logging.info(f"✅ phone_number_id obtido da service: {phone_number_id}")
+                        else:
+                            # Último fallback - ID correto para o BM 1013336460831234
+                            phone_number_id = "840865322435192"  
+                            logging.warning(f"⚠️ Usando phone_number_id padrão como último recurso: {phone_number_id}")
+                except Exception as e:
+                    # Fallback em caso de erro - ID correto
+                    phone_number_id = "840865322435192"
+                    logging.error(f"❌ Erro ao obter phone_number_id do sistema: {e}, usando padrão correto")
             
             # Processar mensagens recebidas
             messages = messages_data.get('messages', [])
