@@ -1834,16 +1834,26 @@ def whatsapp_webhook():
                 user_agent = request.headers.get('User-Agent', 'Unknown')
                 logging.info(f"📨 WEBHOOK POST - User-Agent: {user_agent}")
                 
-                # Tentar obter dados JSON (não bloquear se falhar)
+                # Tentar obter dados JSON e extrair mensagem
                 try:
                     data = request.get_json()
                     if data and 'entry' in data:
                         entries = len(data.get('entry', []))
                         logging.info(f"✅ Webhook recebido - {entries} entradas")
+                        
+                        # Extrair mensagem do primeiro entry
+                        for entry in data.get('entry', [])[:1]:  # Só primeiro entry
+                            for change in entry.get('changes', [])[:1]:  # Só primeiro change
+                                value = change.get('value', {})
+                                messages = value.get('messages', [])
+                                for message in messages[:1]:  # Só primeira mensagem
+                                    msg_text = message.get('text', {}).get('body', 'N/A')
+                                    msg_from = message.get('from', 'Unknown')
+                                    logging.info(f"📱 MENSAGEM: '{msg_text}' de {msg_from}")
                     else:
                         logging.info(f"📨 Webhook POST sem dados esperados")
-                except:
-                    logging.info(f"📨 Webhook POST - dados não JSON")
+                except Exception as e:
+                    logging.info(f"📨 Webhook POST - erro ao processar: {str(e)}")
                     
             except Exception as e:
                 logging.warning(f"Erro no webhook POST: {str(e)}")
