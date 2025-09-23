@@ -1816,17 +1816,22 @@ webhook_handler = WhatsAppWebhookHandler(db=db)
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def whatsapp_webhook():
-    """Ultra-simple webhook for Meta validation"""
-    if request.method == 'GET':
-        mode = request.args.get('hub.mode')
-        token = request.args.get('hub.verify_token')
-        challenge = request.args.get('hub.challenge')
-        
-        if mode == 'subscribe' and token == 'webhook_verify_token_12345_dev_only':
-            return challenge
-        return "Forbidden", 403
+    """Ultra-fast webhook without any blocking operations"""
+    try:
+        if request.method == 'GET':
+            mode = request.args.get('hub.mode')
+            token = request.args.get('hub.verify_token')
+            challenge = request.args.get('hub.challenge')
             
-    return "OK", 200
+            if mode == 'subscribe' and token == 'webhook_verify_token_12345_dev_only' and challenge:
+                return challenge, 200
+            return "Forbidden", 403
+                
+        # POST - mensagem recebida
+        return "OK", 200
+        
+    except:
+        return "OK", 200
 
 @app.route('/test-webhook', methods=['GET', 'POST'])
 def test_webhook():
