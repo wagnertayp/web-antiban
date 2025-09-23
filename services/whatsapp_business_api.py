@@ -320,16 +320,26 @@ class WhatsAppBusinessAPI:
             if not self._access_token:
                 return None
             
-            headers = self.headers  # 🔒 Usar headers da sessão atualizada
+            # 🔒 Construir headers correto com token
+            headers = {
+                'Authorization': f'Bearer {self._access_token}',
+                'Content-Type': 'application/json'
+            }
             
             # Try to get WhatsApp Business Accounts directly
             try:
-                # 🔐 PROXY PROTEGIDO - Anti-ban da Meta
-                proxy_service = proxy_module.get_proxy_service()
-                if proxy_service:
-                    me_response = proxy_service.get(f"{self.base_url}/me", headers=headers, timeout=10)
+                # 🔐 Conectar diretamente (sem proxy para debugging)
+                logging.info(f"🔍 Testing token with /me endpoint...")
+                logging.info(f"🔍 Headers being sent: {headers}")
+                logging.info(f"🔍 URL: {self.base_url}/me")
+                
+                me_response = requests.get(f"{self.base_url}/me", headers=headers, timeout=10)
+                logging.info(f"🔍 /me response: {me_response.status_code}")
+                
+                if me_response.status_code != 200:
+                    logging.error(f"🔍 Error response: {me_response.text}")
                 else:
-                    me_response = requests.get(f"{self.base_url}/me", headers=headers, timeout=10)
+                    logging.info(f"🔍 Success response: {me_response.json()}")
                 if me_response.status_code == 200:
                     me_data = me_response.json()
                     user_id = me_data.get('id')
