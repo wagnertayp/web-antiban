@@ -827,6 +827,18 @@ def get_phone_numbers():
         # Usar BM ID da sessão ou do parâmetro (sem hardcode da BM antiga)
         business_manager_id = request.args.get('business_manager_id') or session.get('whatsapp_business_manager_id', '').strip()
         
+        # Se não tem BM ou BM inválida (788501393859393), descobrir automaticamente
+        if not business_manager_id or business_manager_id == '788501393859393':
+            # Tentar descobrir BM automaticamente
+            me_response = requests.get('https://graph.facebook.com/v23.0/me?fields=businesses', headers=headers, timeout=10)
+            if me_response.status_code == 200:
+                me_data = me_response.json()
+                businesses = me_data.get('businesses', {}).get('data', [])
+                if businesses:
+                    business_manager_id = businesses[0]['id']
+                    session['whatsapp_business_manager_id'] = business_manager_id
+                    logging.info(f"🔍 Auto-descoberto BM: {business_manager_id}")
+        
         # Buscar phone numbers da BM
         if business_manager_id:
             phones_url = f'https://graph.facebook.com/v23.0/{business_manager_id}/phone_numbers'
