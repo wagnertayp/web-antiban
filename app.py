@@ -351,40 +351,29 @@ def get_connection_info():
         phone_numbers = session.get('whatsapp_phone_numbers', [])
         templates = session.get('whatsapp_templates', [])
         
-        # ✅ SEGUNDA PRIORIDADE: Buscar dados globais do banco se sessão estiver vazia
+        # ✅ OTIMIZADO: Cache rápido se sessão vazia
         if not connection_data or not business_manager_id:
+            # Verificação rápida sem carregamento pesado
             global_connected = SystemConfig.get_config('whatsapp_connected')
             if global_connected == 'true':
-                access_token = SystemConfig.get_config('whatsapp_access_token')
+                # Só carregar dados essenciais
                 business_manager_id = SystemConfig.get_config('whatsapp_business_manager_id')
                 connected_at = SystemConfig.get_config('whatsapp_connected_at')
                 
-                # Carregar phone numbers e templates do banco
-                try:
-                    phone_numbers_json = SystemConfig.get_config('whatsapp_phone_numbers', '[]')
-                    templates_json = SystemConfig.get_config('whatsapp_templates', '[]')
-                    phone_numbers = json.loads(phone_numbers_json)
-                    templates = json.loads(templates_json)
-                    connection_data = {
-                        'access_token': access_token,
-                        'business_manager_id': business_manager_id,
-                        'connected_at': connected_at
-                    }
-                    
-                    # ✅ RESTAURAR DADOS NA SESSÃO PARA PERFORMANCE
-                    session['whatsapp_access_token'] = access_token
-                    session['whatsapp_business_manager_id'] = business_manager_id
-                    session['whatsapp_phone_numbers'] = phone_numbers
-                    session['whatsapp_templates'] = templates
-                    session['whatsapp_connection'] = connection_data
-                    session.permanent = True
-                    
-                    logging.info(f"✅ Conexão restaurada do banco de dados: BM {business_manager_id}")
-                    
-                except json.JSONDecodeError:
-                    logging.error("Erro ao decodificar dados salvos no banco")
-                    phone_numbers = []
-                    templates = []
+                # Dados mínimos para conexão verificada
+                connection_data = {
+                    'business_manager_id': business_manager_id,
+                    'connected_at': connected_at,
+                    'status': 'connected'
+                }
+                
+                # Cache básico apenas
+                session['whatsapp_business_manager_id'] = business_manager_id
+                session['whatsapp_connection'] = connection_data
+                
+                # Phone numbers e templates carregados sob demanda
+                phone_numbers = []
+                templates = []
         
         if connection_data and business_manager_id:
             return jsonify({
@@ -2355,46 +2344,56 @@ def proxy_manager():
 
 @app.route('/chat')
 def chat_interface():
-    """Interface principal de chat - semelhante ao WhatsApp"""
+    """Interface principal de chat - carregamento ultrarrápido"""
+    # Renderizar imediatamente sem carregar dados pesados
     return render_template('chat.html')
 
 @app.route('/api/conversations', methods=['GET'])
 def get_conversations():
-    """Buscar todas as conversas ativas"""
+    """Buscar conversas ativas - OTIMIZADO"""
     try:
         from models import Conversation, Contact, ChatMessage
         
-        # Buscar conversas com join para carregar contato
-        conversations = db.session.query(Conversation)\
-            .join(Contact, Conversation.contact_id == Contact.id)\
-            .order_by(Conversation.last_message_at.desc().nullsfirst())\
-            .all()
+        # Query otimizada com limite
+        limit = request.args.get('limit', 10, type=int)
+        
+        # Usar uma única query com joins otimizados
+        conversations_data = db.session.query(
+            Conversation.id,
+            Conversation.contact_id,
+            Conversation.unread_count,
+            Conversation.updated_at,
+            Contact.name,
+            Contact.phone_number,
+            Contact.profile_picture_url
+        ).join(Contact, Conversation.contact_id == Contact.id)\
+         .order_by(Conversation.last_message_at.desc().nullslast())\
+         .limit(limit).all()
         
         result = []
-        for conv in conversations:
-            # Buscar contato relacionado
-            contact = Contact.query.get(conv.contact_id)
-            if not contact:
-                continue
-                
-            # Buscar última mensagem
-            last_msg = ChatMessage.query.filter_by(conversation_id=conv.id)\
-                .order_by(ChatMessage.created_at.desc()).first()
+        for conv_data in conversations_data:
+            # Buscar última mensagem de forma otimizada
+            last_msg = db.session.query(
+                ChatMessage.content,
+                ChatMessage.created_at,
+                ChatMessage.direction
+            ).filter_by(conversation_id=conv_data.id)\
+             .order_by(ChatMessage.created_at.desc()).first()
             
             result.append({
-                'id': conv.id,
+                'id': conv_data.id,
                 'contact': {
-                    'name': contact.name or f'Cliente {contact.phone_number[-4:]}',
-                    'phone_number': contact.phone_number,
-                    'profile_picture_url': contact.profile_picture_url
+                    'name': conv_data.name or f'Cliente {conv_data.phone_number[-4:]}',
+                    'phone_number': conv_data.phone_number,
+                    'profile_picture_url': conv_data.profile_picture_url
                 },
                 'last_message': {
                     'content': last_msg.content if last_msg else '',
                     'created_at': last_msg.created_at.isoformat() if last_msg and last_msg.created_at else '',
                     'direction': last_msg.direction if last_msg else 'outbound'
                 },
-                'unread_count': conv.unread_count,
-                'updated_at': conv.updated_at.isoformat() if conv.updated_at else ''
+                'unread_count': conv_data.unread_count,
+                'updated_at': conv_data.updated_at.isoformat() if conv_data.updated_at else ''
             })
         
         return jsonify({'conversations': result})
