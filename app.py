@@ -1845,7 +1845,7 @@ def send_smart_distribution():
         logging.error(f"Error in smart distribution: {str(e)}")
         return jsonify({'error': 'Erro na distribuição inteligente'}), 500
 
-# Inicializar webhook handler
+# Inicializar webhook handler COM DATABASE
 webhook_handler = WhatsAppWebhookHandler(db=db)
 
 @app.route('/webhook', methods=['GET', 'POST'], strict_slashes=False)

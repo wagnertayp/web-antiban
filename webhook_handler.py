@@ -328,7 +328,8 @@ class WhatsAppWebhookHandler:
             self._trigger_conversation_automation(normalized_phone, conversation.id, message_content, phone_number_id)
             
         except Exception as e:
-            logging.error(f"Erro ao salvar mensagem: {str(e)}")
+            logging.exception(f"🚨 ERRO CRÍTICO ao salvar mensagem: {str(e)}")
+            logging.error(f"📊 Dados do webhook: {interaction_data}")
             if self.db:
                 self.db.session.rollback()
     
