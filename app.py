@@ -292,13 +292,15 @@ def disconnect_whatsapp():
         # ✅ Marcar como explicitamente desconectado para impedir recarregamento automático
         session['explicitly_disconnected'] = True
         
-        # Limpar dados da sessão
+        # Limpar dados da sessão COMPLETAMENTE
         session.pop('whatsapp_access_token', None)
         session.pop('whatsapp_business_manager_id', None)
         session.pop('whatsapp_phone_numbers', None)
         session.pop('whatsapp_templates', None)
         session.pop('whatsapp_connection', None)
         session.pop('whatsapp_selected_phone_id', None)
+        session.pop('last_business_manager_id', None)
+        session.permanent = False  # Desativar sessão persistente
         
         # ✅ LIMPAR CONFIGURAÇÕES GLOBAIS DO BANCO DE DADOS
         from models import SystemConfig

@@ -394,12 +394,37 @@ class WhatsAppSender {
         }
     }
     
-    disconnect() {
-        this.connectionData = null;
-        localStorage.removeItem('whatsapp_connection');
-        this.updateConnectionUI(false);
-        this.clearConnectionData();
-        this.showAlert('Desconectado com sucesso', 'info');
+    async disconnect() {
+        try {
+            // Chamar endpoint de desconexão no backend
+            const response = await fetch('/disconnect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Limpar dados do frontend
+                this.connectionData = null;
+                localStorage.removeItem('whatsapp_connection');
+                this.updateConnectionUI(false);
+                this.clearConnectionData();
+                this.showAlert('Desconectado com sucesso', 'success');
+            } else {
+                this.showAlert(result.error || 'Erro ao desconectar', 'danger');
+            }
+        } catch (error) {
+            console.error('Erro ao desconectar:', error);
+            // Mesmo com erro, limpar frontend
+            this.connectionData = null;
+            localStorage.removeItem('whatsapp_connection');
+            this.updateConnectionUI(false);
+            this.clearConnectionData();
+            this.showAlert('Desconectado (alguns dados podem permanecer no servidor)', 'warning');
+        }
     }
     
     checkSavedConnection() {
@@ -422,6 +447,12 @@ class WhatsAppSender {
         const accessToken = document.getElementById('accessToken');
         const businessManagerId = document.getElementById('businessManagerId');
         const connectButton = document.getElementById('connectButton');
+        
+        // Verificar se elementos existem
+        if (!connectionInfo) {
+            console.log('Elemento connectionInfo não encontrado');
+            return;
+        }
         
         if (connected && this.connectionData) {
             connectionStatus.className = 'badge bg-success';
