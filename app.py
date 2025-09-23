@@ -139,8 +139,12 @@ def load_session_credentials():
             
             try:
                 # Atualizar credenciais do service com dados da sessão
-                if hasattr(whatsapp_service, 'update_credentials'):
-                    whatsapp_service.update_credentials(session_token, session_bm_id, session_phone_id)
+                if hasattr(whatsapp_service, 'update_credentials') and session_token:
+                    whatsapp_service.update_credentials(
+                        str(session_token), 
+                        str(session_bm_id) if session_bm_id else "", 
+                        str(session_phone_id) if session_phone_id else ""
+                    )
                 else:
                     # Fallback direto (corrigido: usar _headers)
                     whatsapp_service._access_token = session_token
@@ -150,14 +154,15 @@ def load_session_credentials():
                     if session_phone_id:
                         whatsapp_service._phone_number_id = session_phone_id
                 
-                logging.debug(f"🔄 Token carregado da sessão: ...{session_token[-6:]}")
+                if session_token:
+                    logging.debug(f"🔄 Token carregado da sessão: ...{str(session_token)[-6:]}")
+                    logging.info(f"🔑 Token de sessão validado: ...{str(session_token)[-5:]}")
                 
                 # Não armazenar token globalmente por segurança
                 # Cada serviço deve usar seus próprios tokens seguros
                 
                 # Tokens são mantidos apenas na sessão por segurança
                 # Serviços de background devem usar configuração própria e segura
-                logging.info(f"🔑 Token de sessão validado: ...{session_token[-5:]}")
                 
             except Exception as e:
                 logging.warning(f"Erro ao carregar credenciais da sessão: {e}")
@@ -1840,6 +1845,7 @@ webhook_handler = WhatsAppWebhookHandler(db=db)
 @app.route('/webhook', methods=['GET', 'POST'])
 def whatsapp_webhook():
     """Ultra-fast webhook with message logging"""
+    logging.info(f"🔥 WEBHOOK FUNCTION CALLED - Method: {request.method}")
     try:
         if request.method == 'GET':
             mode = request.args.get('hub.mode')
@@ -1847,11 +1853,12 @@ def whatsapp_webhook():
             challenge = request.args.get('hub.challenge')
             
             if mode == 'subscribe' and token == 'webhook_verify_token_12345_dev_only' and challenge:
-                return challenge, 200
+                return str(challenge), 200
             return "Forbidden", 403
                 
         # POST - mensagem recebida
         if request.method == 'POST':
+            logging.info(f"🔥 ENTRANDO NO POST DO WEBHOOK")
             try:
                 # Log básico sem processamento pesado
                 user_agent = request.headers.get('User-Agent', 'Unknown')
@@ -2590,7 +2597,7 @@ def send_text_message_api():
             phone_number_id = whatsapp_service._available_phones[0]
         
         # Buscar ou criar conversa
-        conversation = Conversation.get_or_create(contact.id, phone_number_id)
+        conversation = Conversation.get_or_create(contact.id, str(phone_number_id))
         
         # Criar mensagem outbound
         message = ChatMessage.create_outbound(
@@ -2600,12 +2607,12 @@ def send_text_message_api():
         
         # Enviar via WhatsApp Business API
         try:
-            whatsapp_service.set_phone_number_id(phone_number_id)
+            whatsapp_service.set_phone_number_id(str(phone_number_id))
             
             success, result = whatsapp_service.send_text_message(
                 phone=clean_phone,
                 message=message_content,
-                phone_number_id=phone_number_id
+                phone_number_id=str(phone_number_id)
             )
             
             if success:
