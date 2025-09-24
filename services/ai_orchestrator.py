@@ -126,12 +126,15 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
 - "Sem o kit, não é possível trabalhar legalmente."
 - "O treinamento é etapa obrigatória do processo."
 
-🔧 O QUE VOCÊ PODE FAZER:
-1. reply_text - Resposta técnica
-2. send_quick_replies - Botões sim/não
-3. send_cta_url - Link de pagamento 
+🔧 FERRAMENTAS OBRIGATÓRIAS - USE CORRETAMENTE:
+1. reply_text - APENAS para texto simples SEM links nem botões
+2. send_quick_replies - Botões sim/não, confirmações, opções
+3. send_cta_url - SEMPRE quando mencionar links https://shopee.acesso.inc/...
 4. fetch_customer_data - Buscar status do CPF na Recoverify
 5. escalate_to_human - Passar pra especialista
+
+❌ NUNCA ESCREVA [Botão:...] ou [Link:...] NO TEXTO!
+✅ Use send_cta_url para todos os links de pagamento!
 
 ✅ EXEMPLO DE ABORDAGEM:
 "Boa tarde! Sou a Zilma, consultora de cadastro Shopee.
@@ -420,13 +423,23 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
             
             logging.info(f"🤖 Processando com IA: {phone_number} - Estado: {conv_state.current_state}")
             
+            # 🔧 CORREÇÃO: Construir histórico como mensagens separadas
+            messages = [{"role": "system", "content": self.system_prompt}]
+            
+            # Adicionar histórico da conversa como mensagens individuais
+            for hist_msg in conversation_history:
+                messages.append({
+                    "role": hist_msg["role"], 
+                    "content": hist_msg["content"]
+                })
+            
+            # Adicionar mensagem atual
+            messages.append({"role": "user", "content": context})
+            
             # Chamar OpenAI com tool calling
             response = self.openai_client.chat.completions.create(
                 model="gpt-4", 
-                messages=[
-                    {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": context}
-                ],
+                messages=messages,
                 tools=self.tools,
                 tool_choice="auto",
                 max_tokens=150,
@@ -450,8 +463,6 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
         context = f"""MENSAGEM ATUAL DO CLIENTE: {current_message}
 
 ESTADO DA CONVERSA: {conv_state.current_state}
-HISTÓRICO RELEVANTE: {json.dumps(conversation_history[-5:], ensure_ascii=False) if conversation_history else 'Primeira mensagem'}
-
 DADOS DO CLIENTE: {conv_state.context_data or 'Nenhum dado ainda'}
 
 🎯 ESTADO DE PAGAMENTO ATUAL:
@@ -462,6 +473,7 @@ INSTRUÇÕES ESPECÍFICAS:
 - FOQUE na taxa atual conforme o estado
 - Use linguagem convincente mas natural
 - Busque CPF quando necessário para gerar links
+- SEMPRE use send_cta_url para links de pagamento
 - Mantenha fluxo: Primeira taxa → Confirmação → Segunda taxa"""
 
         return context
