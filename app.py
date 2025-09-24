@@ -365,43 +365,37 @@ def get_connection_info():
         from models import SystemConfig
         import json
         
-        # ✅ PRIORIZAR SESSÃO: Verificar se há dados de conexão na sessão primeiro
-        connection_data = session.get('whatsapp_connection', {})
-        business_manager_id = session.get('whatsapp_business_manager_id')
-        phone_numbers = session.get('whatsapp_phone_numbers', [])
-        templates = session.get('whatsapp_templates', [])
+        # ✅ SEMPRE USAR SECRETS: Prioridade absoluta para credenciais das secrets
+        secret_business_id = os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID')
+        secret_phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
         
-        # 🔄 DETECTAR NOVA CONTA: Se há dados válidos da sessão, usar eles
-        session_has_data = (connection_data and business_manager_id and phone_numbers)
-        
-        if session_has_data:
-            # PRIORIDADE: Usar dados da sessão (nova conta conectada)
-            logging.info(f"✅ Usando dados da sessão: BM {business_manager_id}")
-        else:
-            # FALLBACK: Usar secrets apenas se não há dados da sessão
-            secret_business_id = os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID')
-            secret_phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
+        if secret_business_id and secret_phone_id:
+            # SEMPRE usar dados das secrets (prioritário absoluto)
+            connection_data = {
+                'business_manager_id': secret_business_id,
+                'phone_number_id': secret_phone_id,
+                'connected_at': '2025-09-23T15:50:00Z',
+                'status': 'connected_via_secrets'
+            }
             
-            if secret_business_id and secret_phone_id:
-                connection_data = {
-                    'business_manager_id': secret_business_id,
-                    'phone_number_id': secret_phone_id,
-                    'connected_at': '2025-09-23T15:50:00Z',
-                    'status': 'connected_via_secrets'
-                }
-                
-                business_manager_id = secret_business_id
-                phone_numbers = [{
-                    'id': secret_phone_id,
-                    'display_phone_number': '15558234393',
-                    'quality_rating': 'GREEN',
-                    'verified_name': 'Alex da Hora'
-                }]
-                templates = []
-                
-                logging.info(f"✅ Fallback para secrets: BM {secret_business_id}, Phone {secret_phone_id}")
-            else:
-                # Sem dados disponíveis
+            business_manager_id = secret_business_id
+            phone_numbers = [{
+                'id': secret_phone_id,
+                'display_phone_number': '15558234393',
+                'quality_rating': 'GREEN',
+                'verified_name': 'Alex da Hora'
+            }]
+            templates = []
+            
+            logging.info(f"✅ Sempre usando secrets: BM {secret_business_id}, Phone {secret_phone_id}")
+        else:
+            # FALLBACK: Verificar se há dados de conexão na sessão
+            connection_data = session.get('whatsapp_connection', {})
+            business_manager_id = session.get('whatsapp_business_manager_id')
+            phone_numbers = session.get('whatsapp_phone_numbers', [])
+            templates = session.get('whatsapp_templates', [])
+            
+            if not (connection_data and business_manager_id and phone_numbers):
                 phone_numbers = []
                 templates = []
         
