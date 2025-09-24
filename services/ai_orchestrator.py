@@ -488,10 +488,10 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
             messages.append({"role": "user", "content": context})
             
             # Chamar OpenAI com tool calling
-            response = self.openai_client.chat.completions.create(
+            response = self.openai_client.chat.completions.create(  # type: ignore
                 model="gpt-4", 
-                messages=messages,
-                tools=self.tools,
+                messages=messages,  # type: ignore
+                tools=self.tools,  # type: ignore
                 tool_choice="auto",
                 max_tokens=150,
                 temperature=0.7
@@ -853,12 +853,12 @@ Responda como Zilma de forma natural e convincente."""
             })
             
             # Chamar OpenAI com contexto
-            response = self.openai_client.chat.completions.create(
+            response = self.openai_client.chat.completions.create(  # type: ignore
                 model="gpt-4",
-                messages=[
+                messages=[  # type: ignore
                     {"role": "system", "content": self._create_human_persona_prompt()}
                 ] + conversation_history,
-                tools=self._define_ai_tools(),
+                tools=self._define_ai_tools(),  # type: ignore
                 temperature=0.7,
                 max_tokens=300
             )
@@ -874,7 +874,8 @@ Responda como Zilma de forma natural e convincente."""
         try:
             success, result = self.whatsapp_api.send_text_message(phone_number, message)
             if success:
-                self._save_outbound_message(conversation_id, message, result.get('messageId'))
+                message_id = result.get('messageId', 'unknown') if result else 'unknown'
+                self._save_outbound_message(conversation_id, message, message_id)
                 logging.info(f"✅ IA enviou texto: {message[:50]}...")
             else:
                 logging.error(f"❌ Falha ao enviar texto da IA")
@@ -910,7 +911,8 @@ Responda como Zilma de forma natural e convincente."""
             success, result = self.whatsapp_api.send_cta_url_button(phone_number, message, button_text, url)
             if success:
                 # 🎯 SALVAR SEM "[LINK: ...]" - mensagem limpa
-                self._save_outbound_message(conversation_id, message, result.get('messageId'))
+                message_id = result.get('messageId', 'unknown') if result else 'unknown'
+                self._save_outbound_message(conversation_id, message, message_id)
                 logging.info(f"✅ IA enviou CTA: {button_text} -> {url}")
             else:
                 # Fallback para texto com link
@@ -958,13 +960,13 @@ Responda como Zilma de forma natural e convincente."""
 Use essas informações para responder adequadamente ao cliente. Seja natural e humana."""
 
             # Chamar IA novamente com o resultado
-            response = self.openai_client.chat.completions.create(
+            response = self.openai_client.chat.completions.create(  # type: ignore
                 model="gpt-4",
-                messages=[
+                messages=[  # type: ignore
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": context}
                 ],
-                tools=self.tools[:2],  # Apenas reply_text e quick_replies
+                tools=self.tools[:2],  # type: ignore  # Apenas reply_text e quick_replies
                 tool_choice="auto",
                 max_tokens=150
             )
