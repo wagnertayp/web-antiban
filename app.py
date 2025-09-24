@@ -1989,6 +1989,7 @@ message_updates = []
 def message_stream():
     """Server-Sent Events para atualizações de mensagens em tempo real"""
     def generate():
+        from models import ChatMessage
         global message_updates
         last_update = 0
         
