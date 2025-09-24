@@ -93,11 +93,7 @@ class WhatsAppWebhookHandler:
                     field = change.get('field')
                     value = change.get('value', {})
                     
-                    logging.critical(f"🔍 CAMPO RECEBIDO: field='{field}' (esperado: 'messages')")
-                    logging.critical(f"🔍 VALUE: {value}")
-                    
                     if field == 'messages':
-                        logging.critical(f"✅ CAMPO CORRETO - PROCESSANDO MENSAGENS")
                         # Processar mensagens recebidas e interações
                         result = self._process_messages(value)
                         if result:
@@ -138,14 +134,9 @@ class WhatsAppWebhookHandler:
             
             # Processar mensagens (respostas dos usuários)
             for message in messages:
-                logging.info(f"🔍 DEBUG: Processando mensagem: {message}")
                 message_result = self._process_single_message(message, phone_number_id)
-                logging.info(f"🔍 DEBUG: Resultado de _process_single_message: {message_result}")
                 if message_result:
                     results.append(message_result)
-                    logging.info(f"✅ Mensagem processada com sucesso")
-                else:
-                    logging.error(f"❌ _process_single_message retornou None!")
             
             # Processar status de mensagens enviadas
             for status in statuses:
