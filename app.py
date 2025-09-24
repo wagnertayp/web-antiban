@@ -1,8 +1,9 @@
 import os
 import logging
 import requests
+import json
 import config  # Import configuration to set environment variables
-from flask import Flask, render_template, request, jsonify, session, redirect
+from flask import Flask, render_template, request, jsonify, session, redirect, Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -1887,10 +1888,14 @@ def whatsapp_webhook() -> tuple[str, int]:
                                     msg_from = message.get('from', 'Unknown')
                                     logging.info(f"📱 MENSAGEM: '{msg_text}' de {msg_from}")
                         
-                        # 🔥 PROCESSAR WEBHOOK COM HANDLER (SALVAR NO DB)
-                        logging.info(f"🔄 Processando webhook com handler...")
-                        result = webhook_handler.process_webhook(data)
-                        logging.info(f"✅ Webhook processado: {result}")
+                        # ⚡ PROCESSAMENTO ULTRA-RÁPIDO (SALVAR INSTANTÂNEO)
+                        import threading
+                        def process_async():
+                            with app.app_context():
+                                webhook_handler.process_webhook(data)
+                        
+                        # Processar em background para resposta instantânea
+                        threading.Thread(target=process_async, daemon=True).start()
                     else:
                         logging.info(f"📨 Webhook POST sem dados esperados")
                 except Exception as e:
@@ -1905,6 +1910,43 @@ def whatsapp_webhook() -> tuple[str, int]:
     except Exception as e:
         logging.error(f"Erro geral no webhook: {str(e)}")
         return "OK", 200
+
+# Global para notificar atualização em tempo real
+message_updates = []
+
+@app.route('/api/messages/stream')
+def message_stream():
+    """Server-Sent Events para atualizações de mensagens em tempo real"""
+    def generate():
+        global message_updates
+        last_update = 0
+        
+        while True:
+            # Verificar novas mensagens
+            try:
+                # Buscar mensagens mais recentes que o último update
+                recent_messages = ChatMessage.query.filter(
+                    ChatMessage.id > last_update
+                ).order_by(ChatMessage.created_at.desc()).limit(10).all()
+                
+                if recent_messages:
+                    for msg in reversed(recent_messages):
+                        last_update = max(last_update, msg.id)
+                        data = {
+                            'id': msg.id,
+                            'content': msg.content,
+                            'direction': msg.direction,
+                            'created_at': msg.created_at.isoformat(),
+                            'conversation_id': msg.conversation_id
+                        }
+                        yield f"data: {json.dumps(data)}\n\n"
+                
+                time.sleep(1)  # Verificar a cada segundo
+            except Exception as e:
+                logging.error(f"Erro no message stream: {e}")
+                time.sleep(2)
+    
+    return Response(generate(), mimetype='text/plain')
 
 @app.route('/test-webhook', methods=['GET', 'POST'])
 def test_webhook():
