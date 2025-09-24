@@ -16,17 +16,39 @@ from datetime import datetime
 # the newest OpenAI model is "gpt-5" which was released August 7, 2025.
 from openai import OpenAI
 
+# Global singleton instance per worker
+_orchestrator_instance = None
+_orchestrator_lock = threading.Lock()
+
 class AIOrchestrator:
     """Sistema central de IA totalmente autônomo para WhatsApp"""
     
-    def __init__(self, whatsapp_api, db):
-        self.whatsapp_api = whatsapp_api
+    def __init__(self, whatsapp_api=None, db=None):
+        # Usar WhatsApp API passada ou criar nova usando credenciais do ambiente
+        if whatsapp_api:
+            self.whatsapp_api = whatsapp_api
+        else:
+            from services.whatsapp_business_api import WhatsAppBusinessAPI
+            # Carregar credenciais do ambiente (não da sessão)
+            access_token = os.environ.get("WHATSAPP_ACCESS_TOKEN")
+            phone_number_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "840865322435192")
+            
+            if not access_token:
+                logging.error("❌ WHATSAPP_ACCESS_TOKEN não encontrado no ambiente")
+                raise ValueError("WhatsApp access token is required")
+            
+            self.whatsapp_api = WhatsAppBusinessAPI()
+            self.whatsapp_api.access_token = access_token
+            self.whatsapp_api.phone_number_id = phone_number_id
+            logging.info(f"✅ WhatsApp API inicializada com token: ...{access_token[-6:]}")
+        
         self.db = db
         self.openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         
         # Queue para processar mensagens de forma assíncrona
         self.message_queue = queue.Queue()
         self.processing = False
+        self.consumer_thread = None
         
         # 🎭 PERSONALIDADE HUMANA: Atendente Zilma da Shopee
         self.ai_personality = {
@@ -47,6 +69,9 @@ class AIOrchestrator:
         # Sistema de prompts para IA totalmente humana
         self.system_prompt = self._create_human_persona_prompt()
         self.tools = self._define_ai_tools()
+        
+        # Inicializar consumer thread persistente
+        self.start_consumer_thread()
         
         logging.info("✅ AI Orchestrator inicializado - Personalidade: Atendente Zilma Shopee")
         
@@ -271,6 +296,50 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
             logging.error(f"Erro ao detectar primeira mensagem: {e}")
             return False
 
+    def start_consumer_thread(self):
+        """Inicializar thread persistente para processar mensagens"""
+        if self.consumer_thread is None or not self.consumer_thread.is_alive():
+            self.processing = True
+            self.consumer_thread = threading.Thread(target=self._message_consumer, daemon=True)
+            self.consumer_thread.start()
+            logging.info("🔄 Consumer thread iniciado para AIOrchestrator")
+    
+    def _message_consumer(self):
+        """Thread persistente que consome mensagens da queue"""
+        while self.processing:
+            try:
+                # Aguardar mensagem com timeout
+                message_data = self.message_queue.get(timeout=1.0)
+                logging.info(f"🎯 Processando mensagem da queue: {message_data.get('content', 'N/A')[:50]}...")
+                
+                # Processar mensagem usando método existente
+                self._process_with_ai(
+                    message_data.get('phone_number', ''),
+                    message_data.get('conversation_id', 0),
+                    message_data.get('content', ''),
+                    message_data.get('phone_number_id', '')
+                )
+                
+                # Marcar como processada
+                self.message_queue.task_done()
+                
+            except queue.Empty:
+                # Timeout normal, continuar loop
+                continue
+            except Exception as e:
+                logging.error(f"❌ Erro no consumer thread: {str(e)}")
+                time.sleep(1)  # Aguardar antes de tentar novamente
+        
+        logging.info("🛑 Consumer thread finalizado")
+    
+    def enqueue(self, message_data: Dict[str, Any]):
+        """Adicionar mensagem à queue para processamento assíncrono"""
+        try:
+            self.message_queue.put(message_data, block=False)
+            logging.info(f"📨 Mensagem adicionada à queue: {message_data.get('content', 'N/A')[:30]}...")
+        except queue.Full:
+            logging.error("❌ Queue cheia! Mensagem descartada")
+    
     def queue_message_for_processing(self, phone_number: str, conversation_id: int, 
                                     message_content: str, phone_number_id: str):
         """Adiciona mensagem na queue para processamento assíncrono"""
@@ -923,3 +992,21 @@ Use essas informações para responder adequadamente ao cliente. Seja natural e 
                 'success': False,
                 'error': 'Erro interno na transferência'
             }
+
+
+def get_singleton_orchestrator(db=None):
+    """Retorna instância singleton do AIOrchestrator por worker"""
+    global _orchestrator_instance, _orchestrator_lock
+    
+    if _orchestrator_instance is None:
+        with _orchestrator_lock:
+            # Double-check locking pattern
+            if _orchestrator_instance is None:
+                try:
+                    _orchestrator_instance = AIOrchestrator(db=db)
+                    logging.info("🚀 AIOrchestrator singleton criado com sucesso")
+                except Exception as e:
+                    logging.error(f"❌ Erro ao criar AIOrchestrator singleton: {e}")
+                    raise
+    
+    return _orchestrator_instance

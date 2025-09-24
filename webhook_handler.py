@@ -219,6 +219,26 @@ class WhatsAppWebhookHandler:
             # Salvar no banco de dados se disponível
             if self.db:
                 self._save_interaction_to_db(result)
+                
+                logging.critical(f"📝 MENSAGEM SALVA NO BANCO: {result.get('content', 'N/A')[:30]}... event_type={result.get('event_type')}")
+                
+                # 🤖 ATIVAR IA DIRETAMENTE AQUI - DIAGNÓSTICO COMPLETO
+                event_type_ok = result['event_type'] == 'message_received'
+                content_ok = bool(result.get('content'))
+                
+                logging.critical(f"🔍 DIAGNÓSTICO IA: event_type={result.get('event_type')} (ok={event_type_ok}), content_existe={content_ok}")
+                
+                if event_type_ok and content_ok:
+                    logging.critical(f"🎯 CONDIÇÃO ATENDIDA - CHAMANDO IA AGORA!")
+                    try:
+                        self._activate_ai_directly(result)
+                        logging.critical(f"✅ _activate_ai_directly EXECUTADO SEM ERRO")
+                    except Exception as e:
+                        logging.critical(f"❌ ERRO AO CHAMAR IA: {str(e)}")
+                        import traceback
+                        logging.critical(f"Traceback: {traceback.format_exc()}")
+                else:
+                    logging.critical(f"❌ CONDIÇÃO NÃO ATENDIDA: event_type_ok={event_type_ok}, content_ok={content_ok}")
             
             return result
             
@@ -365,10 +385,14 @@ class WhatsAppWebhookHandler:
             logging.info(f"Mensagem recebida salva: {message_content[:50]}... de {phone_number}")
             
             # Commit da mensagem primeiro, depois disparar automação
+            logging.info(f"🔧 FAZENDO COMMIT da mensagem no banco")
             self.db.session.commit()
+            logging.info(f"✅ COMMIT realizado com sucesso")
             
             # 🤖 DISPARAR AUTOMAÇÃO DE CONVERSAS (após commit)
+            logging.info(f"🔥 INICIANDO trigger_conversation_automation para {normalized_phone}")
             self._trigger_conversation_automation(normalized_phone, conversation.id, message_content, phone_number_id)
+            logging.info(f"✅ FINALIZOU trigger_conversation_automation para {normalized_phone}")
             
         except Exception as e:
             logging.exception(f"🚨 ERRO CRÍTICO ao salvar mensagem: {str(e)}")
@@ -376,9 +400,67 @@ class WhatsAppWebhookHandler:
             if self.db:
                 self.db.session.rollback()
     
+    def _activate_ai_directly(self, result: Dict[str, Any]):
+        """🤖 ATIVAR IA SINGLETON - Conexão automática webhook -> IA"""
+        try:
+            logging.info(f"🚀 ATIVANDO IA SINGLETON: {result.get('content', 'N/A')[:30]}...")
+            from services.ai_orchestrator import get_singleton_orchestrator
+            
+            phone_number = result.get('from')
+            phone_number_id = result.get('phone_number_id')
+            message_content = result.get('content', '')
+            
+            logging.info(f"🔍 Dados recebidos: phone={phone_number}, content={message_content[:30]}, phone_id={phone_number_id}")
+            
+            if not phone_number or not message_content:
+                logging.warning(f"⚠️ Dados incompletos para IA: phone={phone_number}, content={message_content}")
+                return
+                
+            # Buscar conversation_id no banco
+            from models import Contact, Conversation
+            normalized_phone = phone_number.replace('+', '').replace(' ', '').replace('-', '')
+            if len(normalized_phone) == 11 and not normalized_phone.startswith('55'):
+                normalized_phone = '55' + normalized_phone
+                
+            contact = Contact.query.filter_by(phone_number=normalized_phone).first()
+            if not contact:
+                logging.warning(f"⚠️ Contato não encontrado: {normalized_phone}")
+                return
+                
+            conversation = Conversation.query.filter_by(contact_id=contact.id).first()
+            if not conversation:
+                logging.warning(f"⚠️ Conversa não encontrada para contato: {contact.id}")
+                return
+                
+            logging.info(f"✅ Contato e conversa encontrados: conversation_id={conversation.id}")
+            
+            # Obter instância singleton do AIOrchestrator
+            ai_orchestrator = get_singleton_orchestrator(db=self.db)
+            
+            # Preparar dados da mensagem no formato correto
+            message_data = {
+                'phone_number': normalized_phone,
+                'conversation_id': conversation.id,
+                'content': message_content,
+                'phone_number_id': phone_number_id,
+                'event_type': result.get('event_type', 'message_received'),
+                'message_id': result.get('message_id', ''),
+                'timestamp': result.get('timestamp', ''),
+                'type': result.get('type', 'text')
+            }
+            
+            # Adicionar à queue do singleton (processamento assíncrono)
+            ai_orchestrator.enqueue(message_data)
+            
+            logging.info(f"✅ IA SINGLETON ativada com sucesso para {normalized_phone}")
+                    
+        except Exception as e:
+            logging.error(f"Erro ao ativar IA: {e}")
+    
     def _trigger_conversation_automation(self, phone_number: str, conversation_id: int, message_content: str, phone_number_id: str):
         """🤖 Disparar sistema TOTALMENTE AUTÔNOMO com IA para automação de conversas"""
         try:
+            logging.info(f"🔥 ENTRANDO em _trigger_conversation_automation: {phone_number}")
             from services.ai_orchestrator import AIOrchestrator
             from services.whatsapp_business_api import WhatsAppBusinessAPI
             from app import app
@@ -413,15 +495,24 @@ class WhatsAppWebhookHandler:
                 should_process_with_ai = ai_orchestrator.detect_first_message(phone_number, conversation_id)
                 
                 if should_process_with_ai:
-                    logging.info(f"🤖 IA AUTÔNOMA ATIVADA para {phone_number} - Processamento assíncrono")
+                    logging.info(f"🤖 IA AUTÔNOMA ATIVADA para {phone_number} - Processamento DIRETO")
                     
-                    # ⚡ PROCESSAMENTO ASSÍNCRONO para não bloquear webhook (SLA <2s)
-                    ai_orchestrator.queue_message_for_processing(
-                        phone_number=phone_number,
-                        conversation_id=conversation_id,
-                        message_content=message_content,
-                        phone_number_id=phone_number_id
-                    )
+                    # 🔧 CORREÇÃO: PROCESSAMENTO DIRETO (sem fila problemática)
+                    try:
+                        ai_orchestrator._process_with_ai(
+                            phone_number=phone_number,
+                            conversation_id=conversation_id,
+                            message_content=message_content,
+                            phone_number_id=phone_number_id
+                        )
+                        logging.info(f"✅ IA processou mensagem: {message_content[:50]}...")
+                    except Exception as e:
+                        logging.error(f"❌ Erro na IA: {e}")
+                        # Fallback simples
+                        try:
+                            whatsapp_api.send_text_message(phone_number, "Olá! Em breve entrarei em contato. Aguarde um momento.")
+                        except:
+                            pass
                     
                     logging.info(f"✅ Mensagem enviada para processamento de IA: {phone_number}")
                 else:
