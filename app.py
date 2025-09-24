@@ -365,39 +365,79 @@ def get_connection_info():
         from models import SystemConfig
         import json
         
-        # ✅ SEMPRE USAR SECRETS: Prioridade absoluta para credenciais das secrets
+        # 🔍 DESCOBRIR DADOS REAIS DO PHONE NUMBER: Buscar diretamente via API
+        import requests
+        headers = {'Authorization': f'Bearer {os.getenv("WHATSAPP_ACCESS_TOKEN")}', 'Content-Type': 'application/json'}
+        
         secret_business_id = os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID')
         secret_phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
         
-        if secret_business_id and secret_phone_id:
-            # SEMPRE usar dados das secrets (prioritário absoluto)
-            connection_data = {
-                'business_manager_id': secret_business_id,
-                'phone_number_id': secret_phone_id,
-                'connected_at': '2025-09-23T15:50:00Z',
-                'status': 'connected_via_secrets'
-            }
-            
-            business_manager_id = secret_business_id
-            phone_numbers = [{
-                'id': secret_phone_id,
-                'display_phone_number': '15558234393',
-                'quality_rating': 'GREEN',
-                'verified_name': 'Alex da Hora'
-            }]
-            templates = []
-            
-            logging.info(f"✅ Sempre usando secrets: BM {secret_business_id}, Phone {secret_phone_id}")
+        if secret_phone_id:
+            try:
+                # Buscar dados reais diretamente do phone number via API
+                phone_url = f"https://graph.facebook.com/v23.0/{secret_phone_id}"
+                phone_response = requests.get(phone_url, headers=headers, timeout=10)
+                
+                if phone_response.status_code == 200:
+                    phone_data = phone_response.json()
+                    
+                    # SUCESSO: Dados reais descobertos via API direta do phone number
+                    business_manager_id = secret_business_id or 'discovered'
+                    connection_data = {
+                        'business_manager_id': business_manager_id,
+                        'phone_number_id': secret_phone_id,
+                        'connected_at': '2025-09-24T04:20:00Z',
+                        'status': 'connected_with_real_phone_data'
+                    }
+                    
+                    # Usar dados reais da API
+                    phone_numbers = [{
+                        'id': phone_data.get('id', secret_phone_id),
+                        'display_phone_number': phone_data.get('display_phone_number', 'Desconhecido'),
+                        'quality_rating': phone_data.get('quality_rating', 'UNKNOWN'),
+                        'verified_name': phone_data.get('verified_name', 'Nome não verificado')
+                    }]
+                    templates = []
+                    
+                    real_name = phone_data.get('verified_name', 'Nome não verificado')
+                    real_display = phone_data.get('display_phone_number', 'Número desconhecido')
+                    real_quality = phone_data.get('quality_rating', 'UNKNOWN')
+                    
+                    logging.info(f"✅ DADOS REAIS DESCOBERTOS VIA API:")
+                    logging.info(f"   Nome verificado: {real_name}")
+                    logging.info(f"   Número: {real_display}")
+                    logging.info(f"   Qualidade: {real_quality}")
+                    logging.info(f"   Phone ID: {secret_phone_id}")
+                    
+                else:
+                    raise Exception(f"Erro ao acessar phone number via API: {phone_response.status_code}")
+                    
+            except Exception as e:
+                logging.warning(f"Falha ao descobrir dados reais do phone: {e}")
+                
+                # FALLBACK: Usar dados das secrets com valores padrão
+                business_manager_id = secret_business_id or 'unknown'
+                connection_data = {
+                    'business_manager_id': business_manager_id,
+                    'phone_number_id': secret_phone_id,
+                    'connected_at': '2025-09-24T04:20:00Z',
+                    'status': 'fallback_mode'
+                }
+                phone_numbers = [{
+                    'id': secret_phone_id,
+                    'display_phone_number': 'Configuração necessária',
+                    'quality_rating': 'UNKNOWN',
+                    'verified_name': 'Configure as credenciais'
+                }]
+                templates = []
+                
+                logging.warning(f"✅ Usando fallback: Phone {secret_phone_id}, BM {business_manager_id}")
         else:
-            # FALLBACK: Verificar se há dados de conexão na sessão
+            # Último fallback: dados da sessão
             connection_data = session.get('whatsapp_connection', {})
             business_manager_id = session.get('whatsapp_business_manager_id')
             phone_numbers = session.get('whatsapp_phone_numbers', [])
             templates = session.get('whatsapp_templates', [])
-            
-            if not (connection_data and business_manager_id and phone_numbers):
-                phone_numbers = []
-                templates = []
         
         if connection_data and business_manager_id:
             return jsonify({
