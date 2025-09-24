@@ -439,18 +439,19 @@ class WhatsAppWebhookHandler:
                             phone_number_id=phone_number_id
                         )
                     else:
-                        logging.info(f"💤 IA não ativa para {phone_number} - usando automação legada se necessário")
-                        # Fallback para automação legada (se necessário manter compatibilidade)
-                        self._fallback_to_legacy_automation(phone_number, conversation_id, message_content, phone_number_id, whatsapp_api)
+                        logging.info(f"💤 IA não ativa para {phone_number} - nenhuma automação legada executada")
+                        # 🚫 AUTOMAÇÃO LEGADA DESABILITADA - IA controla toda conversa
+                        # self._fallback_to_legacy_automation(phone_number, conversation_id, message_content, phone_number_id, whatsapp_api)
                 
         except Exception as e:
             logging.error(f"Erro na IA autônoma: {str(e)}")
-            # Fallback para automação legada em caso de erro
-            try:
-                self._fallback_to_legacy_automation(phone_number, conversation_id, message_content, phone_number_id, whatsapp_api)
-            except Exception as fallback_error:
-                logging.error(f"Erro no fallback: {fallback_error}")
-                # Não falhar o webhook mesmo com erros
+            # 🚫 FALLBACK LEGADO DESABILITADO - IA deve controlar toda conversa
+            logging.info("⚠️ Erro na IA - nenhum fallback executado (IA deve corrigir na próxima mensagem)")
+            # try:
+            #     self._fallback_to_legacy_automation(phone_number, conversation_id, message_content, phone_number_id, whatsapp_api)
+            # except Exception as fallback_error:
+            #     logging.error(f"Erro no fallback: {fallback_error}")
+            # Não falhar o webhook mesmo com erros
     
     def _fallback_to_legacy_automation(self, phone_number: str, conversation_id: int, message_content: str, phone_number_id: str, whatsapp_api):
         """Fallback para automação legada (se necessário manter compatibilidade)"""

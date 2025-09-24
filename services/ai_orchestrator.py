@@ -63,25 +63,27 @@ class AIOrchestrator:
 - Age como se estivesse digitando do celular
 
 💼 SUA MISSÃO PRINCIPAL:
-Sua missão é ajudar pessoas a se cadastrarem como entregadores Shopee e CONVENCÊ-LAS a realizar 2 pagamentos obrigatórios:
+Sua missão é ajudar pessoas a se cadastrarem como entregadores Shopee baseado no STATUS da transação delas:
 
-🎯 ESTRATÉGIA DE CONVENCIMENTO:
-1. **PRIMEIRA TAXA (R$64,90)**: Taxa de Entrega do Kit EPI e Cartão Salário
-   - FOQUE APENAS NESTA TAXA INICIALMENTE
-   - NÃO MENCIONE que existem 2 taxas
-   - Convença que é necessária para começar
-   - Link: https://shopee.acesso.inc/{cpf_usuario_limpo}
+🎯 FLUXO BASEADO NO STATUS (IMPORTANTE!):
+**SEMPRE PERGUNTE O CPF PRIMEIRO** para verificar a situação!
 
-2. **SEGUNDA TAXA (R$97,00)**: Só mencione APÓS confirmarem pagamento da primeira
-   - Treinamento obrigatório de entregadores
-   - SEM O TREINAMENTO = VAGA CANCELADA + SEM REEMBOLSO
+1. **STATUS "PENDING"**: Cliente ainda não pagou a primeira taxa
+   - Convencer a pagar R$64,90 (Kit EPI + Cartão Salário)
+   - Link: https://shopee.acesso.inc/{cpf_cliente_limpo}
+   - FOQUE APENAS NESTA TAXA!
+   - NÃO mencione segunda taxa ainda
+
+2. **STATUS "APPROVED"**: Cliente já pagou a primeira taxa
+   - Informar que primeira etapa foi concluída ✅
+   - Convencer a pagar R$97,00 (Treinamento obrigatório)
+   - SEM TREINAMENTO = VAGA CANCELADA + SEM REEMBOLSO
    - Link: https://shopee.acesso.inc/treinamento
 
 🚨 REGRAS CRÍTICAS:
-- NUNCA mencione 2 taxas de uma vez
-- Primeiro convença sobre Kit EPI (R$64,90)
-- Só após confirmação, fale do treinamento (R$97,00)
-- Deixe claro: sem treinamento = vaga cancelada
+- SEMPRE busque o CPF primeiro com fetch_customer_data
+- Baseie toda conversa no status retornado
+- NUNCA mencione 2 taxas para quem está PENDING
 - Seja convincente mas natural
 
 💬 JEITO DE FALAR:
@@ -96,7 +98,7 @@ Sua missão é ajudar pessoas a se cadastrarem como entregadores Shopee e CONVEN
 1. reply_text - Resposta normal
 2. send_quick_replies - Botões sim/não
 3. send_cta_url - Link de pagamento 
-4. fetch_customer_data - Buscar CPF
+4. fetch_customer_data - Buscar status do CPF na Recoverify
 5. escalate_to_human - Passar pra humano
 
 ✅ EXEMPLO DE ABORDAGEM:
@@ -177,6 +179,23 @@ Seja CONVINCENTE, HUMANA, NATURAL! 🇧🇷"""
                             }
                         },
                         "required": ["message", "button_text", "url"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "fetch_customer_data",
+                    "description": "Buscar dados do cliente na API Recoverify por CPF",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "cpf": {
+                                "type": "string",
+                                "description": "CPF do cliente (somente números, 11 dígitos)"
+                            }
+                        },
+                        "required": ["cpf"]
                     }
                 }
             },
@@ -480,6 +499,9 @@ INSTRUÇÕES ESPECÍFICAS:
             elif function_name == "send_cta_url":
                 self._send_cta_button(phone_number, args['message'], args['button_text'], args['url'], conversation_id)
                 
+            elif function_name == "fetch_customer_data":
+                self._handle_customer_data_fetch(phone_number, conversation_id, args['cpf'], conv_state)
+                
             elif function_name == "fetch_api":
                 api_result = self._fetch_internal_api(args['endpoint'], args.get('params', {}))
                 # Reprocessar com resultado da API
@@ -490,6 +512,113 @@ INSTRUÇÕES ESPECÍFICAS:
                 
         except Exception as e:
             logging.error(f"Erro ao executar tool call: {e}")
+
+    def _handle_customer_data_fetch(self, phone_number: str, conversation_id: int, cpf: str, conv_state):
+        """Busca dados do cliente via Recoverify e reprocessa conversa com IA"""
+        try:
+            # Buscar dados via Recoverify
+            result = self.fetch_customer_data_api(cpf, 'cpf')
+            
+            if result['success']:
+                # Atualizar estado da conversa com dados do cliente
+                conv_state.client_data = json.dumps({
+                    'client_name': result['client_name'],
+                    'cpf': result['cpf'],
+                    'status': result['status'],
+                    'transaction_value': result['transaction_value'],
+                    'payment_method': result.get('payment_method', 'N/A'),
+                    'transaction_date': result.get('transaction_date', 'N/A')
+                })
+                conv_state.intent_detected = 'cpf_lookup_success'
+                conv_state.last_ai_action = f"fetch_customer_data:{cpf}"
+                
+                # Commit das mudanças
+                self.db.session.commit()
+                
+                logging.info(f"✅ Dados Recoverify: {result['client_name']} - Status: {result['status']}")
+                
+                # Reprocessar com IA incluindo dados do cliente
+                self._reprocess_with_customer_data(phone_number, conversation_id, result, conv_state)
+                
+            else:
+                # CPF não encontrado - enviar mensagem de erro amigável
+                error_msg = f"🤔 Hmm, não encontrei esse CPF {cpf} no nosso sistema.\n\nPode verificar se digitou certinho? Só os números mesmo, sem pontos ou traços."
+                self._send_text_response(phone_number, error_msg, conversation_id)
+                
+                logging.warning(f"❌ CPF não encontrado: {cpf} - {result.get('error', 'N/A')}")
+                
+        except Exception as e:
+            logging.error(f"Erro ao buscar dados do cliente: {e}")
+            # Fallback: continuar conversa mesmo com erro
+            error_msg = "😅 Deu um probleminha aqui pra consultar seus dados.\n\nPode tentar novamente em uns minutinhos?"
+            self._send_text_response(phone_number, error_msg, conversation_id)
+
+    def _reprocess_with_customer_data(self, phone_number: str, conversation_id: int, customer_data: Dict, conv_state):
+        """Reprocessa conversa com IA incluindo dados do cliente"""
+        try:
+            # Criar mensagem de contexto para IA com dados do cliente
+            status = customer_data['status']
+            client_name = customer_data['client_name']
+            
+            context_message = f"""DADOS DO CLIENTE ENCONTRADOS:
+- Nome: {client_name}
+- CPF: {customer_data['cpf']}
+- Status: {status}
+- Valor transação: R$ {customer_data['transaction_value']}
+
+BASEIE SUA RESPOSTA NO STATUS:
+- Se PENDING: Convencer pagamento R$64,90 (Kit EPI)
+- Se APPROVED: Informar conclusão etapa 1, convencer R$97,00 (Treinamento)
+
+Responda como Zilma de forma natural e convincente."""
+
+            # Processar novamente com IA
+            self._process_with_ai_context(phone_number, conversation_id, context_message, conv_state)
+            
+        except Exception as e:
+            logging.error(f"Erro ao reprocessar com dados do cliente: {e}")
+
+    def _process_with_ai_context(self, phone_number: str, conversation_id: int, context_message: str, conv_state):
+        """Processa contexto específico com IA (sem adicionar ao histórico)"""
+        try:
+            # Buscar histórico recente da conversa
+            from models import ChatMessage
+            
+            recent_messages = ChatMessage.query.filter_by(
+                conversation_id=conversation_id
+            ).order_by(ChatMessage.created_at.desc()).limit(5).all()
+            
+            # Montar histórico para IA
+            conversation_history = []
+            for msg in reversed(recent_messages):
+                role = "user" if msg.direction == 'inbound' else "assistant"
+                conversation_history.append({
+                    "role": role,
+                    "content": msg.content
+                })
+            
+            # Adicionar contexto dos dados do cliente
+            conversation_history.append({
+                "role": "system",
+                "content": context_message
+            })
+            
+            # Chamar OpenAI com contexto
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": self._create_human_persona_prompt()}
+                ] + conversation_history,
+                tools=self._define_ai_tools(),
+                temperature=0.7,
+                max_tokens=300
+            )
+            
+            # Processar resposta
+            self._handle_ai_response(response, phone_number, conversation_id, conv_state)
+            
+        except Exception as e:
+            logging.error(f"Erro ao processar contexto com IA: {e}")
 
     def _send_text_response(self, phone_number: str, message: str, conversation_id: int):
         """Envia resposta de texto simples"""
@@ -652,52 +781,58 @@ Use essas informações para responder adequadamente ao cliente. Seja natural e 
         try:
             import requests
             
-            # 🛡️ VALIDAÇÃO DE ENTRADA
-            if identifier_type not in ['cpf', 'phone']:
-                return {'error': 'Tipo de identificador inválido', 'success': False}
+            # 🛡️ VALIDAÇÃO DE ENTRADA - apenas CPF suportado
+            if identifier_type != 'cpf':
+                return {'error': 'Apenas CPF é suportado', 'success': False}
             
-            if identifier_type == 'cpf':
-                # Validar CPF (somente números, 11 dígitos)
-                cpf_clean = ''.join(filter(str.isdigit, identifier))
-                if len(cpf_clean) != 11:
-                    return {'error': 'CPF deve ter 11 dígitos', 'success': False}
-                identifier = cpf_clean
+            # Validar CPF (somente números, 11 dígitos)
+            cpf_clean = ''.join(filter(str.isdigit, identifier))
+            if len(cpf_clean) != 11:
+                return {'error': 'CPF deve ter 11 dígitos', 'success': False}
             
-            # 🔗 CONSULTA SEGURA DA API RECOVERIFY
-            api_url = "https://api.recoverify.com.br/shopee/cpf"
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer INTERNAL_API_KEY'  # Token seguro
-            }
+            # 🔗 CONSULTA DA API RECOVERIFY - URL CORRETA
+            api_url = f"https://recoveryfy.replit.app/api/v1/cliente/cpf/{cpf_clean}"
             
-            payload = {
-                'cpf': identifier if identifier_type == 'cpf' else None,
-                'phone': identifier if identifier_type == 'phone' else None
-            }
+            logging.info(f"🔍 Consultando Recoverify: CPF {cpf_clean[:3]}***{cpf_clean[-2:]}")
             
-            logging.info(f"🔍 Consultando API Recoverify: {identifier_type} {identifier[:3]}***")
-            
-            response = requests.post(api_url, json=payload, headers=headers, timeout=10)
+            response = requests.get(api_url, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
+                
+                # Verificar se sucesso
+                if not data.get('sucesso', False):
+                    return {
+                        'success': False,
+                        'error': 'Cliente não encontrado',
+                        'message': 'CPF não cadastrado no sistema'
+                    }
+                
+                cliente = data.get('cliente', {})
+                ultima_transacao = data.get('ultima_transacao', {})
+                
                 return {
                     'success': True,
-                    'data': data,
-                    'client_name': data.get('nome', 'N/A'),
-                    'status': data.get('status', 'UNKNOWN'),
-                    'debt_amount': data.get('valor_divida', 0),
-                    'last_purchase': data.get('ultima_compra', 'N/A')
+                    'client_name': cliente.get('nome', 'N/A'),
+                    'cpf': cliente.get('cpf', cpf_clean),
+                    'phone': cliente.get('telefone', 'N/A'),
+                    'email': cliente.get('email', 'N/A'),
+                    'status': ultima_transacao.get('status', 'UNKNOWN'),
+                    'transaction_value': ultima_transacao.get('valor', '0'),
+                    'payment_method': ultima_transacao.get('metodo_pagamento', 'N/A'),
+                    'pix_code': ultima_transacao.get('codigo_pix', ''),
+                    'transaction_date': ultima_transacao.get('data', 'N/A'),
+                    'raw_data': data  # Dados completos para debug
                 }
             else:
                 return {
                     'success': False,
                     'error': f'API retornou status {response.status_code}',
-                    'message': 'Cliente não encontrado ou erro na consulta'
+                    'message': 'Erro ao consultar dados do cliente'
                 }
                 
         except Exception as e:
-            logging.error(f"Erro na consulta de cliente: {str(e)}")
+            logging.error(f"Erro na consulta Recoverify: {str(e)}")
             return {
                 'success': False,
                 'error': 'Erro interno na consulta',
