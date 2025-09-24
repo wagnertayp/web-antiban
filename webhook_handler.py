@@ -446,7 +446,8 @@ class WhatsAppWebhookHandler:
                 'event_type': result.get('event_type', 'message_received'),
                 'message_id': result.get('message_id', ''),
                 'timestamp': result.get('timestamp', ''),
-                'type': result.get('type', 'text')
+                'type': result.get('type', 'text'),
+                'message_type': result.get('type', 'text')  # 📸 Para detecção de imagens
             }
             
             # Adicionar à queue do singleton (processamento assíncrono)
@@ -503,7 +504,8 @@ class WhatsAppWebhookHandler:
                             phone_number=phone_number,
                             conversation_id=conversation_id,
                             message_content=message_content,
-                            phone_number_id=phone_number_id
+                            phone_number_id=phone_number_id,
+                            message_type=result.get('type', 'text')  # 📸 Incluir tipo de mensagem
                         )
                         logging.info(f"✅ IA processou mensagem: {message_content[:50]}...")
                     except Exception as e:

@@ -392,7 +392,8 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
                     message_data['phone_number'],
                     message_data['conversation_id'], 
                     message_data['message_content'],
-                    message_data['phone_number_id']
+                    message_data['phone_number_id'],
+                    message_data.get('message_type', 'text')
                 )
                 
                 # Marcar como processada
@@ -406,9 +407,13 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
                 continue
 
     def _process_with_ai(self, phone_number: str, conversation_id: int, 
-                        message_content: str, phone_number_id: str):
+                        message_content: str, phone_number_id: str, message_type: str = "text"):
         """Processa mensagem usando OpenAI com tool calling"""
         try:
+            # 📸 DETECÇÃO DE IMAGEM: Responder sobre treinamento
+            if message_type in ["image", "document", "video"]:
+                self._handle_image_received(phone_number, conversation_id)
+                return
             from models import ConversationState, ChatMessage
             
             # Buscar ou criar estado da conversa
@@ -597,6 +602,8 @@ INSTRUÇÕES ESPECÍFICAS:
                 
             elif function_name == "send_cta_url":
                 self._send_cta_button(phone_number, args['message'], args['button_text'], args['url'], conversation_id)
+                # 📨 AUTOMÁTICO: Enviar mensagem sobre comprovante após link de pagamento
+                self._send_payment_confirmation_request(phone_number, conversation_id)
                 
             elif function_name == "fetch_customer_data":
                 self._handle_customer_data_fetch(phone_number, conversation_id, args['cpf'], conv_state)
@@ -849,6 +856,50 @@ Use essas informações para responder adequadamente ao cliente. Seja natural e 
             logging.info("🆘 Resposta de fallback inteligente enviada (sem reapresentação)")
         except Exception as e:
             logging.error(f"Erro no fallback: {e}")
+
+    def _send_payment_confirmation_request(self, phone_number: str, conversation_id: int):
+        """Envia automaticamente mensagem pedindo comprovante após link de pagamento"""
+        try:
+            import time
+            time.sleep(2)  # Aguardar 2 segundos após envio do link
+            
+            confirmation_msg = "📋 Assim que realizar o pagamento, envie a foto do comprovante que eu libero seu cadastro e autorizo o envio do Kit EPI e cartão salário!"
+            
+            success, result = self.whatsapp_api.send_text_message(phone_number, confirmation_msg)
+            if success:
+                self._save_outbound_message(conversation_id, confirmation_msg, result.get('messageId', f"auto_{int(time.time())}"))
+                logging.info("📨 Mensagem automática de comprovante enviada")
+                
+        except Exception as e:
+            logging.error(f"Erro ao enviar mensagem de comprovante: {e}")
+
+    def _handle_image_received(self, phone_number: str, conversation_id: int):
+        """Responder automaticamente quando receber imagem (comprovante)"""
+        try:
+            import time
+            # Mensagem confirmando recebimento do comprovante
+            confirmation_msg = "✅ Comprovante recebido! Seu Kit EPI está aprovado e será processado.\n\nAgora precisamos finalizar com o treinamento obrigatório de R$97,00. Sem ele, sua vaga será cancelada!"
+            
+            # Enviar confirmação
+            success1, result1 = self.whatsapp_api.send_text_message(phone_number, confirmation_msg)
+            if success1:
+                self._save_outbound_message(conversation_id, confirmation_msg, result1.get('messageId', f"img_{int(time.time())}"))
+            
+            # Enviar botão para treinamento
+            time.sleep(1)
+            
+            training_msg = "📚 Clique no botão abaixo para finalizar com o treinamento:"
+            button_text = "Pagar Treinamento"
+            training_url = "https://shopee.acesso.inc/treinamento"
+            
+            success2, result2 = self.whatsapp_api.send_cta_url_button(phone_number, training_msg, button_text, training_url)
+            if success2:
+                self._save_outbound_message(conversation_id, f"{training_msg} [LINK: {button_text}]", result2.get('messageId', f"train_{int(time.time())}"))
+                
+            logging.info("📸 Resposta automática a imagem enviada com sucesso")
+            
+        except Exception as e:
+            logging.error(f"Erro ao processar imagem recebida: {e}")
 
     def _save_outbound_message(self, conversation_id: int, message_text: str, message_id: str = None):
         """Salva mensagem enviada pela IA no banco"""
