@@ -120,7 +120,7 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
 - SEMPRE enfatize que são processos OBRIGATÓRIOS
 
 💬 JEITO DE FALAR PROFISSIONAL:
-- "Olá! Sou a Zilma, consultora Shopee."
+- "Boa tarde! Sou a Zilma, consultora Shopee."
 - "Para atuar como entregador, o kit EPI é obrigatório por lei."
 - "A taxa de R$64,90 é necessária para emissão."
 - "Sem o kit, não é possível trabalhar legalmente."
@@ -131,26 +131,16 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
 2. send_quick_replies - Botões sim/não, confirmações, opções
 3. send_cta_url - SEMPRE quando mencionar links https://shopee.acesso.inc/...
 4. fetch_customer_data - Buscar status do CPF na Recoverify
-5. process_refund - Processar solicitação de reembolso
-6. escalate_to_human - Passar pra especialista
+5. escalate_to_human - Passar pra especialista
 
 ❌ NUNCA ESCREVA [Botão:...] ou [Link:...] NO TEXTO!
 ✅ Use send_cta_url para todos os links de pagamento!
 
 ✅ EXEMPLO DE ABORDAGEM:
-"Olá! Sou a Zilma, consultora de cadastro Shopee.
+"Boa tarde! Sou a Zilma, consultora de cadastro Shopee.
 Para verificar sua situação, preciso do seu CPF."
 
-Seja TÉCNICA, CONFIÁVEL, DIRETA!
-
-🔄 FLUXO DE REEMBOLSO (quando cliente reclama/solicita):
-1. ACALMAR: "Entendo sua situação. Vou te ajudar com o reembolso."
-2. PERGUNTAR MOTIVO: "Para processar, preciso saber o motivo do reembolso."
-3. PEDIR CHAVE PIX: "Me informe sua chave PIX para o reembolso."
-4. PERGUNTAR BANCO: "Qual é o seu banco?"
-5. CONFIRMAR: "Reembolso processado! O valor será devolvido em até 7 dias úteis."
-
-✅ Use a ferramenta process_refund para gerenciar este fluxo!"""
+Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
 
     def _define_ai_tools(self) -> List[Dict]:
         """Define ferramentas que a IA pode usar"""
@@ -263,28 +253,6 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!
                             }
                         },
                         "required": ["endpoint"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "process_refund",
-                    "description": "Processar solicitação de reembolso do cliente",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "step": {
-                                "type": "string",
-                                "enum": ["calm_customer", "ask_reason", "ask_pix_key", "ask_bank", "confirm_refund"],
-                                "description": "Etapa do processo de reembolso"
-                            },
-                            "data": {
-                                "type": "string",
-                                "description": "Dados fornecidos pelo cliente (motivo, chave PIX, banco)"
-                            }
-                        },
-                        "required": ["step"]
                     }
                 }
             },
@@ -486,7 +454,7 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!
                 model="gpt-4", 
                 messages=messages,
                 tools=self.tools,
-                tool_choice="required",  # 🔧 CORREÇÃO: Forçar uso de ferramentas sempre
+                tool_choice="auto",
                 max_tokens=150,
                 temperature=0.7
             )
@@ -672,11 +640,6 @@ INSTRUÇÕES ESPECÍFICAS:
                 # Reprocessar com resultado da API
                 self._reprocess_with_api_result(phone_number, conversation_id, api_result, conv_state)
                 
-            elif function_name == "process_refund":
-                # 🔄 Processar solicitação de reembolso
-                result = self._process_refund(phone_number, args['step'], args.get('data'), conversation_id)
-                logging.info(f"✅ Reembolso processado: {result}")
-                
             elif function_name == "escalate_human":
                 self._escalate_to_human(phone_number, args['reason'], conv_state)
                 
@@ -813,8 +776,7 @@ Responda como Zilma de forma natural e convincente."""
                 self._save_outbound_message(conversation_id, message, result.get('messageId'))
                 logging.info(f"✅ IA enviou botões: {[b['title'] for b in buttons]}")
             else:
-                # 🔧 FALLBACK LIMPO: Se botões falharam, enviar apenas texto simples
-                logging.warning(f"⚠️ Botões falharam, enviando texto simples: {result}")
+                # Fallback para texto se botões falharem
                 self._send_text_response(phone_number, message, conversation_id)
                 
         except Exception as e:
@@ -1222,107 +1184,6 @@ Use as ferramentas disponíveis com inteligência e contexto."""
                 'success': False,
                 'error': 'Erro interno na transferência'
             }
-
-    def _process_refund(self, phone_number: str, step: str, data: str = None, conversation_id: int = 0) -> Dict[str, Any]:
-        """🔄 Processa solicitação de reembolso conforme fluxo definido"""
-        try:
-            from models import ConversationState
-            from datetime import datetime
-            from app import db
-            import json
-
-            normalized_phone = self._normalize_phone(phone_number)
-            conv_state = ConversationState.query.filter_by(phone_number=normalized_phone).first()
-            
-            if not conv_state:
-                conv_state = ConversationState(phone_number=normalized_phone, current_state='refund_process')
-                db.session.add(conv_state)
-
-            # Recuperar dados do reembolso do contexto
-            context = json.loads(conv_state.context_data or '{}')
-            refund_data = context.get('refund', {})
-
-            if step == "calm_customer":
-                # Etapa 1: Acalmar o cliente
-                message = "Entendo sua situação e vou te ajudar com o reembolso. Pode ficar tranquilo(a)!"
-                self._send_text_response(phone_number, message, conversation_id)
-                
-                # Próxima etapa: perguntar motivo
-                refund_data['step'] = 'asking_reason'
-                context['refund'] = refund_data
-                conv_state.context_data = json.dumps(context)
-                db.session.commit()
-                
-                return {'success': True, 'action': 'customer_calmed'}
-
-            elif step == "ask_reason":
-                # Etapa 2: Perguntar motivo
-                message = "Para processar seu reembolso, preciso saber o motivo. Pode me contar?"
-                self._send_text_response(phone_number, message, conversation_id)
-                
-                refund_data['step'] = 'waiting_reason'
-                context['refund'] = refund_data
-                conv_state.context_data = json.dumps(context)
-                db.session.commit()
-                
-                return {'success': True, 'action': 'reason_requested'}
-
-            elif step == "ask_pix_key":
-                # Etapa 3: Pedir chave PIX (salvar motivo se fornecido)
-                if data:
-                    refund_data['reason'] = data
-                
-                message = "Entendi o motivo. Agora me informe sua chave PIX para processar o reembolso."
-                self._send_text_response(phone_number, message, conversation_id)
-                
-                refund_data['step'] = 'waiting_pix_key'
-                context['refund'] = refund_data
-                conv_state.context_data = json.dumps(context)
-                db.session.commit()
-                
-                return {'success': True, 'action': 'pix_key_requested'}
-
-            elif step == "ask_bank":
-                # Etapa 4: Perguntar banco (salvar chave PIX)
-                if data:
-                    refund_data['pix_key'] = data
-                
-                message = "Chave PIX recebida! Qual é o seu banco?"
-                self._send_text_response(phone_number, message, conversation_id)
-                
-                refund_data['step'] = 'waiting_bank'
-                context['refund'] = refund_data
-                conv_state.context_data = json.dumps(context)
-                db.session.commit()
-                
-                return {'success': True, 'action': 'bank_requested'}
-
-            elif step == "confirm_refund":
-                # Etapa 5: Confirmar processamento (salvar banco)
-                if data:
-                    refund_data['bank'] = data
-                
-                message = "✅ Reembolso processado com sucesso! O valor será devolvido em até 7 dias úteis na sua conta."
-                self._send_text_response(phone_number, message, conversation_id)
-                
-                # Finalizar processo
-                refund_data['step'] = 'completed'
-                refund_data['processed_at'] = datetime.now().isoformat()
-                context['refund'] = refund_data
-                conv_state.context_data = json.dumps(context)
-                conv_state.current_state = 'refund_completed'
-                db.session.commit()
-                
-                logging.info(f"✅ Reembolso processado para {phone_number}: {refund_data}")
-                
-                return {'success': True, 'action': 'refund_confirmed'}
-
-            else:
-                return {'success': False, 'error': f'Etapa de reembolso inválida: {step}'}
-
-        except Exception as e:
-            logging.error(f"Erro no processo de reembolso: {str(e)}")
-            return {'success': False, 'error': 'Erro interno no processo de reembolso'}
 
 
 def get_singleton_orchestrator(db=None):

@@ -362,14 +362,8 @@ class WhatsAppWebhookHandler:
             normalized_phone = normalize_phone(phone_number)
             contact = Contact.get_or_create(normalized_phone)
             
-            # 🔧 CORREÇÃO: Buscar conversa existente primeiro, usar sempre a mesma
-            existing_conversation = Conversation.query.filter_by(contact_id=contact.id).first()
-            if existing_conversation:
-                conversation = existing_conversation
-                logging.info(f"✅ Usando conversa existente: {conversation.id}")
-            else:
-                conversation = Conversation.get_or_create(contact.id, phone_number_id)
-                logging.info(f"✅ Nova conversa criada: {conversation.id}")
+            # Buscar ou criar conversa
+            conversation = Conversation.get_or_create(contact.id, phone_number_id)
             
             # ✅ PROTEÇÃO ANTI-DUPLICAÇÃO: Verificar se mensagem já existe
             existing_message = None
