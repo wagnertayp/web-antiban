@@ -242,7 +242,7 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
         ]
 
     def detect_first_message(self, phone_number: str, conversation_id: int) -> bool:
-        """Detecta se é primeira mensagem do cliente"""
+        """Detecta se deve ativar IA - SEMPRE ATIVAR para conversas de clientes"""
         try:
             from models import ChatMessage, ConversationState
             
@@ -252,16 +252,17 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
             
             # Se já tem estado, continuar conversa
             if conv_state and conv_state.current_state != 'initial':
+                logging.info(f"🤖 IA ATIVADA - Conversa existente: {phone_number}")
                 return True
             
-            # Verificar se é primeira mensagem na conversa
+            # 🔧 CORREÇÃO: SEMPRE ativar IA para qualquer mensagem de cliente
             client_messages = ChatMessage.query.filter_by(
                 conversation_id=conversation_id,
                 direction='inbound'
             ).count()
             
-            if client_messages == 1:
-                logging.info(f"🤖 PRIMEIRA MENSAGEM DETECTADA: {phone_number} - IA AUTÔNOMA ATIVADA")
+            if client_messages >= 1:  # ← CORRIGIDO: >= 1 em vez de == 1
+                logging.info(f"🤖 IA AUTÔNOMA ATIVADA para {phone_number} - {client_messages} mensagens na conversa")
                 return True
                 
             return False
