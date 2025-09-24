@@ -2252,31 +2252,26 @@
             formatTime(dateString) {
                 if (!dateString) return '';
                 
-                // 🇧🇷 CONVERSÃO MANUAL PARA BRASÍLIA (UTC-3)
+                // 🇧🇷 O BACKEND JÁ ENVIA HORÁRIO BRASILEIRO (-03:00)
                 const date = new Date(dateString);
-                
-                // Subtrair 3 horas do UTC para obter horário de Brasília
-                const brasiliaTime = new Date(date.getTime() - (3 * 60 * 60 * 1000));
-                
                 const now = new Date();
-                const nowBrasilia = new Date(now.getTime() - (3 * 60 * 60 * 1000));
                 
-                // Verificar se é hoje (data brasileira)
+                // Verificar se é hoje
                 const isToday = (
-                    brasiliaTime.getUTCFullYear() === nowBrasilia.getUTCFullYear() &&
-                    brasiliaTime.getUTCMonth() === nowBrasilia.getUTCMonth() &&
-                    brasiliaTime.getUTCDate() === nowBrasilia.getUTCDate()
+                    date.getFullYear() === now.getFullYear() &&
+                    date.getMonth() === now.getMonth() &&
+                    date.getDate() === now.getDate()
                 );
                 
                 if (isToday) {
-                    // Mostrar hora:minuto no fuso brasileiro
-                    const hours = brasiliaTime.getUTCHours().toString().padStart(2, '0');
-                    const minutes = brasiliaTime.getUTCMinutes().toString().padStart(2, '0');
+                    // Mostrar hora:minuto (já vem correto do backend)
+                    const hours = date.getHours().toString().padStart(2, '0');
+                    const minutes = date.getMinutes().toString().padStart(2, '0');
                     return `${hours}:${minutes}`;
                 } else {
-                    // Mostrar data brasileira
-                    const day = brasiliaTime.getUTCDate().toString().padStart(2, '0');
-                    const month = (brasiliaTime.getUTCMonth() + 1).toString().padStart(2, '0');
+                    // Mostrar data
+                    const day = date.getDate().toString().padStart(2, '0');
+                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
                     return `${day}/${month}`;
                 }
             }
