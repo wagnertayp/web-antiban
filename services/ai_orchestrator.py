@@ -286,7 +286,7 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
         ]
 
     def detect_first_message(self, phone_number: str, conversation_id: int) -> bool:
-        """Detecta se deve ativar IA - SEMPRE ATIVAR para conversas de clientes"""
+        """Detecta se deve ativar IA - APENAS para novas mensagens não processadas"""
         try:
             from models import ChatMessage, ConversationState
             
@@ -294,22 +294,34 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
             normalized_phone = self._normalize_phone(phone_number)
             conv_state = ConversationState.query.filter_by(phone_number=normalized_phone).first()
             
-            # Se já tem estado, continuar conversa
-            if conv_state and conv_state.current_state != 'initial':
-                logging.info(f"🤖 IA ATIVADA - Conversa existente: {phone_number}")
-                return True
+            # 🚫 BLOQUEIO CRÍTICO: Se conversa está fechada/transferida, NÃO ativar IA
+            if conv_state and conv_state.current_state in ['human_handoff', 'closed', 'completed']:
+                logging.info(f"🚫 IA BLOQUEADA - Conversa {conv_state.current_state}: {phone_number}")
+                return False
             
-            # 🔧 CORREÇÃO: SEMPRE ativar IA para qualquer mensagem de cliente
-            client_messages = ChatMessage.query.filter_by(
+            # ✅ NOVA LÓGICA: Só ativa IA se há mensagens pendentes de resposta
+            # Buscar última mensagem do cliente
+            last_client_msg = ChatMessage.query.filter_by(
                 conversation_id=conversation_id,
                 direction='inbound'
-            ).count()
+            ).order_by(ChatMessage.created_at.desc()).first()
             
-            if client_messages >= 1:  # ← CORRIGIDO: >= 1 em vez de == 1
-                logging.info(f"🤖 IA AUTÔNOMA ATIVADA para {phone_number} - {client_messages} mensagens na conversa")
-                return True
+            if not last_client_msg:
+                return False
                 
-            return False
+            # Verificar se já há resposta da IA para essa mensagem
+            ai_response_after = ChatMessage.query.filter(
+                ChatMessage.conversation_id == conversation_id,
+                ChatMessage.direction == 'outbound',
+                ChatMessage.created_at > last_client_msg.created_at
+            ).first()
+            
+            if ai_response_after:
+                logging.info(f"🚫 IA já respondeu à última mensagem de {phone_number}")
+                return False
+            
+            logging.info(f"🤖 IA ATIVADA - Nova mensagem pendente: {phone_number}")
+            return True
             
         except Exception as e:
             logging.error(f"Erro ao detectar primeira mensagem: {e}")
