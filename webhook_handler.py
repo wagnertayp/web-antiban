@@ -488,8 +488,9 @@ class WhatsAppWebhookHandler:
                     logging.warning("⚠️ Token WHATSAPP_ACCESS_TOKEN não encontrado nas secrets")
                     return
                 
-                # 🤖 SISTEMA TOTALMENTE AUTÔNOMO COM IA
-                ai_orchestrator = AIOrchestrator(whatsapp_api, self.db)
+                # 🤖 SISTEMA TOTALMENTE AUTÔNOMO COM IA - USAR SINGLETON
+                from services.ai_orchestrator import get_singleton_orchestrator
+                ai_orchestrator = get_singleton_orchestrator(db=self.db)
                 
                 # Verificar se é primeira mensagem ou conversa de IA ativa
                 should_process_with_ai = ai_orchestrator.detect_first_message(phone_number, conversation_id)
