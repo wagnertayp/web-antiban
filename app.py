@@ -1923,9 +1923,7 @@ webhook_handler = WhatsAppWebhookHandler(db=db)
 @app.route('/webhook', methods=['GET', 'POST'], strict_slashes=False)
 def whatsapp_webhook() -> tuple[str, int]:
     """Ultra-fast webhook with message logging"""
-    logging.critical(f"🔥 WEBHOOK FUNCTION CALLED - Method: {request.method}")
-    logging.critical(f"🔥 REQUEST HEADERS: {dict(request.headers)}")
-    logging.critical(f"🔥 REQUEST DATA: {request.get_data(as_text=True)}")
+    logging.info(f"🔥 WEBHOOK FUNCTION CALLED - Method: {request.method}")
     try:
         if request.method == 'GET':
             mode = request.args.get('hub.mode')
