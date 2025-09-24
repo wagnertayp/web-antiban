@@ -1081,4 +1081,4 @@ class WhatsAppSender {
 // Initialize the application when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     window.app = new WhatsAppSender();
-});
+});console.log('🕐 Horário brasileiro corrigido - versão 2.0');
