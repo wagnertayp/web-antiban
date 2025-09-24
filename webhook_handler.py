@@ -162,14 +162,6 @@ class WhatsAppWebhookHandler:
             timestamp = message.get('timestamp')
             message_type = message.get('type')
             
-            # 🔒 DEDUPLICAÇÃO: Verificar se mensagem já foi processada
-            if self.db and message_id:
-                from models import ChatMessage
-                existing_message = ChatMessage.query.filter_by(whatsapp_message_id=message_id).first()
-                if existing_message:
-                    logging.info(f"🔄 Mensagem já processada, ignorando: {message_id}")
-                    return None
-            
             result = {
                 'event_type': 'message_received',
                 'message_id': message_id,
@@ -454,8 +446,7 @@ class WhatsAppWebhookHandler:
                 'event_type': result.get('event_type', 'message_received'),
                 'message_id': result.get('message_id', ''),
                 'timestamp': result.get('timestamp', ''),
-                'type': result.get('type', 'text'),
-                'message_type': result.get('type', 'text')  # 📸 Para detecção de imagens
+                'type': result.get('type', 'text')
             }
             
             # Adicionar à queue do singleton (processamento assíncrono)
@@ -512,8 +503,7 @@ class WhatsAppWebhookHandler:
                             phone_number=phone_number,
                             conversation_id=conversation_id,
                             message_content=message_content,
-                            phone_number_id=phone_number_id,
-                            message_type=result.get('type', 'text')  # 📸 Incluir tipo de mensagem
+                            phone_number_id=phone_number_id
                         )
                         logging.info(f"✅ IA processou mensagem: {message_content[:50]}...")
                     except Exception as e:

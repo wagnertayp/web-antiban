@@ -303,15 +303,9 @@ class ConversationState(db.Model):
     last_ai_action = db.Column(db.String(100))  # Última ação executada pela IA
     last_user_message_at = db.Column(db.DateTime)  # Timestamp da última mensagem do usuário
     
-    # 🔄 MEMÓRIA CONVERSACIONAL E IDEMPOTÊNCIA
-    cpf_normalized = db.Column(db.String(20))  # CPF normalizado para busca
+    # Campos legados (mantidos para compatibilidade)
     cpf_status = db.Column(db.String(20))  # APPROVED ou PENDING da API Recoverify
     original_cpf = db.Column(db.String(20))  # CPF original digitado pelo usuário
-    last_cta_type = db.Column(db.String(50))  # kit, treinamento, etc.
-    last_cta_url = db.Column(db.String(500))  # Último link enviado
-    last_cta_at = db.Column(db.DateTime)  # Quando foi enviado
-    receipt_requested = db.Column(db.Boolean, default=False)  # Se já pediu comprovante
-    last_event_id = db.Column(db.String(200))  # ID da última mensagem processada
     question_count = db.Column(db.Integer, default=0)  # Contador de perguntas OpenAI
     
     # Controle de IA
@@ -353,53 +347,6 @@ class ConversationState(db.Model):
             self.context_data = json.dumps(context, ensure_ascii=False)
         
         self.last_user_message_at = brasilia_now()
-        self.updated_at = brasilia_now()
-        db.session.commit()
-    
-    def can_send_cta(self, cta_type: str, cta_url: str, throttle_minutes: int = 5) -> bool:
-        """🔒 GUARD: Verifica se pode enviar CTA (evita duplicatas)"""
-        if not self.last_cta_at:
-            return True
-            
-        from datetime import timedelta
-        throttle_window = brasilia_now() - timedelta(minutes=throttle_minutes)
-        
-        # Se já enviou o mesmo tipo/URL recentemente, bloquear
-        if (self.last_cta_type == cta_type and 
-            self.last_cta_url == cta_url and 
-            self.last_cta_at > throttle_window):
-            return False
-            
-        return True
-    
-    def record_cta_sent(self, cta_type: str, cta_url: str):
-        """📝 Registra CTA enviado para evitar duplicatas"""
-        self.last_cta_type = cta_type
-        self.last_cta_url = cta_url
-        self.last_cta_at = brasilia_now()
-        self.updated_at = brasilia_now()
-        db.session.commit()
-    
-    def has_valid_cpf_data(self) -> bool:
-        """✅ Verifica se já tem dados válidos de CPF"""
-        return bool(self.cpf_normalized and self.cpf_status)
-    
-    def set_cpf_data(self, cpf_normalized: str, status: str, original_cpf: str = None):
-        """💾 Salva dados do CPF para evitar re-consultas"""
-        self.cpf_normalized = cpf_normalized
-        self.cpf_status = status
-        if original_cpf:
-            self.original_cpf = original_cpf
-        self.updated_at = brasilia_now()
-        db.session.commit()
-    
-    def was_event_processed(self, event_id: str) -> bool:
-        """🔄 Verifica se evento já foi processado"""
-        return self.last_event_id == event_id
-    
-    def mark_event_processed(self, event_id: str):
-        """✅ Marca evento como processado"""
-        self.last_event_id = event_id
         self.updated_at = brasilia_now()
         db.session.commit()
     

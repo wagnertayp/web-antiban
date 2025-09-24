@@ -392,8 +392,7 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
                     message_data['phone_number'],
                     message_data['conversation_id'], 
                     message_data['message_content'],
-                    message_data['phone_number_id'],
-                    message_data.get('message_type', 'text')
+                    message_data['phone_number_id']
                 )
                 
                 # Marcar como processada
@@ -407,25 +406,14 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
                 continue
 
     def _process_with_ai(self, phone_number: str, conversation_id: int, 
-                        message_content: str, phone_number_id: str, message_type: str = "text"):
+                        message_content: str, phone_number_id: str):
         """Processa mensagem usando OpenAI com tool calling"""
         try:
             from models import ConversationState, ChatMessage
             
-            # 📸 DETECÇÃO DE IMAGEM: Responder sobre treinamento
-            if message_type in ["image", "document", "video"]:
-                self._handle_image_received(phone_number, conversation_id)
-                return
-            
             # Buscar ou criar estado da conversa
             normalized_phone = self._normalize_phone(phone_number)
             conv_state = ConversationState.get_or_create(normalized_phone)
-            
-            # 🔒 DEDUPLICAÇÃO ADICIONAL: Evitar reprocessar a mesma mensagem
-            if hasattr(self, '_last_processed_content') and self._last_processed_content == message_content:
-                logging.info(f"🔄 Conteúdo duplicado detectado, ignorando: {message_content[:30]}...")
-                return
-            self._last_processed_content = message_content
             
             # Buscar histórico recente da conversa
             conversation_history = self._get_conversation_history(conversation_id)
@@ -435,19 +423,18 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
             
             logging.info(f"🤖 Processando com IA: {phone_number} - Estado: {conv_state.current_state}")
             
-            # 🧠 HISTÓRICO CONVERSACIONAL: Usar prompt state-aware + histórico real
-            messages = [{"role": "system", "content": self._build_state_aware_prompt(conv_state)}]
+            # 🔧 CORREÇÃO: Construir histórico como mensagens separadas
+            messages = [{"role": "system", "content": self.system_prompt}]
             
-            # Carregar histórico real da conversa para contexto
-            recent_history = self._get_recent_chat_history(conversation_id, limit=15)
-            for hist_msg in recent_history:
+            # Adicionar histórico da conversa como mensagens individuais
+            for hist_msg in conversation_history:
                 messages.append({
                     "role": hist_msg["role"], 
                     "content": hist_msg["content"]
                 })
             
             # Adicionar mensagem atual
-            messages.append({"role": "user", "content": message_content})
+            messages.append({"role": "user", "content": context})
             
             # Chamar OpenAI com tool calling
             response = self.openai_client.chat.completions.create(
@@ -466,11 +453,6 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
             logging.error(f"Erro no processamento com IA: {e}")
             # Fallback para resposta simples
             self._send_fallback_response(phone_number)
-
-    def _can_send_cta_guard(self, conv_state, url: str) -> bool:
-        """🔒 GUARD: Verifica se pode enviar CTA (evita spam de botões)"""
-        cta_type = "kit" if "shopee.acesso.inc" in url else "treinamento"
-        return conv_state.can_send_cta(cta_type, url, throttle_minutes=5)
 
     def _prepare_ai_context(self, conv_state, conversation_history: List, current_message: str) -> str:
         """Prepara contexto completo para a IA com estado de pagamento"""
@@ -614,26 +596,10 @@ INSTRUÇÕES ESPECÍFICAS:
                 self._send_quick_replies(phone_number, args['message'], args['buttons'], conversation_id)
                 
             elif function_name == "send_cta_url":
-                # 🔒 GUARD: Verificar se pode enviar CTA (evita duplicatas)
-                if self._can_send_cta_guard(conv_state, args['url']):
-                    self._send_cta_button(phone_number, args['message'], args['button_text'], args['url'], conversation_id)
-                    # 📝 Registrar CTA enviado
-                    cta_type = "kit" if "shopee.acesso.inc" in args['url'] else "treinamento"
-                    conv_state.record_cta_sent(cta_type, args['url'])
-                    # 📨 AUTOMÁTICO: Enviar mensagem sobre comprovante após link de pagamento
-                    if not conv_state.receipt_requested:
-                        self._send_payment_confirmation_request(phone_number, conversation_id)
-                        conv_state.receipt_requested = True
-                        db.session.commit()
-                else:
-                    logging.info(f"🔒 CTA bloqueado por guard de idempotência: {args['url'][:50]}...")
+                self._send_cta_button(phone_number, args['message'], args['button_text'], args['url'], conversation_id)
                 
             elif function_name == "fetch_customer_data":
-                # 🔄 Verificar se já tem dados válidos antes de re-buscar
-                if not conv_state.has_valid_cpf_data():
-                    self._handle_customer_data_fetch(phone_number, conversation_id, args['cpf'], conv_state)
-                else:
-                    logging.info(f"✅ Dados de CPF já válidos: {conv_state.cpf_status} - evitando re-busca")
+                self._handle_customer_data_fetch(phone_number, conversation_id, args['cpf'], conv_state)
                 
             elif function_name == "fetch_api":
                 api_result = self._fetch_internal_api(args['endpoint'], args.get('params', {}))
@@ -772,8 +738,7 @@ Responda como Zilma de forma natural e convincente."""
             # Implementar envio de botões interativos
             success, result = self.whatsapp_api.send_interactive_buttons(phone_number, message, buttons)
             if success:
-                # 🔧 CORREÇÃO: Salvar apenas mensagem original, NÃO descrição dos botões
-                self._save_outbound_message(conversation_id, message, result.get('messageId'))
+                self._save_outbound_message(conversation_id, f"{message} [BOTÕES: {[b['title'] for b in buttons]}]", result.get('messageId'))
                 logging.info(f"✅ IA enviou botões: {[b['title'] for b in buttons]}")
             else:
                 # Fallback para texto se botões falharem
@@ -794,8 +759,7 @@ Responda como Zilma de forma natural e convincente."""
             
             success, result = self.whatsapp_api.send_cta_url_button(phone_number, message, button_text, url)
             if success:
-                # 🔧 CORREÇÃO: Salvar apenas mensagem original, NÃO texto do botão
-                self._save_outbound_message(conversation_id, message, result.get('messageId'))
+                self._save_outbound_message(conversation_id, f"{message} [LINK: {button_text}]", result.get('messageId'))
                 logging.info(f"✅ IA enviou CTA: {button_text} -> {url}")
             else:
                 # Fallback para texto com link
@@ -885,129 +849,6 @@ Use essas informações para responder adequadamente ao cliente. Seja natural e 
             logging.info("🆘 Resposta de fallback inteligente enviada (sem reapresentação)")
         except Exception as e:
             logging.error(f"Erro no fallback: {e}")
-
-    def _send_payment_confirmation_request(self, phone_number: str, conversation_id: int):
-        """Envia automaticamente mensagem pedindo comprovante após link de pagamento"""
-        try:
-            import time
-            time.sleep(2)  # Aguardar 2 segundos após envio do link
-            
-            confirmation_msg = "📋 Assim que realizar o pagamento, envie a foto do comprovante que eu libero seu cadastro e autorizo o envio do Kit EPI e cartão salário!"
-            
-            success, result = self.whatsapp_api.send_text_message(phone_number, confirmation_msg)
-            if success:
-                self._save_outbound_message(conversation_id, confirmation_msg, result.get('messageId', f"auto_{int(time.time())}"))
-                logging.info("📨 Mensagem automática de comprovante enviada")
-                
-        except Exception as e:
-            logging.error(f"Erro ao enviar mensagem de comprovante: {e}")
-
-    def _get_recent_chat_history(self, conversation_id: int, limit: int = 15):
-        """📚 Carrega histórico recente da conversa para contexto da IA"""
-        try:
-            from models import ChatMessage
-            
-            recent_messages = ChatMessage.query.filter_by(
-                conversation_id=conversation_id
-            ).order_by(ChatMessage.created_at.desc()).limit(limit).all()
-            
-            # Converter para formato da IA (mais recente primeiro, depois reverter)
-            history = []
-            for msg in reversed(recent_messages):  # Reverter para ordem cronológica
-                role = "assistant" if msg.direction == "outbound" else "user"
-                history.append({
-                    "role": role,
-                    "content": msg.content
-                })
-                
-            return history
-            
-        except Exception as e:
-            logging.error(f"Erro ao carregar histórico: {e}")
-            return []
-
-    def _build_state_aware_prompt(self, conv_state) -> str:
-        """🧠 Constrói prompt inteligente baseado no estado da conversa"""
-        base_prompt = """Você é a Atendente Zilma Shopee, especialista em recrutamento de entregadores.
-
-🎯 REGRAS DE CONVERSAÇÃO INTELIGENTE:
-"""
-        
-        # 💾 MEMÓRIA: Verificar se já tem dados do CPF
-        if conv_state.has_valid_cpf_data():
-            if conv_state.cpf_status == "APPROVED":
-                base_prompt += f"""
-✅ MEMÓRIA: Cliente JÁ APROVADO (CPF {conv_state.cpf_normalized})
-- NÃO pergunte CPF novamente 
-- Já pode oferecer treinamento diretamente
-- Cliente está no status APROVADO"""
-            else:
-                base_prompt += f"""
-⏳ MEMÓRIA: Cliente PENDENTE (CPF {conv_state.cpf_normalized})  
-- NÃO pergunte CPF novamente
-- Ofereça kit de entregador (R$64,90)
-- Cliente está no status pendente"""
-        else:
-            base_prompt += """
-❓ PRIMEIRA CONVERSA: Cliente novo
-- Pergunte CPF apenas se necessário para consulta
-- Seja natural e conversacional"""
-
-        # 🔒 IDEMPOTÊNCIA: Verificar CTAs recentes
-        if conv_state.last_cta_at:
-            base_prompt += f"""
-🔒 IMPORTANTE: Último botão enviado há pouco tempo
-- NÃO repita o mesmo botão/link
-- Responda perguntas do cliente primeiro
-- Seja conversacional antes de insistir"""
-
-        base_prompt += """
-
-🗣️ ESTILO CONVERSACIONAL:
-- SEMPRE responda perguntas do cliente primeiro
-- Seja natural e empática
-- Mantenha o contexto da conversa anterior
-- NÃO se reapresente se já conversaram
-- Use o histórico para dar continuidade natural
-
-🚫 PROIBIDO:
-- Repetir botões de pagamento recentemente enviados
-- Re-pedir CPF se já consultou com sucesso
-- Ignorar perguntas do cliente
-- Agir como se fosse primeira conversa sempre
-
-Use as ferramentas disponíveis com inteligência e contexto."""
-
-        return base_prompt
-
-    def _handle_image_received(self, phone_number: str, conversation_id: int):
-        """Responder automaticamente quando receber imagem (comprovante)"""
-        try:
-            import time
-            # Mensagem confirmando recebimento do comprovante
-            confirmation_msg = "✅ Comprovante recebido! Seu Kit EPI está aprovado e será processado.\n\nAgora precisamos finalizar com o treinamento obrigatório de R$97,00. Sem ele, sua vaga será cancelada!"
-            
-            # Enviar confirmação
-            success1, result1 = self.whatsapp_api.send_text_message(phone_number, confirmation_msg)
-            if success1:
-                self._save_outbound_message(conversation_id, confirmation_msg, result1.get('messageId', f"img_{int(time.time())}"))
-            
-            # Enviar botão para treinamento
-            time.sleep(1)
-            
-            training_msg = "📚 Clique no botão abaixo para finalizar com o treinamento:"
-            button_text = "Pagar Treinamento"
-            training_url = "https://shopee.acesso.inc/treinamento"
-            
-            success2, result2 = self.whatsapp_api.send_cta_url_button(phone_number, training_msg, button_text, training_url)
-            if success2:
-                # 🔧 CORREÇÃO: Salvar apenas mensagem original, NÃO texto do botão
-                self._save_outbound_message(conversation_id, training_msg, result2.get('messageId', f"train_{int(time.time())}"))
-                
-            logging.info("📸 Resposta automática a imagem enviada com sucesso")
-            
-        except Exception as e:
-            logging.error(f"Erro ao processar imagem recebida: {e}")
 
     def _save_outbound_message(self, conversation_id: int, message_text: str, message_id: str = None):
         """Salva mensagem enviada pela IA no banco"""
