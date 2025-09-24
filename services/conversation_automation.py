@@ -33,8 +33,12 @@ class ConversationAutomation:
             normalized_phone = self._normalize_phone(phone_number)
             conv_state = ConversationState.query.filter_by(phone_number=normalized_phone).first()
             
-            # Se já tem estado, sempre processar
+            # 🚨 GATING: Não processar se AIOrchestrator está ativo
             if conv_state:
+                # Se AI está habilitada ou CPF foi processado pela IA, deixar AIOrchestrator trabalhar
+                if conv_state.ai_enabled or (conv_state.intent_detected and conv_state.intent_detected.startswith('cpf_lookup_success')):
+                    logging.info(f"🤖 ConversationAutomation DESABILITADA - AIOrchestrator ativo para {phone_number}")
+                    return False
                 return True
             
             # Senão, verificar se é primeira mensagem
