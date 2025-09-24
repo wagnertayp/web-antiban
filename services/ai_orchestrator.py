@@ -376,44 +376,13 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
         self.message_queue.put(message_data)
         logging.info(f"📤 Mensagem adicionada na queue: {phone_number}")
         
-        # Iniciar processador se não estiver rodando
-        if not self.processing:
-            self._start_message_processor()
+        # 🚫 DESABILITAR THREAD DUPLICADO - Usa apenas _message_consumer principal
+        # Thread principal já está rodando via start_consumer_thread()
+        logging.info("📤 Usando consumer thread principal existente")
 
-    def _start_message_processor(self):
-        """Inicia processador de mensagens em thread separada"""
-        if self.processing:
-            return
-            
-        self.processing = True
-        processor_thread = threading.Thread(target=self._process_message_queue, daemon=True)
-        processor_thread.start()
-        logging.info("🚀 Processador de IA iniciado")
-
-    def _process_message_queue(self):
-        """Processa mensagens da queue usando IA"""
-        while True:
-            try:
-                # Pegar próxima mensagem (bloqueia até chegar uma)
-                message_data = self.message_queue.get(timeout=60)
-                
-                # Processar com IA
-                self._process_with_ai(
-                    message_data['phone_number'],
-                    message_data['conversation_id'], 
-                    message_data['message_content'],
-                    message_data['phone_number_id']
-                )
-                
-                # Marcar como processada
-                self.message_queue.task_done()
-                
-            except queue.Empty:
-                # Timeout - continuar rodando
-                continue
-            except Exception as e:
-                logging.error(f"Erro no processador de IA: {e}")
-                continue
+    # 🚫 FUNÇÕES REMOVIDAS: _start_message_processor e _process_message_queue
+    # Eram redundantes e causavam processamento duplicado
+    # Agora usa apenas _message_consumer como thread principal
 
     def _process_with_ai(self, phone_number: str, conversation_id: int, 
                         message_content: str, phone_number_id: str):
