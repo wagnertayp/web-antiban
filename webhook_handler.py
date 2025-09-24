@@ -162,6 +162,10 @@ class WhatsAppWebhookHandler:
             timestamp = message.get('timestamp')
             message_type = message.get('type')
             
+            # 🔍 LOG DETALHADO - INVESTIGAR MENSAGENS DE IMAGEM
+            logging.critical(f"🔍 WEBHOOK RECEBIDO: tipo='{message_type}', de={from_number}")
+            logging.critical(f"🔍 ESTRUTURA COMPLETA: {message}")
+            
             result = {
                 'event_type': 'message_received',
                 'message_id': message_id,
