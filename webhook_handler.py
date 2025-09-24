@@ -397,9 +397,10 @@ class WhatsAppWebhookHandler:
             self.db.session.commit()
             logging.info(f"✅ COMMIT realizado com sucesso")
             
-            # 🔒 ELIMINADO: _trigger_conversation_automation para evitar duplicação
-            # A IA já é ativada via _activate_ai_directly - usar apenas um caminho
-            logging.info(f"✅ Mensagem salva - IA será ativada via singleton apenas")
+            # 🤖 DISPARAR AUTOMAÇÃO DE CONVERSAS (após commit)
+            logging.info(f"🔥 INICIANDO trigger_conversation_automation para {normalized_phone}")
+            self._trigger_conversation_automation(normalized_phone, conversation.id, message_content, phone_number_id)
+            logging.info(f"✅ FINALIZOU trigger_conversation_automation para {normalized_phone}")
             
         except Exception as e:
             logging.exception(f"🚨 ERRO CRÍTICO ao salvar mensagem: {str(e)}")

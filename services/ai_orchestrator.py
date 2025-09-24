@@ -772,7 +772,7 @@ Responda como Zilma de forma natural e convincente."""
             # Implementar envio de botões interativos
             success, result = self.whatsapp_api.send_interactive_buttons(phone_number, message, buttons)
             if success:
-                # 🔧 CORREÇÃO: Salvar apenas mensagem, não incluir info dos botões  
+                # 🔧 CORREÇÃO: Salvar apenas mensagem original, NÃO descrição dos botões
                 self._save_outbound_message(conversation_id, message, result.get('messageId'))
                 logging.info(f"✅ IA enviou botões: {[b['title'] for b in buttons]}")
             else:
