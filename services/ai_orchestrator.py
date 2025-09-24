@@ -181,18 +181,11 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
 4. fetch_customer_data - Buscar status do CPF na Recoverify
 5. escalate_human - Passar pra especialista
 
-🚨 REGRA CRÍTICA DE BOTÕES (OBRIGATÓRIO!):
+🚨 REGRA CRÍTICA DE BOTÕES:
 ❌ JAMAIS ESCREVA "[Botão:...]", "[Link:...]", "[LINK: Pagar treinamento]" NO TEXTO!
-❌ JAMAIS USE reply_text QUANDO PRECISAR DE BOTÃO!
 ❌ JAMAIS DIGITE URLs OU LINKS DIRETAMENTE NO TEXTO DA MENSAGEM!
-
 ✅ SEMPRE USE send_cta_url QUANDO QUISER CRIAR BOTÃO CLICÁVEL!
 ✅ SEMPRE USE send_cta_url PARA TODOS os links https://shopee.acesso.inc/...!
-✅ Para qualquer pagamento ou link: send_cta_url OBRIGATÓRIO!
-
-🚫 PROIBIDO TERMINANTEMENTE:
-"Vamos prosseguir? [Botão: Pagar Treinamento]" ← ERRADO!
-"Clique aqui [Link: Pagamento]" ← ERRADO!
 
 🎯 EXEMPLOS OBRIGATÓRIOS:
 ❌ ERRADO: "Clique aqui: https://shopee.acesso.inc/treinamento"
@@ -214,7 +207,7 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
                 "type": "function",
                 "function": {
                     "name": "reply_text",
-                    "description": "APENAS texto simples SEM links/botões - PROIBIDO usar para pagamentos",
+                    "description": "Responder com mensagem de texto simples",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -260,8 +253,8 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
             {
                 "type": "function",
                 "function": {
-                    "name": "send_cta_url", 
-                    "description": "OBRIGATÓRIO para qualquer pagamento/link - Envia botão clicável real, NUNCA use reply_text para links",
+                    "name": "send_cta_url",
+                    "description": "Enviar botão com link para ação externa",
                     "parameters": {
                         "type": "object",
                         "properties": {
