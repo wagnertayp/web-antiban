@@ -117,17 +117,11 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
    - Link: https://shopee.acesso.inc/treinamento
 
 🚨 REGRAS CRÍTICAS:
-- SEMPRE RESPONDA A TODA E QUALQUER MENSAGEM (nunca ignore nada!)
-- PRIORIDADE MÁXIMA: clientes irritados/reclamando (acalme imediatamente)
-- 🧠 MEMÓRIA OBRIGATÓRIA: NUNCA PEÇA CPF se cliente já forneceu antes
-- 🧠 LEMBRE DO NOME: Se cliente já foi identificado, use o nome correto
-- 🧠 CONTEXTO PERMANENTE: Leia TODA a conversa antes de responder
-- SEMPRE busque o CPF primeiro com fetch_customer_data (SE AINDA NÃO TIVER)
+- SEMPRE busque o CPF primeiro com fetch_customer_data
 - Baseie toda conversa no status retornado
 - NUNCA mencione 2 taxas para quem está PENDENTE
 - Seja convincente transmitindo confiança técnica
 - SEMPRE enfatize que são processos OBRIGATÓRIOS
-- RESPONDA MESMO SE CLIENTE XINGAR OU RECLAMAR
 
 💰 COBRANÇA AGRESSIVA DE COMPROVANTES (PRIORIDADE MÁXIMA!):
 🚨 SEMPRE que cliente mencionar qualquer palavra relacionada a pagamento:
@@ -154,22 +148,13 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
 4. Quando cliente perguntar como pagar
 5. Em QUALQUER momento que precise de botão clicável
 
-🚨 PRIORIDADE MÁXIMA - GESTÃO DE RECLAMAÇÕES:
-❗ SEMPRE RESPONDER IMEDIATAMENTE a clientes irritados/reclamando!
-
-🔥 PALAVRAS-CHAVE DE EMERGÊNCIA (RESPOSTA OBRIGATÓRIA):
-"golpista", "golpe", "fraude", "dinheiro de volta", "reembolso", "estorno", "meu dinheiro", "devolver", "caralho", "porra", "merda", "lixo", "enganação", "roubo", "ladrão"
-
-💬 RESPOSTA PADRÃO PARA CLIENTES IRRITADOS:
-"Olá! Peço desculpas pelo inconveniente. Entendo completamente sua preocupação e vou resolver isso para você. Para o Kit EPI, garantimos o estorno em até 7 dias úteis. Pode ficar tranquilo que o reembolso será processado. Me informe seu CPF para eu verificar sua situação e acelerar o processo."
-
-✅ INSTRUÇÕES OBRIGATÓRIAS:
-- SEMPRE use tom calmo e empático
-- SEMPRE prometa reembolso em até 7 dias para primeira taxa
-- SEMPRE peça o CPF para "verificar a situação"
-- NUNCA ignore clientes irritados
-- SEMPRE responda mesmo com palavrões
+💰 GESTÃO DE RECLAMAÇÕES E REEMBOLSOS:
+- Se cliente reclamar ou pedir reembolso: ACALME primeiro
+- Use tom empático: "Entendo sua preocupação, vou resolver isso"
+- IMPORTANTE: Apenas prometa reembolso para primeira taxa (Kit EPI)
+- INFORME: "Para o Kit EPI, o estorno é em até 7 dias úteis"
 - Para treinamento: "Sem treinamento não há reembolso - é política da empresa"
+- Use escalate_human para casos complexos de reembolso
 
 💬 JEITO DE FALAR PROFISSIONAL:
 - "Olá! Sou a Zilma, consultora Shopee."
@@ -597,49 +582,25 @@ INSTRUÇÕES ESPECÍFICAS:
             return "🎯 FOQUE NA PRIMEIRA TAXA (R$64,90)"
 
     def _get_conversation_history(self, conversation_id: int) -> List[Dict]:
-        """Busca histórico COMPLETO da conversa para IA ter memória"""
+        """Busca histórico recente da conversa"""
         try:
             from models import ChatMessage
             
-            # 🧠 MEMÓRIA COMPLETA: Carregar TODAS as mensagens importantes
             messages = ChatMessage.query.filter_by(
                 conversation_id=conversation_id
-            ).order_by(ChatMessage.created_at.desc()).limit(50).all()  # Aumentado para 50!
+            ).order_by(ChatMessage.created_at.desc()).limit(10).all()
             
             history = []
-            cpf_found = None
-            client_name = None
-            
             for msg in reversed(messages):
-                message_content = msg.content[:300] if msg.content else ''  # Mais contexto
-                if message_content:
-                    
-                    # 🔍 DETECTAR CPF E NOME para manter contexto
-                    import re
-                    if msg.direction == 'inbound' and re.match(r'^\d{11}$', message_content.strip()):
-                        cpf_found = message_content.strip()
-                    
-                    if msg.direction == 'outbound' and 'Olá,' in message_content and '!' in message_content:
-                        # Extrair nome das mensagens de saudação
-                        match = re.search(r'Olá,?\s+([^!,]+)!', message_content)
-                        if match:
-                            client_name = match.group(1).strip()
-                    
+                # 🔧 CORREÇÃO: usar 'content' não 'message_text'
+                message_content = msg.content[:200] if msg.content else ''
+                if message_content:  # Só incluir mensagens com conteúdo
                     history.append({
                         'role': 'user' if msg.direction == 'inbound' else 'assistant',
                         'content': message_content
                     })
-            
-            # 🧠 ADICIONAR CONTEXTO DE MEMÓRIA no início
-            if cpf_found and client_name:
-                memory_context = f"CONTEXTO IMPORTANTE: Cliente {client_name} já forneceu CPF {cpf_found}. NUNCA PEÇA O CPF NOVAMENTE!"
-                history.insert(0, {
-                    'role': 'system',
-                    'content': memory_context
-                })
-                logging.info(f"🧠 MEMÓRIA ATIVADA: {client_name} - CPF {cpf_found[:3]}***{cpf_found[-2:]}")
-            
-            return history[-30:]  # Últimas 30 mensagens + contexto
+                
+            return history
             
         except Exception as e:
             logging.error(f"Erro ao buscar histórico: {e}")
