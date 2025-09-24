@@ -790,9 +790,12 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"📱 Enviando botões interativos: {[b['title'] for b in buttons]}")
             
-            # Enviar via API
+            # 🛡️ RATE LIMITING ANTI-BAN
+            SharedRateLimiter.check_and_wait(self._phone_number_id)
+            
+            # Enviar via método seguro
             url = f"https://graph.facebook.com/v23.0/{self._phone_number_id}/messages"
-            response = requests.post(url, json=interactive_payload, headers=self._headers, timeout=30)
+            response = self._send_direct(url, interactive_payload, self._phone_number_id)
             
             if response.status_code == 200:
                 response_data = response.json()
@@ -843,9 +846,12 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"🔗 Enviando botão CTA: {button_text} -> {url}")
             
-            # Enviar via API
+            # 🛡️ RATE LIMITING ANTI-BAN
+            SharedRateLimiter.check_and_wait(self._phone_number_id)
+            
+            # Enviar via método seguro
             url_endpoint = f"https://graph.facebook.com/v23.0/{self._phone_number_id}/messages"
-            response = requests.post(url_endpoint, json=cta_payload, headers=self._headers, timeout=30)
+            response = self._send_direct(url_endpoint, cta_payload, self._phone_number_id)
             
             if response.status_code == 200:
                 response_data = response.json()
