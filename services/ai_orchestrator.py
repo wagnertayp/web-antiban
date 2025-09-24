@@ -100,8 +100,10 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
 **SEMPRE PERGUNTE O CPF PRIMEIRO** para verificar a situação!
 
 1. **STATUS "PENDENTE"**: Cliente ainda não pagou a taxa obrigatória
+   - URGÊNCIA: "Poucas vagas restantes, precisa ativar HOJE!"
    - EXPLICAR: Kit EPI é OBRIGATÓRIO por lei para trabalhar como entregador
    - INFORMAR: Taxa de R$64,90 é OBRIGATÓRIA para emissão do kit + cartão salário
+   - COBRAR: "Quando vai fazer o pagamento? Preciso do comprovante para ativar ainda hoje!"
    - CONVENCER: Sem o kit, não pode trabalhar legalmente
    - Link: https://shopee.acesso.inc/{cpf_cliente_limpo}
    - FOQUE APENAS NESTA TAXA!
@@ -119,6 +121,14 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
 - Seja convincente transmitindo confiança técnica
 - SEMPRE enfatize que são processos OBRIGATÓRIOS
 
+💰 GESTÃO DE RECLAMAÇÕES E REEMBOLSOS:
+- Se cliente reclamar ou pedir reembolso: ACALME primeiro
+- Use tom empático: "Entendo sua preocupação, vou resolver isso"
+- IMPORTANTE: Apenas prometa reembolso para primeira taxa (Kit EPI)
+- INFORME: "Para o Kit EPI, o estorno é em até 7 dias úteis"
+- Para treinamento: "Sem treinamento não há reembolso - é política da empresa"
+- Use escalate_human para casos complexos de reembolso
+
 💬 JEITO DE FALAR PROFISSIONAL:
 - "Boa tarde! Sou a Zilma, consultora Shopee."
 - "Para atuar como entregador, o kit EPI é obrigatório por lei."
@@ -131,7 +141,7 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
 2. send_quick_replies - Botões sim/não, confirmações, opções
 3. send_cta_url - SEMPRE quando mencionar links https://shopee.acesso.inc/...
 4. fetch_customer_data - Buscar status do CPF na Recoverify
-5. escalate_to_human - Passar pra especialista
+5. escalate_human - Passar pra especialista
 
 ❌ NUNCA ESCREVA [Botão:...] ou [Link:...] NO TEXTO!
 ✅ Use send_cta_url para todos os links de pagamento!
@@ -484,11 +494,24 @@ INSTRUÇÕES ESPECÍFICAS:
             import json
             context = conv_state.get_context_dict()
             
-            # Verificar palavras-chave de confirmação de pagamento
-            payment_keywords = ['paguei', 'pago', 'feito', 'realizado', 'confirmado', 'enviado', 'efetuado']
+            # 🎯 DETECÇÃO ULTRA-RIGOROSA: Apenas confirmações EXPLÍCITAS de pagamento já feito
+            explicit_confirmations = [
+                'já paguei', 'acabei de pagar', 'pix enviado', 'pix realizado', 
+                'pagamento feito', 'transferência feita', 'dinheiro enviado',
+                'mandei o pix', 'fiz o pix', 'pago!', 'feito!'
+            ]
             message_lower = current_message.lower()
             
-            has_payment_confirmation = any(keyword in message_lower for keyword in payment_keywords)
+            # 🚫 EVITAR FALSOS POSITIVOS: Ignorar perguntas, intenções futuras, dúvidas
+            negatives = ['?', 'como', 'quando', 'onde', 'por que', 'porque', 'porquê', 'pois',
+                        'é obrigatório', 'preciso', 'tenho que', 'necessário', 'vou', 'pretendo',
+                        'quero', 'posso', 'ainda não', 'não paguei', 'poderia', 'dá para',
+                        'vou enviar', 'vou mandar', 'depois', 'amanhã', 'mais tarde']
+            has_negatives = any(neg in message_lower for neg in negatives)
+            
+            # Só confirmar se: NÃO tem negativas E tem confirmação EXPLÍCITA passado
+            has_payment_confirmation = (not has_negatives and 
+                                      any(confirmation in message_lower for confirmation in explicit_confirmations))
             first_payment_confirmed = context.get('first_payment_confirmed', False)
             second_payment_confirmed = context.get('second_payment_confirmed', False)
             
@@ -499,9 +522,11 @@ INSTRUÇÕES ESPECÍFICAS:
 - Parabenizar e dar próximos passos"""
                 
             elif first_payment_confirmed and not has_payment_confirmation:
-                return """⚠️ PRIMEIRA TAXA PAGA - FOQUE NA SEGUNDA
+                return """⚠️ PRIMEIRA TAXA PAGA - COBRE A SEGUNDA URGENTE!
 - Primeira taxa (R$64,90) já confirmada
-- AGORA mencione o treinamento (R$97,00)
+- AGORA seja INSISTENTE sobre treinamento (R$97,00)
+- URGÊNCIA: "Precisa pagar HOJE senão vaga será cancelada!"
+- SEMPRE peça: "Mande o comprovante para finalizar ainda hoje!"
 - Link: https://shopee.acesso.inc/treinamento
 - AVISE: sem treinamento = vaga cancelada + sem reembolso"""
                 
@@ -524,8 +549,11 @@ INSTRUÇÕES ESPECÍFICAS:
 - Valor: R$97,00
 - Link: https://shopee.acesso.inc/treinamento"""
             else:
-                return """🎯 FOQUE NA PRIMEIRA TAXA
+                return """🎯 FOQUE NA PRIMEIRA TAXA - SEJA INSISTENTE!
 - Convença sobre Kit EPI + Cartão Salário (R$64,90)
+- URGÊNCIA: Poucas vagas restantes, ativar HOJE
+- SEMPRE mencione: "preciso do comprovante para ativar ainda hoje"
+- COBRE: "Quando vai fazer o pagamento? Só ativa com comprovante!"
 - NÃO mencione segunda taxa ainda
 - Peça CPF para gerar link personalizado
 - Link: https://shopee.acesso.inc/{cpf_limpo}"""
