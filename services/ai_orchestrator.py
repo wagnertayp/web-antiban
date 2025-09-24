@@ -380,22 +380,18 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
         message_data = {
             'phone_number': phone_number,
             'conversation_id': conversation_id,
-            'message_content': message_content,
+            'content': message_content,  # 🔧 CORREÇÃO: usar 'content' como esperado pelo consumer
             'phone_number_id': phone_number_id,
             'timestamp': datetime.now().isoformat()
         }
         
-        # 🔧 VERIFICAR SE MENSAGEM JÁ ESTÁ NA QUEUE para evitar duplicatas
-        queue_size_before = self.message_queue.qsize()
+        # 🔧 USAR MÉTODO UNIFICADO para evitar conflitos de queue
+        self.enqueue(message_data)
         
-        self.message_queue.put(message_data)
-        logging.info(f"📤 Mensagem adicionada na queue: {phone_number} (queue size: {queue_size_before} -> {self.message_queue.qsize()})")
-        
-        # Iniciar processador se não estiver rodando
-        if not self.processing:
-            self._start_message_processor()
+        # 🔧 REMOVIDO: Processador duplicado que causava conflito
+        # O consumer thread já cuida de processar mensagens
 
-    def _start_message_processor(self):
+    def _start_message_processor_DEPRECATED(self):
         """Inicia processador de mensagens em thread separada"""
         if self.processing:
             return
