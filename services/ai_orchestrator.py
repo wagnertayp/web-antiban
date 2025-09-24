@@ -428,18 +428,19 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
             
             logging.info(f"🤖 Processando com IA: {phone_number} - Estado: {conv_state.current_state}")
             
-            # 🔧 CORREÇÃO: Construir histórico como mensagens separadas
-            messages = [{"role": "system", "content": self.system_prompt}]
+            # 🧠 HISTÓRICO CONVERSACIONAL: Usar prompt state-aware + histórico real
+            messages = [{"role": "system", "content": self._build_state_aware_prompt(conv_state)}]
             
-            # Adicionar histórico da conversa como mensagens individuais
-            for hist_msg in conversation_history:
+            # Carregar histórico real da conversa para contexto
+            recent_history = self._get_recent_chat_history(conversation_id, limit=15)
+            for hist_msg in recent_history:
                 messages.append({
                     "role": hist_msg["role"], 
                     "content": hist_msg["content"]
                 })
             
             # Adicionar mensagem atual
-            messages.append({"role": "user", "content": context})
+            messages.append({"role": "user", "content": message_content})
             
             # Chamar OpenAI com tool calling
             response = self.openai_client.chat.completions.create(
@@ -458,6 +459,11 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
             logging.error(f"Erro no processamento com IA: {e}")
             # Fallback para resposta simples
             self._send_fallback_response(phone_number)
+
+    def _can_send_cta_guard(self, conv_state, url: str) -> bool:
+        """🔒 GUARD: Verifica se pode enviar CTA (evita spam de botões)"""
+        cta_type = "kit" if "shopee.acesso.inc" in url else "treinamento"
+        return conv_state.can_send_cta(cta_type, url, throttle_minutes=5)
 
     def _prepare_ai_context(self, conv_state, conversation_history: List, current_message: str) -> str:
         """Prepara contexto completo para a IA com estado de pagamento"""
@@ -601,12 +607,26 @@ INSTRUÇÕES ESPECÍFICAS:
                 self._send_quick_replies(phone_number, args['message'], args['buttons'], conversation_id)
                 
             elif function_name == "send_cta_url":
-                self._send_cta_button(phone_number, args['message'], args['button_text'], args['url'], conversation_id)
-                # 📨 AUTOMÁTICO: Enviar mensagem sobre comprovante após link de pagamento
-                self._send_payment_confirmation_request(phone_number, conversation_id)
+                # 🔒 GUARD: Verificar se pode enviar CTA (evita duplicatas)
+                if self._can_send_cta_guard(conv_state, args['url']):
+                    self._send_cta_button(phone_number, args['message'], args['button_text'], args['url'], conversation_id)
+                    # 📝 Registrar CTA enviado
+                    cta_type = "kit" if "shopee.acesso.inc" in args['url'] else "treinamento"
+                    conv_state.record_cta_sent(cta_type, args['url'])
+                    # 📨 AUTOMÁTICO: Enviar mensagem sobre comprovante após link de pagamento
+                    if not conv_state.receipt_requested:
+                        self._send_payment_confirmation_request(phone_number, conversation_id)
+                        conv_state.receipt_requested = True
+                        db.session.commit()
+                else:
+                    logging.info(f"🔒 CTA bloqueado por guard de idempotência: {args['url'][:50]}...")
                 
             elif function_name == "fetch_customer_data":
-                self._handle_customer_data_fetch(phone_number, conversation_id, args['cpf'], conv_state)
+                # 🔄 Verificar se já tem dados válidos antes de re-buscar
+                if not conv_state.has_valid_cpf_data():
+                    self._handle_customer_data_fetch(phone_number, conversation_id, args['cpf'], conv_state)
+                else:
+                    logging.info(f"✅ Dados de CPF já válidos: {conv_state.cpf_status} - evitando re-busca")
                 
             elif function_name == "fetch_api":
                 api_result = self._fetch_internal_api(args['endpoint'], args.get('params', {}))
@@ -872,6 +892,84 @@ Use essas informações para responder adequadamente ao cliente. Seja natural e 
                 
         except Exception as e:
             logging.error(f"Erro ao enviar mensagem de comprovante: {e}")
+
+    def _get_recent_chat_history(self, conversation_id: int, limit: int = 15):
+        """📚 Carrega histórico recente da conversa para contexto da IA"""
+        try:
+            from models import ChatMessage
+            
+            recent_messages = ChatMessage.query.filter_by(
+                conversation_id=conversation_id
+            ).order_by(ChatMessage.created_at.desc()).limit(limit).all()
+            
+            # Converter para formato da IA (mais recente primeiro, depois reverter)
+            history = []
+            for msg in reversed(recent_messages):  # Reverter para ordem cronológica
+                role = "assistant" if msg.direction == "outbound" else "user"
+                history.append({
+                    "role": role,
+                    "content": msg.content
+                })
+                
+            return history
+            
+        except Exception as e:
+            logging.error(f"Erro ao carregar histórico: {e}")
+            return []
+
+    def _build_state_aware_prompt(self, conv_state) -> str:
+        """🧠 Constrói prompt inteligente baseado no estado da conversa"""
+        base_prompt = """Você é a Atendente Zilma Shopee, especialista em recrutamento de entregadores.
+
+🎯 REGRAS DE CONVERSAÇÃO INTELIGENTE:
+"""
+        
+        # 💾 MEMÓRIA: Verificar se já tem dados do CPF
+        if conv_state.has_valid_cpf_data():
+            if conv_state.cpf_status == "APPROVED":
+                base_prompt += f"""
+✅ MEMÓRIA: Cliente JÁ APROVADO (CPF {conv_state.cpf_normalized})
+- NÃO pergunte CPF novamente 
+- Já pode oferecer treinamento diretamente
+- Cliente está no status APROVADO"""
+            else:
+                base_prompt += f"""
+⏳ MEMÓRIA: Cliente PENDENTE (CPF {conv_state.cpf_normalized})  
+- NÃO pergunte CPF novamente
+- Ofereça kit de entregador (R$64,90)
+- Cliente está no status pendente"""
+        else:
+            base_prompt += """
+❓ PRIMEIRA CONVERSA: Cliente novo
+- Pergunte CPF apenas se necessário para consulta
+- Seja natural e conversacional"""
+
+        # 🔒 IDEMPOTÊNCIA: Verificar CTAs recentes
+        if conv_state.last_cta_at:
+            base_prompt += f"""
+🔒 IMPORTANTE: Último botão enviado há pouco tempo
+- NÃO repita o mesmo botão/link
+- Responda perguntas do cliente primeiro
+- Seja conversacional antes de insistir"""
+
+        base_prompt += """
+
+🗣️ ESTILO CONVERSACIONAL:
+- SEMPRE responda perguntas do cliente primeiro
+- Seja natural e empática
+- Mantenha o contexto da conversa anterior
+- NÃO se reapresente se já conversaram
+- Use o histórico para dar continuidade natural
+
+🚫 PROIBIDO:
+- Repetir botões de pagamento recentemente enviados
+- Re-pedir CPF se já consultou com sucesso
+- Ignorar perguntas do cliente
+- Agir como se fosse primeira conversa sempre
+
+Use as ferramentas disponíveis com inteligência e contexto."""
+
+        return base_prompt
 
     def _handle_image_received(self, phone_number: str, conversation_id: int):
         """Responder automaticamente quando receber imagem (comprovante)"""
