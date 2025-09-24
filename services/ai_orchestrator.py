@@ -385,11 +385,8 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
             'timestamp': datetime.now().isoformat()
         }
         
-        # 🔧 VERIFICAR SE MENSAGEM JÁ ESTÁ NA QUEUE para evitar duplicatas
-        queue_size_before = self.message_queue.qsize()
-        
         self.message_queue.put(message_data)
-        logging.info(f"📤 Mensagem adicionada na queue: {phone_number} (queue size: {queue_size_before} -> {self.message_queue.qsize()})")
+        logging.info(f"📤 Mensagem adicionada na queue: {phone_number}")
         
         # Iniciar processador se não estiver rodando
         if not self.processing:
