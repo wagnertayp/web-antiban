@@ -461,8 +461,9 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
             
         except Exception as e:
             logging.error(f"Erro no processamento com IA: {e}")
-            # Fallback para resposta simples
-            self._send_fallback_response(phone_number)
+            # 🚫 DESABILITAR FALLBACK TEMPORARIAMENTE - Está causando mensagens duplicadas
+            # self._send_fallback_response(phone_number)
+            logging.warning("🔕 Fallback desabilitado para evitar mensagens duplicadas")
 
     def _prepare_ai_context(self, conv_state, conversation_history: List, current_message: str) -> str:
         """Prepara contexto completo para a IA com estado de pagamento"""
