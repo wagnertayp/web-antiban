@@ -275,8 +275,12 @@ class WhatsAppBusinessAPI:
                         self._has_error_135000 = False
                         logging.warning(f"⚠️ SECRETS NÃO ENCONTRADAS - USAR SELEÇÃO DO USUÁRIO")
             
-            # Usar primeiro phone disponível ou None se não há phones
-            new_phone_id = self._available_phones[0] if self._available_phones else None
+            # Usar primeiro phone disponível ou None se não há phones (CORRIGIDO: extrair apenas o ID)
+            if self._available_phones:
+                first_phone = self._available_phones[0]
+                new_phone_id = first_phone['id'] if isinstance(first_phone, dict) else first_phone
+            else:
+                new_phone_id = None
                 
         elif new_token:
             # ALWAYS FORCE FRESH - NO CACHE EVER

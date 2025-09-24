@@ -54,7 +54,7 @@ class MegaBatchSender:
                 
                 # Distribute across phone numbers (1000 per phone)
                 phone_idx = (global_pos // 1000) % len(self.phone_numbers)
-                phone_id = self.phone_numbers[phone_idx]
+                phone_id = self.phone_numbers[phone_idx]['id'] if isinstance(self.phone_numbers[phone_idx], dict) else self.phone_numbers[phone_idx]
                 template = self.templates[global_pos % len(self.templates)]
                 
                 # Format phone number

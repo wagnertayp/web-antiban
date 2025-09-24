@@ -49,7 +49,7 @@ class HighSpeedDispatcher:
                     # DISTRIBUIÇÃO INTELIGENTE
                     global_index = (batch_index * len(leads_batch)) + i
                     phone_index = (global_index // 1000) % len(self.phone_numbers)
-                    phone_id = self.phone_numbers[phone_index]
+                    phone_id = self.phone_numbers[phone_index]['id'] if isinstance(self.phone_numbers[phone_index], dict) else self.phone_numbers[phone_index]
                     template = self.templates[global_index % len(self.templates)]
                     
                     # Format phone
