@@ -187,10 +187,22 @@ class WhatsAppBusinessAPI:
     
     def _refresh_credentials(self):
         """Refresh credentials from environment variables with multi-BM support"""
-        # ✅ RESPEITAR CREDENCIAIS DA SESSÃO - Não sobrescrever!
+        # ✅ DETECÇÃO DE MUDANÇA DE TOKEN - Permitir atualização quando token muda
         if self._credentials_from_session and self._access_token:
-            logging.debug("🔒 Mantendo credenciais da sessão (não sobrescrever)")
-            return
+            # Verificar se é a mesma conta/token da sessão - se sim, não atualizar
+            from flask import session
+            try:
+                session_token = session.get('whatsapp_access_token')
+                if session_token and self._access_token == session_token:
+                    logging.debug("🔒 Mantendo credenciais da sessão (mesmo token)")
+                    return
+                # Se tokens diferentes, permitir atualização
+                elif session_token and self._access_token != session_token:
+                    logging.info(f"🔄 MUDANÇA DE CONTA DETECTADA - Atualizando credenciais")
+                    self._credentials_from_session = False  # Reset para permitir atualização
+            except RuntimeError:
+                # Fora do contexto da sessão - continuar normalmente
+                pass
             
         # Só usar environment se não tiver credenciais da sessão
         new_token = os.getenv('WHATSAPP_ACCESS_TOKEN')

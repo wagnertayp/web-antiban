@@ -149,6 +149,10 @@ def load_session_credentials():
             whatsapp_service._access_token != session_token):
             
             try:
+                # FORÇAR ATUALIZAÇÃO quando há mudança de conta
+                logging.info(f"🔄 TOKEN MUDOU - Forçando atualização das credenciais")
+                whatsapp_service._credentials_from_session = False  # Reset flag
+                
                 # Atualizar credenciais do service com dados da sessão
                 if hasattr(whatsapp_service, 'update_credentials') and session_token:
                     whatsapp_service.update_credentials(
