@@ -119,7 +119,10 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
 🚨 REGRAS CRÍTICAS:
 - SEMPRE RESPONDA A TODA E QUALQUER MENSAGEM (nunca ignore nada!)
 - PRIORIDADE MÁXIMA: clientes irritados/reclamando (acalme imediatamente)
-- SEMPRE busque o CPF primeiro com fetch_customer_data
+- 🧠 MEMÓRIA OBRIGATÓRIA: NUNCA PEÇA CPF se cliente já forneceu antes
+- 🧠 LEMBRE DO NOME: Se cliente já foi identificado, use o nome correto
+- 🧠 CONTEXTO PERMANENTE: Leia TODA a conversa antes de responder
+- SEMPRE busque o CPF primeiro com fetch_customer_data (SE AINDA NÃO TIVER)
 - Baseie toda conversa no status retornado
 - NUNCA mencione 2 taxas para quem está PENDENTE
 - Seja convincente transmitindo confiança técnica
@@ -594,25 +597,49 @@ INSTRUÇÕES ESPECÍFICAS:
             return "🎯 FOQUE NA PRIMEIRA TAXA (R$64,90)"
 
     def _get_conversation_history(self, conversation_id: int) -> List[Dict]:
-        """Busca histórico recente da conversa"""
+        """Busca histórico COMPLETO da conversa para IA ter memória"""
         try:
             from models import ChatMessage
             
+            # 🧠 MEMÓRIA COMPLETA: Carregar TODAS as mensagens importantes
             messages = ChatMessage.query.filter_by(
                 conversation_id=conversation_id
-            ).order_by(ChatMessage.created_at.desc()).limit(10).all()
+            ).order_by(ChatMessage.created_at.desc()).limit(50).all()  # Aumentado para 50!
             
             history = []
+            cpf_found = None
+            client_name = None
+            
             for msg in reversed(messages):
-                # 🔧 CORREÇÃO: usar 'content' não 'message_text'
-                message_content = msg.content[:200] if msg.content else ''
-                if message_content:  # Só incluir mensagens com conteúdo
+                message_content = msg.content[:300] if msg.content else ''  # Mais contexto
+                if message_content:
+                    
+                    # 🔍 DETECTAR CPF E NOME para manter contexto
+                    import re
+                    if msg.direction == 'inbound' and re.match(r'^\d{11}$', message_content.strip()):
+                        cpf_found = message_content.strip()
+                    
+                    if msg.direction == 'outbound' and 'Olá,' in message_content and '!' in message_content:
+                        # Extrair nome das mensagens de saudação
+                        match = re.search(r'Olá,?\s+([^!,]+)!', message_content)
+                        if match:
+                            client_name = match.group(1).strip()
+                    
                     history.append({
                         'role': 'user' if msg.direction == 'inbound' else 'assistant',
                         'content': message_content
                     })
-                
-            return history
+            
+            # 🧠 ADICIONAR CONTEXTO DE MEMÓRIA no início
+            if cpf_found and client_name:
+                memory_context = f"CONTEXTO IMPORTANTE: Cliente {client_name} já forneceu CPF {cpf_found}. NUNCA PEÇA O CPF NOVAMENTE!"
+                history.insert(0, {
+                    'role': 'system',
+                    'content': memory_context
+                })
+                logging.info(f"🧠 MEMÓRIA ATIVADA: {client_name} - CPF {cpf_found[:3]}***{cpf_found[-2:]}")
+            
+            return history[-30:]  # Últimas 30 mensagens + contexto
             
         except Exception as e:
             logging.error(f"Erro ao buscar histórico: {e}")
