@@ -2499,13 +2499,27 @@ def get_conversation_messages(conversation_id):
         
         result = []
         for msg in messages:
+            # 🇧🇷 GARANTIR HORÁRIO BRASILEIRO NO FRONTEND
+            from datetime import timezone, timedelta
+            brasil_tz = timezone(timedelta(hours=-3))
+            
+            # Converter timestamp para horário brasileiro
+            created_at_br = None
+            if msg.created_at:
+                if msg.created_at.tzinfo is None:
+                    # Se não tem timezone, assumir que já está em Brasília
+                    created_at_br = msg.created_at.replace(tzinfo=brasil_tz)
+                else:
+                    # Converter para Brasília
+                    created_at_br = msg.created_at.astimezone(brasil_tz)
+            
             result.append({
                 'id': msg.id,
                 'direction': msg.direction,
                 'content': msg.content,
                 'message_type': msg.message_type,
                 'status': msg.status,
-                'created_at': msg.created_at.isoformat(),
+                'created_at': created_at_br.isoformat() if created_at_br else None,
                 'media_url': msg.media_url,
                 'media_caption': msg.media_caption
             })
