@@ -486,7 +486,7 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!
                 model="gpt-4", 
                 messages=messages,
                 tools=self.tools,
-                tool_choice="auto",
+                tool_choice="required",  # 🔧 CORREÇÃO: Forçar uso de ferramentas sempre
                 max_tokens=150,
                 temperature=0.7
             )
