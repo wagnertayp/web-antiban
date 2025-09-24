@@ -776,7 +776,8 @@ Responda como Zilma de forma natural e convincente."""
                 self._save_outbound_message(conversation_id, message, result.get('messageId'))
                 logging.info(f"✅ IA enviou botões: {[b['title'] for b in buttons]}")
             else:
-                # Fallback para texto se botões falharem
+                # 🔧 FALLBACK LIMPO: Se botões falharam, enviar apenas texto simples
+                logging.warning(f"⚠️ Botões falharam, enviando texto simples: {result}")
                 self._send_text_response(phone_number, message, conversation_id)
                 
         except Exception as e:
