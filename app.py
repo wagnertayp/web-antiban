@@ -1940,6 +1940,8 @@ def whatsapp_webhook() -> tuple[str, int]:
                 
         # POST - mensagem recebida
         if request.method == 'POST':
+            logging.critical(f"🔥 WEBHOOK POST RECEBIDO - INÍCIO DE DEBUG")
+            print(f"🔥 WEBHOOK POST RECEBIDO - DEBUG CONSOLE")
             logging.info(f"🔥 ENTRANDO NO POST DO WEBHOOK")
             try:
                 # Log básico sem processamento pesado
