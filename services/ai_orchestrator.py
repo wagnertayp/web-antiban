@@ -99,7 +99,7 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
 🎯 FLUXO BASEADO NO STATUS (IMPORTANTE!):
 **SEMPRE PERGUNTE O CPF PRIMEIRO** para verificar a situação!
 
-1. **STATUS "PENDING"**: Cliente ainda não pagou a taxa obrigatória
+1. **STATUS "PENDENTE"**: Cliente ainda não pagou a taxa obrigatória
    - EXPLICAR: Kit EPI é OBRIGATÓRIO por lei para trabalhar como entregador
    - INFORMAR: Taxa de R$64,90 é OBRIGATÓRIA para emissão do kit + cartão salário
    - CONVENCER: Sem o kit, não pode trabalhar legalmente
@@ -115,7 +115,7 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
 🚨 REGRAS CRÍTICAS:
 - SEMPRE busque o CPF primeiro com fetch_customer_data
 - Baseie toda conversa no status retornado
-- NUNCA mencione 2 taxas para quem está PENDING
+- NUNCA mencione 2 taxas para quem está PENDENTE
 - Seja convincente transmitindo confiança técnica
 - SEMPRE enfatize que são processos OBRIGATÓRIOS
 
@@ -666,7 +666,7 @@ INSTRUÇÕES ESPECÍFICAS:
 - Valor transação: R$ {customer_data['transaction_value']}
 
 BASEIE SUA RESPOSTA NO STATUS:
-- Se PENDING: Convencer pagamento R$64,90 (Kit EPI)
+- Se PENDENTE: Convencer pagamento R$64,90 (Kit EPI)
 - Se APPROVED: Informar conclusão etapa 1, convencer R$97,00 (Treinamento)
 
 Responda como Zilma de forma natural e convincente."""
@@ -841,11 +841,12 @@ Use essas informações para responder adequadamente ao cliente. Seja natural e 
             logging.error(f"Erro na transferência: {e}")
 
     def _send_fallback_response(self, phone_number: str):
-        """Envia resposta de fallback em caso de erro"""
+        """Envia resposta de fallback INTELIGENTE que mantém contexto"""
         try:
-            fallback_msg = "Oi! Tive um probleminha aqui, mas já estou de volta! 😅 Como posso te ajudar?"
+            # 🔧 FALLBACK INTELIGENTE: Não se reapresentar, manter contexto
+            fallback_msg = "Desculpe, pode repetir? Preciso do seu CPF para verificar sua situação e te orientar sobre o processo."
             self.whatsapp_api.send_text_message(phone_number, fallback_msg)
-            logging.info("🆘 Resposta de fallback enviada")
+            logging.info("🆘 Resposta de fallback inteligente enviada (sem reapresentação)")
         except Exception as e:
             logging.error(f"Erro no fallback: {e}")
 
