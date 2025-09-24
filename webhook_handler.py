@@ -495,45 +495,18 @@ class WhatsAppWebhookHandler:
                 # Verificar se é primeira mensagem ou conversa de IA ativa
                 should_process_with_ai = ai_orchestrator.detect_first_message(phone_number, conversation_id)
                 
+                # 🎯 ÚNICO CAMINHO: Sempre usar queue_message_for_processing (evita duplicação)
                 if should_process_with_ai:
-                    logging.info(f"🤖 IA AUTÔNOMA ATIVADA para {phone_number} - Processamento DIRETO")
-                    
-                    # 🔧 CORREÇÃO: PROCESSAMENTO DIRETO (sem fila problemática)
-                    try:
-                        ai_orchestrator._process_with_ai(
-                            phone_number=phone_number,
-                            conversation_id=conversation_id,
-                            message_content=message_content,
-                            phone_number_id=phone_number_id
-                        )
-                        logging.info(f"✅ IA processou mensagem: {message_content[:50]}...")
-                    except Exception as e:
-                        logging.error(f"❌ Erro na IA: {e}")
-                        # Fallback simples
-                        try:
-                            whatsapp_api.send_text_message(phone_number, "Olá! Em breve entrarei em contato. Aguarde um momento.")
-                        except:
-                            pass
-                    
-                    logging.info(f"✅ Mensagem enviada para processamento de IA: {phone_number}")
+                    logging.info(f"🤖 IA ATIVADA para {phone_number} - Processamento via QUEUE")
+                    ai_orchestrator.queue_message_for_processing(
+                        phone_number=phone_number,
+                        conversation_id=conversation_id,
+                        message_content=message_content,
+                        phone_number_id=phone_number_id
+                    )
+                    logging.info(f"✅ Mensagem adicionada na queue: {phone_number}")
                 else:
-                    # Verificar se tem estado ativo de IA na conversa
-                    from models import ConversationState
-                    normalized_phone = phone_number.replace('+', '').replace(' ', '').replace('-', '')
-                    conv_state = ConversationState.query.filter_by(phone_number=normalized_phone).first()
-                    
-                    if conv_state and conv_state.is_ai_conversation():
-                        logging.info(f"🤖 Continuando conversa de IA ativa para {phone_number}")
-                        ai_orchestrator.queue_message_for_processing(
-                            phone_number=phone_number,
-                            conversation_id=conversation_id,
-                            message_content=message_content,
-                            phone_number_id=phone_number_id
-                        )
-                    else:
-                        logging.info(f"💤 IA não ativa para {phone_number} - nenhuma automação legada executada")
-                        # 🚫 AUTOMAÇÃO LEGADA DESABILITADA - IA controla toda conversa
-                        # self._fallback_to_legacy_automation(phone_number, conversation_id, message_content, phone_number_id, whatsapp_api)
+                    logging.info(f"💤 IA não ativa para {phone_number} - mensagem ignorada")
                 
         except Exception as e:
             logging.error(f"Erro na IA autônoma: {str(e)}")
