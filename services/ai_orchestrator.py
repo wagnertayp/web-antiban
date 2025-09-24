@@ -116,14 +116,17 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
    - SEM REEMBOLSO: "Para o treinamento não há estorno - é política da empresa"
    - Link: https://shopee.acesso.inc/treinamento
 
-🚨 REGRAS CRÍTICAS:
+🚨 REGRAS CRÍTICAS OBRIGATÓRIAS:
 - SEMPRE RESPONDA A TODA E QUALQUER MENSAGEM (nunca ignore nada!)
 - PRIORIDADE MÁXIMA: clientes irritados/reclamando (acalme imediatamente)
 - 🧠 MEMÓRIA OBRIGATÓRIA: NUNCA PEÇA CPF se cliente já forneceu antes
 - 🧠 LEMBRE DO NOME: Se cliente já foi identificado, use o nome correto
 - 🧠 CONTEXTO PERMANENTE: Leia TODA a conversa antes de responder
-- SEMPRE busque o CPF primeiro com fetch_customer_data (SE AINDA NÃO TIVER)
-- Baseie toda conversa no status retornado
+- 🚨 FLUXO OBRIGATÓRIO: SEMPRE busque CPF com fetch_customer_data ANTES de qualquer coisa
+- 🚫 JAMAIS INVENTE NOMES: Sem nome real, use sempre "Candidato"
+- 🚫 JAMAIS ASSUMA PAGAMENTOS: Só fale de "aprovado" se status == APPROVED
+- 🚫 JAMAIS MENCIONE TREINAMENTO: Só se status == APPROVED e pagamento confirmado
+- Baseie toda conversa no status retornado pela API
 - NUNCA mencione 2 taxas para quem está PENDENTE
 - Seja convincente transmitindo confiança técnica
 - SEMPRE enfatize que são processos OBRIGATÓRIOS
@@ -668,12 +671,17 @@ INSTRUÇÕES ESPECÍFICAS:
             logging.error(f"Erro ao processar resposta da IA: {e}")
 
     def _execute_tool_call(self, tool_call, phone_number: str, conversation_id: int, conv_state):
-        """Executa ação solicitada pela IA"""
+        """Executa ação solicitada pela IA com GATES DE SEGURANÇA OBRIGATÓRIOS"""
         try:
             function_name = tool_call.function.name
             args = json.loads(tool_call.function.arguments)
             
             logging.info(f"🔧 IA executando: {function_name} - {args}")
+            
+            # 🚨 GATE DE SEGURANÇA: Verificar mensagens críticas ANTES de enviar
+            if function_name in ["reply_text", "send_quick_replies", "send_cta_url"]:
+                if not self._validate_message_security(args, conv_state, conversation_id, phone_number):
+                    return  # Bloqueia mensagem insegura
             
             if function_name == "reply_text":
                 self._send_text_response(phone_number, args['message'], conversation_id)
@@ -697,6 +705,57 @@ INSTRUÇÕES ESPECÍFICAS:
                 
         except Exception as e:
             logging.error(f"Erro ao executar tool call: {e}")
+
+    def _validate_message_security(self, args: dict, conv_state, conversation_id: int, phone_number: str) -> bool:
+        """🚨 GATE DE SEGURANÇA: Valida mensagens críticas antes de enviar"""
+        try:
+            message = args.get('message', '').lower()
+            
+            # 🔍 DETECTAR palavras críticas que exigem validação
+            approval_words = ['aprovado', 'parabéns', 'treinamento', 'r$97', '97,00', 'próximo passo']
+            has_critical_content = any(word in message for word in approval_words)
+            
+            if has_critical_content:
+                # 🚨 VERIFICAR ESTADO DO CLIENTE
+                cpf_status = getattr(conv_state, 'cpf_status', None)
+                
+                # Log estruturado para auditoria
+                security_log = {
+                    'conversation_id': conversation_id,
+                    'cpf_status': cpf_status,
+                    'message_blocked': has_critical_content and cpf_status != 'APPROVED',
+                    'critical_words': [word for word in approval_words if word in message],
+                    'phone': phone_number[-4:] if phone_number else 'unknown'
+                }
+                logging.warning(f"🔒 SECURITY CHECK: {security_log}")
+                
+                if cpf_status != 'APPROVED':
+                    # 🚫 BLOQUEAR mensagem e forçar busca de CPF
+                    logging.error(f"🚨 BLOQUEANDO mensagem insegura: status={cpf_status}, conteúdo crítico detectado")
+                    
+                    # Enviar mensagem segura de solicitar CPF
+                    safe_message = "Olá! Para prosseguir com seu cadastro, preciso primeiro do seu CPF (apenas os 11 números, sem pontos ou traços)."
+                    self._send_text_response(phone_number, safe_message, conversation_id)
+                    return False  # Bloqueia mensagem original
+            
+            # 🔍 DETECTAR nomes inventados (verificar se tem nome real)
+            potential_names = ['joão silva', 'maria silva', 'pedro santos', 'ana costa']
+            has_fake_name = any(name in message for name in potential_names)
+            
+            if has_fake_name:
+                logging.error(f"🚨 BLOQUEANDO nome inventado detectado: {message[:100]}")
+                # Substituir por versão segura
+                safe_message = message
+                for name in potential_names:
+                    safe_message = safe_message.replace(name, 'Candidato')
+                args['message'] = safe_message
+                logging.info(f"✅ Nome corrigido para 'Candidato'")
+            
+            return True  # Mensagem aprovada
+            
+        except Exception as e:
+            logging.error(f"Erro na validação de segurança: {e}")
+            return True  # Em caso de erro, permitir (fail-open para não bloquear tudo)
 
     def _handle_customer_data_fetch(self, phone_number: str, conversation_id: int, cpf: str, conv_state):
         """Busca dados do cliente via Recoverify e reprocessa conversa com IA"""
