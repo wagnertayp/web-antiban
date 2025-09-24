@@ -120,7 +120,7 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
 - SEMPRE enfatize que são processos OBRIGATÓRIOS
 
 💬 JEITO DE FALAR PROFISSIONAL:
-- "Boa tarde! Sou a Zilma, consultora Shopee."
+- "Olá! Sou a Zilma, consultora Shopee."
 - "Para atuar como entregador, o kit EPI é obrigatório por lei."
 - "A taxa de R$64,90 é necessária para emissão."
 - "Sem o kit, não é possível trabalhar legalmente."
@@ -131,16 +131,26 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
 2. send_quick_replies - Botões sim/não, confirmações, opções
 3. send_cta_url - SEMPRE quando mencionar links https://shopee.acesso.inc/...
 4. fetch_customer_data - Buscar status do CPF na Recoverify
-5. escalate_to_human - Passar pra especialista
+5. process_refund - Processar solicitação de reembolso
+6. escalate_to_human - Passar pra especialista
 
 ❌ NUNCA ESCREVA [Botão:...] ou [Link:...] NO TEXTO!
 ✅ Use send_cta_url para todos os links de pagamento!
 
 ✅ EXEMPLO DE ABORDAGEM:
-"Boa tarde! Sou a Zilma, consultora de cadastro Shopee.
+"Olá! Sou a Zilma, consultora de cadastro Shopee.
 Para verificar sua situação, preciso do seu CPF."
 
-Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
+Seja TÉCNICA, CONFIÁVEL, DIRETA!
+
+🔄 FLUXO DE REEMBOLSO (quando cliente reclama/solicita):
+1. ACALMAR: "Entendo sua situação. Vou te ajudar com o reembolso."
+2. PERGUNTAR MOTIVO: "Para processar, preciso saber o motivo do reembolso."
+3. PEDIR CHAVE PIX: "Me informe sua chave PIX para o reembolso."
+4. PERGUNTAR BANCO: "Qual é o seu banco?"
+5. CONFIRMAR: "Reembolso processado! O valor será devolvido em até 7 dias úteis."
+
+✅ Use a ferramenta process_refund para gerenciar este fluxo!"""
 
     def _define_ai_tools(self) -> List[Dict]:
         """Define ferramentas que a IA pode usar"""
@@ -253,6 +263,28 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
                             }
                         },
                         "required": ["endpoint"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "process_refund",
+                    "description": "Processar solicitação de reembolso do cliente",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "step": {
+                                "type": "string",
+                                "enum": ["calm_customer", "ask_reason", "ask_pix_key", "ask_bank", "confirm_refund"],
+                                "description": "Etapa do processo de reembolso"
+                            },
+                            "data": {
+                                "type": "string",
+                                "description": "Dados fornecidos pelo cliente (motivo, chave PIX, banco)"
+                            }
+                        },
+                        "required": ["step"]
                     }
                 }
             },
