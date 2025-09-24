@@ -192,6 +192,22 @@ class WhatsAppWebhookHandler:
                 result['mime_type'] = voice_data.get('mime_type', 'audio/ogg')
                 logging.info(f"🎤 VOZ RECEBIDA: {voice_data.get('id')} de {from_number}")
                 
+            elif message_type == 'image':
+                # 📷 IMAGEM RECEBIDA (COMPROVANTE!)
+                image_data = message.get('image', {})
+                result['media_url'] = image_data.get('id')  # ID da mídia para download
+                result['content'] = '[Comprovante de pagamento recebido]'
+                result['mime_type'] = image_data.get('mime_type', 'image/jpeg')
+                logging.info(f"📷 IMAGEM RECEBIDA (COMPROVANTE): {image_data.get('id')} de {from_number}")
+                
+            elif message_type == 'document':
+                # 📄 DOCUMENTO RECEBIDO (COMPROVANTE PDF!)
+                document_data = message.get('document', {})
+                result['media_url'] = document_data.get('id')  # ID da mídia para download
+                result['content'] = '[Documento comprovante recebido]'
+                result['mime_type'] = document_data.get('mime_type', 'application/pdf')
+                logging.info(f"📄 DOCUMENTO RECEBIDO (COMPROVANTE): {document_data.get('id')} de {from_number}")
+                
             elif message_type == 'interactive':
                 # CLIQUE EM BOTÃO INTERATIVO!
                 interactive_data = message.get('interactive', {})
