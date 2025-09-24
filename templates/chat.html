@@ -2252,13 +2252,24 @@
             formatTime(dateString) {
                 if (!dateString) return '';
                 
-                console.log('🔍 DEBUG formatTime:', dateString);
+                // 🇧🇷 CORREÇÃO: Extrair o horário direto da string sem conversão UTC
+                // Backend envia: "2025-09-24T03:16:24.363078-03:00"
+                // Queremos extrair apenas: 03:16
                 
-                // 🇧🇷 O BACKEND JÁ ENVIA HORÁRIO BRASILEIRO (-03:00)
+                try {
+                    // Extrair a parte do horário antes do timezone
+                    const timePart = dateString.split('T')[1]; // "03:16:24.363078-03:00"
+                    const hourMinute = timePart.split(':').slice(0, 2); // ["03", "16"]
+                    
+                    if (hourMinute.length === 2) {
+                        return `${hourMinute[0]}:${hourMinute[1]}`;
+                    }
+                } catch (error) {
+                    console.debug('Erro ao extrair horário:', error);
+                }
+                
+                // Fallback: usar Date() normal
                 const date = new Date(dateString);
-                console.log('🔍 Date object:', date);
-                console.log('🔍 getHours():', date.getHours());
-                
                 const now = new Date();
                 
                 // Verificar se é hoje
@@ -2269,14 +2280,10 @@
                 );
                 
                 if (isToday) {
-                    // Mostrar hora:minuto (já vem correto do backend)
                     const hours = date.getHours().toString().padStart(2, '0');
                     const minutes = date.getMinutes().toString().padStart(2, '0');
-                    const result = `${hours}:${minutes}`;
-                    console.log('🔍 Resultado formatTime:', result);
-                    return result;
+                    return `${hours}:${minutes}`;
                 } else {
-                    // Mostrar data
                     const day = date.getDate().toString().padStart(2, '0');
                     const month = (date.getMonth() + 1).toString().padStart(2, '0');
                     return `${day}/${month}`;
