@@ -1886,6 +1886,11 @@ def whatsapp_webhook() -> tuple[str, int]:
                                     msg_text = message.get('text', {}).get('body', 'N/A')
                                     msg_from = message.get('from', 'Unknown')
                                     logging.info(f"📱 MENSAGEM: '{msg_text}' de {msg_from}")
+                        
+                        # 🔥 PROCESSAR WEBHOOK COM HANDLER (SALVAR NO DB)
+                        logging.info(f"🔄 Processando webhook com handler...")
+                        result = webhook_handler.process_webhook(data)
+                        logging.info(f"✅ Webhook processado: {result}")
                     else:
                         logging.info(f"📨 Webhook POST sem dados esperados")
                 except Exception as e:
