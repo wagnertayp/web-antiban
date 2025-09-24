@@ -38,8 +38,14 @@ class AIOrchestrator:
                 raise ValueError("WhatsApp access token is required")
             
             self.whatsapp_api = WhatsAppBusinessAPI()
-            self.whatsapp_api.access_token = access_token
-            self.whatsapp_api.phone_number_id = phone_number_id
+            # Usar método privado para definir credenciais
+            self.whatsapp_api._access_token = access_token
+            self.whatsapp_api._phone_number_id = phone_number_id
+            # Configurar headers
+            self.whatsapp_api._headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/json'
+            }
             logging.info(f"✅ WhatsApp API inicializada com token: ...{access_token[-6:]}")
         
         self.db = db
@@ -306,31 +312,34 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
     
     def _message_consumer(self):
         """Thread persistente que consome mensagens da queue"""
-        while self.processing:
-            try:
-                # Aguardar mensagem com timeout
-                message_data = self.message_queue.get(timeout=1.0)
-                logging.info(f"🎯 Processando mensagem da queue: {message_data.get('content', 'N/A')[:50]}...")
-                
-                # Processar mensagem usando método existente
-                self._process_with_ai(
-                    message_data.get('phone_number', ''),
-                    message_data.get('conversation_id', 0),
-                    message_data.get('content', ''),
-                    message_data.get('phone_number_id', '')
-                )
-                
-                # Marcar como processada
-                self.message_queue.task_done()
-                
-            except queue.Empty:
-                # Timeout normal, continuar loop
-                continue
-            except Exception as e:
-                logging.error(f"❌ Erro no consumer thread: {str(e)}")
-                time.sleep(1)  # Aguardar antes de tentar novamente
+        from app import app  # Import dentro da função para evitar import circular
         
-        logging.info("🛑 Consumer thread finalizado")
+        with app.app_context():  # 🔧 CORREÇÃO: Executar dentro do contexto Flask
+            while self.processing:
+                try:
+                    # Aguardar mensagem com timeout
+                    message_data = self.message_queue.get(timeout=1.0)
+                    logging.info(f"🎯 Processando mensagem da queue: {message_data.get('content', 'N/A')[:50]}...")
+                    
+                    # Processar mensagem usando método existente
+                    self._process_with_ai(
+                        message_data.get('phone_number', ''),
+                        message_data.get('conversation_id', 0),
+                        message_data.get('content', ''),
+                        message_data.get('phone_number_id', '')
+                    )
+                    
+                    # Marcar como processada
+                    self.message_queue.task_done()
+                    
+                except queue.Empty:
+                    # Timeout normal, continuar loop
+                    continue
+                except Exception as e:
+                    logging.error(f"❌ Erro no consumer thread: {str(e)}")
+                    time.sleep(1)  # Aguardar antes de tentar novamente
+            
+            logging.info("🛑 Consumer thread finalizado")
     
     def enqueue(self, message_data: Dict[str, Any]):
         """Adicionar mensagem à queue para processamento assíncrono"""
@@ -825,18 +834,22 @@ Use essas informações para responder adequadamente ao cliente. Seja natural e 
         """Salva mensagem enviada pela IA no banco"""
         try:
             from models import ChatMessage
+            from datetime import datetime
             
             message = ChatMessage(
                 conversation_id=conversation_id,
                 whatsapp_message_id=message_id or f"ai_{int(time.time())}",
                 direction='outbound',
                 message_type='text',
-                message_text=message_text,
+                content=message_text,  # CORREÇÃO: usar 'content' não 'message_text'
+                status='sent',
                 created_at=datetime.now()
             )
             
             self.db.session.add(message)
             self.db.session.commit()
+            
+            logging.info(f"💾 Mensagem IA salva no banco: {message_text[:30]}...")
             
         except Exception as e:
             logging.error(f"Erro ao salvar mensagem: {e}")
