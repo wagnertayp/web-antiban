@@ -6,7 +6,18 @@ from typing import Optional
 
 # 🇧🇷 TIMEZONE BRASILEIRO
 def brasilia_now():
-    """Retorna datetime atual no fuso horário de Brasília (UTC-3)"""
+    """⚠️ DESIGN DECISION ADR-001 - DO NOT CHANGE ⚠️
+    Returns current datetime in Brazil timezone (UTC-3) as NAIVE datetime.
+    
+    CRITICAL: This function MUST return naive datetime (no tzinfo).
+    Timezone-aware values are FORBIDDEN in our database schema.
+    This design ensures:
+    - Human-friendly timestamps in Brazilian time
+    - Consistent ordering without DB timezone conversion quirks
+    - Avoids mixed timezone ordering bugs
+    
+    Changing this requires data migration and extensive testing!
+    """
     # ✅ CORRIGIDO: Retorna datetime naive já no horário brasileiro
     # Evita problemas de conversão do PostgreSQL
     brasil_tz = timezone(timedelta(hours=-3))
@@ -106,9 +117,10 @@ class Conversation(db.Model):
     updated_at = db.Column(db.DateTime, default=brasilia_now, onupdate=brasilia_now)
     
     # Relacionamentos
+    # 🛡️ FIXED: Order by ID to match API consistency (avoids timezone ordering bugs)
     messages = db.relationship('ChatMessage', backref='conversation', lazy=True, 
                               foreign_keys='ChatMessage.conversation_id', 
-                              order_by='ChatMessage.created_at.desc()')
+                              order_by='ChatMessage.id.asc()')
     last_message = db.relationship('ChatMessage', foreign_keys=[last_message_id], 
                                   post_update=True, viewonly=True)
     
@@ -136,13 +148,29 @@ class Conversation(db.Model):
         db.session.commit()
 
 class ChatMessage(db.Model):
-    """Modelo para mensagens bidirecionais"""
+    """⚠️ CRITICAL PATH MODEL - HANDLE WITH EXTREME CARE ⚠️
+    
+    This model is part of the core webhook→database→chat flow.
+    Any changes to this schema or field behavior can break:
+    - WhatsApp webhook message saving
+    - Chat interface message display 
+    - Message ordering and chronology
+    
+    PROTECTED INVARIANTS:
+    - created_at: MUST use brasilia_now() (naive BR time only)
+    - direction: MUST be 'inbound' or 'outbound' only
+    - content: MUST NOT be null (required for display)
+    - whatsapp_message_id: MUST be unique (prevents duplicates)
+    - conversation_id: MUST be valid FK (required for queries)
+    
+    UPDATE TESTS BEFORE MODIFYING!
+    """
     id = db.Column(db.Integer, primary_key=True)
     conversation_id = db.Column(db.Integer, db.ForeignKey('conversation.id'), nullable=False)
     whatsapp_message_id = db.Column(db.String(200), unique=True)  # ID da mensagem no WhatsApp
     direction = db.Column(db.String(10), nullable=False)  # 'inbound' ou 'outbound'
     message_type = db.Column(db.String(20), default='text')  # text, image, document, etc.
-    content = db.Column(db.Text, nullable=False)
+    content = db.Column(db.Text, nullable=False)  # 🛡️ PROTECTED: Required for display
     status = db.Column(db.String(20), default='pending')  # pending, sent, delivered, read, failed
     
     # Metadados para diferentes tipos de mensagem
@@ -150,7 +178,7 @@ class ChatMessage(db.Model):
     media_caption = db.Column(db.Text)
     
     # Timestamps
-    created_at = db.Column(db.DateTime, default=brasilia_now)
+    created_at = db.Column(db.DateTime, default=brasilia_now)  # 🛡️ PROTECTED: naive BR time only
     sent_at = db.Column(db.DateTime)
     delivered_at = db.Column(db.DateTime)
     read_at = db.Column(db.DateTime)
@@ -161,11 +189,31 @@ class ChatMessage(db.Model):
     @staticmethod
     def create_inbound(conversation_id: int, whatsapp_message_id: str, content: str, 
                       message_type: str = 'text', webhook_data: str = None):
-        """Cria mensagem recebida (inbound)"""
+        """🛡️ PROTECTED: Cria mensagem recebida (inbound)"""
+        # 🛡️ RUNTIME PROTECTION: Validate critical fields (but allow WhatsApp flexibility)
+        if conversation_id is None:
+            logging.error("CRITICAL: conversation_id cannot be None")
+            raise ValueError("conversation_id cannot be None")
+        
+        # 🛡️ SAFE HANDLING: Never crash webhook flow, always log and adapt
+        if not message_type or message_type == 'text':
+            if not content or not content.strip():
+                logging.warning("Text message with empty content - using fallback")
+                content = "[Mensagem vazia]"  # Safe fallback for display
+        
+        # Ensure content is never None (satisfies nullable=False constraint)
+        if not content:
+            content = ""  # Safe fallback for non-text messages
+        
+        # Log unknown message types but don't block them (WhatsApp adds new types)
+        known_types = ['text', 'image', 'document', 'audio', 'video', 'interactive', 'button', 'sticker', 'contacts', 'location', 'reaction', 'system']
+        if message_type and message_type not in known_types:
+            logging.warning(f"Unknown message_type: {message_type} - allowing but consider updating known types")
+        
         message = ChatMessage(
             conversation_id=conversation_id,
             whatsapp_message_id=whatsapp_message_id,
-            direction='inbound',
+            direction='inbound',  # 🛡️ PROTECTED: Must be 'inbound'
             message_type=message_type,
             content=content,
             status='received',
@@ -195,10 +243,25 @@ class ChatMessage(db.Model):
     
     @staticmethod
     def create_outbound(conversation_id: int, content: str, message_type: str = 'text'):
-        """Cria mensagem enviada (outbound)"""
+        """🛡️ PROTECTED: Cria mensagem enviada (outbound)"""
+        # 🛡️ RUNTIME PROTECTION: Validate critical fields
+        if conversation_id is None:
+            logging.error("CRITICAL: conversation_id cannot be None")
+            raise ValueError("conversation_id cannot be None")
+        
+        # 🛡️ SAFE HANDLING: Never crash outbound flow
+        if not content or not content.strip():
+            logging.warning("Outbound message with empty content - using fallback")
+            content = "[Mensagem vazia]"  # Safe fallback
+        
+        # Log unknown message types but don't block them
+        known_types = ['text', 'image', 'document', 'audio', 'video', 'interactive', 'button']
+        if message_type and message_type not in known_types:
+            logging.warning(f"Unknown outbound message_type: {message_type} - allowing but consider updating known types")
+        
         message = ChatMessage(
             conversation_id=conversation_id,
-            direction='outbound',
+            direction='outbound',  # 🛡️ PROTECTED: Must be 'outbound'
             message_type=message_type,
             content=content,
             status='pending'

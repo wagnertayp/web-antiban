@@ -32,10 +32,19 @@ db = SQLAlchemy(model_class=Base)
 
 # Create the app
 app = Flask(__name__)
-# Require SESSION_SECRET - fail if not set
-app.secret_key = os.environ.get("SESSION_SECRET")
-if not app.secret_key:
-    raise RuntimeError("SESSION_SECRET environment variable must be set for security. Cannot start application without it.")
+# 🛡️ FLEXIBLE SESSION_SECRET: Required in production, generated in dev
+session_secret = os.environ.get("SESSION_SECRET")
+if not session_secret:
+    # Check if we're in production
+    env = os.environ.get('FLASK_ENV', os.environ.get('ENV', 'development')).lower()
+    if env == 'production':
+        raise RuntimeError("SESSION_SECRET environment variable must be set for production security.")
+    else:
+        # Generate ephemeral secret for development
+        import secrets
+        session_secret = secrets.token_hex(32)
+        logging.warning("⚠️ Using generated session secret for development. Set SESSION_SECRET env var for production.")
+app.secret_key = session_secret
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Configure caching for performance optimization
@@ -50,8 +59,9 @@ def compress_response(response):
     if response.status_code < 200 or response.status_code >= 300:
         return response
     
-    # 🚫 NEVER COMPRESS WEBHOOK RESPONSES - Critical for Meta validation
-    if request.endpoint == 'whatsapp_webhook':
+    # 🛡️ CRITICAL: NEVER COMPRESS WEBHOOK RESPONSES - Required for WhatsApp/Meta validation
+    # Use path prefix to catch all webhook variants (/webhook, /webhook/, etc.)
+    if request.path and request.path.startswith('/webhook'):
         return response
     
     # Skip if already compressed
@@ -2493,9 +2503,20 @@ def get_conversation_messages(conversation_id):
         # Verificar se conversa existe
         conversation = Conversation.query.get_or_404(conversation_id)
         
-        # Buscar mensagens - CORRIGIDO: usar ID para ordem cronológica
+        # ⚠️ CRITICAL INVARIANT - DO NOT CHANGE ⚠️
+        # Messages MUST be ordered by ChatMessage.id ASC (NOT created_at)
+        # Historical data has mixed timezones (naive BR vs UTC) that break chronological order
+        # Changing this will hide recent messages and break the chat interface
+        # UPDATE TESTS BEFORE TOUCHING THIS LINE
         messages = ChatMessage.query.filter_by(conversation_id=conversation_id)\
             .order_by(ChatMessage.id.asc()).all()
+        
+        # 🛡️ RUNTIME PROTECTION: Verify messages are in ID order
+        if len(messages) > 1:
+            for i in range(1, len(messages)):
+                if messages[i].id <= messages[i-1].id:
+                    logging.error(f"CRITICAL: Messages out of order! ID {messages[i-1].id} > {messages[i].id}")
+                    # Continue but log the error
         
         result = []
         for msg in messages:
@@ -2526,6 +2547,12 @@ def get_conversation_messages(conversation_id):
         
         # Marcar conversa como lida
         conversation.mark_as_read()
+        
+        # 🛡️ FINAL PROTECTION: Verify result maintains chronological order
+        if len(result) > 1:
+            ids = [msg['id'] for msg in result]
+            if ids != sorted(ids):
+                logging.error(f"CRITICAL: API returning messages out of order! IDs: {ids[:10]}...")
         
         return jsonify({'messages': result})
         

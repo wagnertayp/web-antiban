@@ -1,7 +1,21 @@
 #!/usr/bin/env python3
 """
-Webhook Handler para capturar interações do WhatsApp Business API
-Detecta cliques em botões, respostas de usuários, status de entrega, etc.
+⚠️ CRITICAL PATH - WEBHOOK HANDLER - DO NOT MODIFY ⚠️
+
+This is the CORE of the WhatsApp Business API integration.
+Any changes to this file can break:
+- Message reception from WhatsApp
+- Webhook verification (breaks WhatsApp connection)
+- Database message persistence
+- Real-time chat functionality
+
+PROTECTED BEHAVIORS:
+- Must respond to webhooks in <2 seconds
+- Must return consistent HTTP status codes
+- Must never compress webhook responses
+- Must maintain stable verify_token handling
+
+UPDATE TESTS BEFORE MODIFYING!
 """
 import logging
 import time
@@ -11,20 +25,40 @@ import json
 import os
 
 class WhatsAppWebhookHandler:
-    """Handler para processar webhooks do WhatsApp Business API"""
+    """⚠️ CRITICAL: Handler para processar webhooks do WhatsApp Business API
+    
+    PROTECTED REQUIREMENTS:
+    - Fast response (<2s for all operations)
+    - Stable return types (never change dict structure)
+    - Consistent webhook verification
+    """
     
     def __init__(self, db=None):
         self.db = db
-        # Require secure webhook token
+        # 🛡️ CRITICAL: Require secure webhook token
         verify_token = os.getenv('WHATSAPP_WEBHOOK_VERIFY_TOKEN')
+        
+        # 🛡️ PRODUCTION SECURITY: Never allow default token in production
+        env = os.getenv('FLASK_ENV', os.getenv('ENV', 'development')).lower()
+        if env == 'production':
+            if not verify_token or verify_token == 'webhook_verify_token_12345_dev_only':
+                raise RuntimeError(
+                    "PRODUCTION SECURITY ERROR: WHATSAPP_WEBHOOK_VERIFY_TOKEN must be set to a secure value in production. "
+                    "The default development token is not allowed in production environments."
+                )
+        
         if not verify_token:
-            # For development and production, use the same token that's in the interface
+            # ⚠️ DEV ONLY: Default token for development
             verify_token = 'webhook_verify_token_12345_dev_only'
-            logging.info("✅ Using interface webhook verify token: webhook_verify_token_12345_dev_only")
+            logging.info("✅ Using default dev webhook verify token: ...only")
         else:
-            logging.info(f"✅ Using environment webhook verify token: {verify_token}")
+            # 🛡️ SECURITY: Only log last 4 chars of token
+            token_preview = verify_token[-4:] if len(verify_token) > 4 else "***"
+            logging.info(f"✅ Using environment webhook verify token: ...{token_preview}")
         self.verify_token = verify_token
-        logging.info(f"🔑 Webhook Handler inicializado com token: {verify_token}")
+        # 🛡️ SECURITY: Only log last 4 chars for security
+        token_preview = verify_token[-4:] if len(verify_token) > 4 else "***"
+        logging.info(f"🔑 Webhook Handler inicializado com token: ...{token_preview}")
         
     def verify_webhook(self, mode: str, token: str, challenge: str) -> Optional[str]:
         """Verificar webhook do WhatsApp (processo de configuração inicial)"""
@@ -36,7 +70,16 @@ class WhatsAppWebhookHandler:
             return None
     
     def process_webhook(self, webhook_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Processar webhook recebido do WhatsApp"""
+        """⚠️ CRITICAL PATH: Processar webhook recebido do WhatsApp
+        
+        This method MUST:
+        - Return consistent dict structure
+        - Complete in <2 seconds
+        - Never raise unhandled exceptions
+        - Save all messages to database reliably
+        
+        DO NOT CHANGE RETURN FORMAT!
+        """
         try:
             # Estrutura típica do webhook WhatsApp Business API
             entry_list = webhook_data.get('entry', [])
