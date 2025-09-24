@@ -2493,9 +2493,9 @@ def get_conversation_messages(conversation_id):
         # Verificar se conversa existe
         conversation = Conversation.query.get_or_404(conversation_id)
         
-        # Buscar mensagens
+        # Buscar mensagens - CORRIGIDO: usar ID para ordem cronológica
         messages = ChatMessage.query.filter_by(conversation_id=conversation_id)\
-            .order_by(ChatMessage.created_at.asc()).all()
+            .order_by(ChatMessage.id.asc()).all()
         
         result = []
         for msg in messages:
