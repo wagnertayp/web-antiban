@@ -410,15 +410,22 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
                         message_content: str, phone_number_id: str, message_type: str = "text"):
         """Processa mensagem usando OpenAI com tool calling"""
         try:
+            from models import ConversationState, ChatMessage
+            
             # 📸 DETECÇÃO DE IMAGEM: Responder sobre treinamento
             if message_type in ["image", "document", "video"]:
                 self._handle_image_received(phone_number, conversation_id)
                 return
-            from models import ConversationState, ChatMessage
             
             # Buscar ou criar estado da conversa
             normalized_phone = self._normalize_phone(phone_number)
             conv_state = ConversationState.get_or_create(normalized_phone)
+            
+            # 🔒 DEDUPLICAÇÃO ADICIONAL: Evitar reprocessar a mesma mensagem
+            if hasattr(self, '_last_processed_content') and self._last_processed_content == message_content:
+                logging.info(f"🔄 Conteúdo duplicado detectado, ignorando: {message_content[:30]}...")
+                return
+            self._last_processed_content = message_content
             
             # Buscar histórico recente da conversa
             conversation_history = self._get_conversation_history(conversation_id)
@@ -765,7 +772,8 @@ Responda como Zilma de forma natural e convincente."""
             # Implementar envio de botões interativos
             success, result = self.whatsapp_api.send_interactive_buttons(phone_number, message, buttons)
             if success:
-                self._save_outbound_message(conversation_id, f"{message} [BOTÕES: {[b['title'] for b in buttons]}]", result.get('messageId'))
+                # 🔧 CORREÇÃO: Salvar apenas mensagem original, NÃO descrição dos botões
+                self._save_outbound_message(conversation_id, message, result.get('messageId'))
                 logging.info(f"✅ IA enviou botões: {[b['title'] for b in buttons]}")
             else:
                 # Fallback para texto se botões falharem
@@ -786,7 +794,8 @@ Responda como Zilma de forma natural e convincente."""
             
             success, result = self.whatsapp_api.send_cta_url_button(phone_number, message, button_text, url)
             if success:
-                self._save_outbound_message(conversation_id, f"{message} [LINK: {button_text}]", result.get('messageId'))
+                # 🔧 CORREÇÃO: Salvar apenas mensagem original, NÃO texto do botão
+                self._save_outbound_message(conversation_id, message, result.get('messageId'))
                 logging.info(f"✅ IA enviou CTA: {button_text} -> {url}")
             else:
                 # Fallback para texto com link
@@ -992,7 +1001,8 @@ Use as ferramentas disponíveis com inteligência e contexto."""
             
             success2, result2 = self.whatsapp_api.send_cta_url_button(phone_number, training_msg, button_text, training_url)
             if success2:
-                self._save_outbound_message(conversation_id, f"{training_msg} [LINK: {button_text}]", result2.get('messageId', f"train_{int(time.time())}"))
+                # 🔧 CORREÇÃO: Salvar apenas mensagem original, NÃO texto do botão
+                self._save_outbound_message(conversation_id, training_msg, result2.get('messageId', f"train_{int(time.time())}"))
                 
             logging.info("📸 Resposta automática a imagem enviada com sucesso")
             

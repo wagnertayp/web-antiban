@@ -162,6 +162,14 @@ class WhatsAppWebhookHandler:
             timestamp = message.get('timestamp')
             message_type = message.get('type')
             
+            # 🔒 DEDUPLICAÇÃO: Verificar se mensagem já foi processada
+            if self.db and message_id:
+                from models import ChatMessage
+                existing_message = ChatMessage.query.filter_by(whatsapp_message_id=message_id).first()
+                if existing_message:
+                    logging.info(f"🔄 Mensagem já processada, ignorando: {message_id}")
+                    return None
+            
             result = {
                 'event_type': 'message_received',
                 'message_id': message_id,
