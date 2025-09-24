@@ -7,8 +7,11 @@ from typing import Optional
 # 🇧🇷 TIMEZONE BRASILEIRO
 def brasilia_now():
     """Retorna datetime atual no fuso horário de Brasília (UTC-3)"""
+    # ✅ CORRIGIDO: Retorna datetime naive já no horário brasileiro
+    # Evita problemas de conversão do PostgreSQL
     brasil_tz = timezone(timedelta(hours=-3))
-    return datetime.now(brasil_tz)
+    br_time = datetime.now(brasil_tz)
+    return br_time.replace(tzinfo=None)  # Remove timezone, mantém horário brasileiro
 
 class Campaign(db.Model):
     id = db.Column(db.Integer, primary_key=True)
