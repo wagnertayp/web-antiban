@@ -2252,8 +2252,13 @@
             formatTime(dateString) {
                 if (!dateString) return '';
                 
+                console.log('🔍 DEBUG formatTime:', dateString);
+                
                 // 🇧🇷 O BACKEND JÁ ENVIA HORÁRIO BRASILEIRO (-03:00)
                 const date = new Date(dateString);
+                console.log('🔍 Date object:', date);
+                console.log('🔍 getHours():', date.getHours());
+                
                 const now = new Date();
                 
                 // Verificar se é hoje
@@ -2267,7 +2272,9 @@
                     // Mostrar hora:minuto (já vem correto do backend)
                     const hours = date.getHours().toString().padStart(2, '0');
                     const minutes = date.getMinutes().toString().padStart(2, '0');
-                    return `${hours}:${minutes}`;
+                    const result = `${hours}:${minutes}`;
+                    console.log('🔍 Resultado formatTime:', result);
+                    return result;
                 } else {
                     // Mostrar data
                     const day = date.getDate().toString().padStart(2, '0');
