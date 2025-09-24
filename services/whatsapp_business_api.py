@@ -12,8 +12,7 @@ from typing import Dict, List, Optional, Tuple
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from collections import defaultdict
-# 🔐 PROXY REATIVADO - Proteção contra ban da Meta
-import services.proxy_service as proxy_module
+# 📡 ENVIO DIRETO - Removida funcionalidade de proxy conforme solicitado
 
 class SharedRateLimiter:
     """🛡️ Rate limiter compartilhado entre processos/workers com file locking atômico"""
@@ -126,7 +125,7 @@ class WhatsAppBusinessAPI:
         """🛡️ PROTEÇÃO POR NÚMERO - Rate limiting compartilhado entre workers"""
         # Usar novo sistema de rate limiting compartilhado
         SharedRateLimiter.check_and_wait(phone_number_id)
-        logging.info(f"🔄 Proxy rotativo ativo - IP mudará nesta mensagem")
+        logging.info(f"📡 Enviando mensagem diretamente - sem proxy")
 
     def _get_randomized_headers(self):
         """🎭 Headers randomizados para parecer mais humano"""
@@ -147,8 +146,8 @@ class WhatsAppBusinessAPI:
         
         return base_headers
 
-    def _send_via_proxy_only(self, url: str, payload: dict, phone_number_id: str = None):
-        """🔐 PIPELINE CENTRALIZADO - PROXY OBRIGATÓRIO + ANTI-BAN POR NÚMERO"""
+    def _send_direct(self, url: str, payload: dict, phone_number_id: str = None):
+        """📡 ENVIO DIRETO - Sem proxy conforme solicitado"""
         # 🛡️ PROTEÇÃO ANTI-BAN POR NÚMERO (thread-safe)
         if phone_number_id:
             self._anti_ban_protection_per_phone(phone_number_id)
@@ -156,23 +155,18 @@ class WhatsAppBusinessAPI:
             # Fallback para proteção global mínima se phone_id não fornecido
             time.sleep(random.uniform(0.1, 0.3))
         
-        # 🎭 HEADERS RANDOMIZADOS OBRIGATÓRIOS
+        # 🎭 HEADERS RANDOMIZADOS
         randomized_headers = self._get_randomized_headers()
         
-        # 🔐 PROXY OBRIGATÓRIO - FALHA SE NÃO DISPONÍVEL
-        proxy_service = proxy_module.get_proxy_service()
-        if not proxy_service:
-            raise Exception("🚨 PROXY OBRIGATÓRIO NÃO DISPONÍVEL - BLOQUEANDO ENVIO PARA PROTEÇÃO ANTI-BAN")
-        
         try:
-            logging.info("🔐 Enviando mensagem via PROXY para proteção anti-ban")
-            response = proxy_service.post(url, json=payload, headers=randomized_headers, timeout=10)
+            logging.info("📡 Enviando mensagem diretamente - sem proxy")
+            response = requests.post(url, json=payload, headers=randomized_headers, timeout=10)
             return response
             
         except requests.exceptions.Timeout:
             logging.error("Timeout na conexão - tentando novamente")
             # Segunda tentativa com timeout menor
-            response = proxy_service.post(url, json=payload, headers=randomized_headers, timeout=5)
+            response = requests.post(url, json=payload, headers=randomized_headers, timeout=5)
             return response
 
     def update_credentials(self, access_token: str, business_account_id: str = None, phone_number_id: str = None):
@@ -350,10 +344,8 @@ class WhatsAppBusinessAPI:
                     if user_id:
                         # Try to get WhatsApp Business Accounts
                         waba_url = f"{self.base_url}/{user_id}?fields=whatsapp_business_accounts"
-                        if proxy_service:
-                            waba_response = proxy_service.get(waba_url, headers=headers, timeout=10)
-                        else:
-                            waba_response = requests.get(waba_url, headers=headers, timeout=10)
+                        # Conexão direta removida funcionalidade de proxy
+                        waba_response = requests.get(waba_url, headers=headers, timeout=10)
                         
                         if waba_response.status_code == 200:
                             waba_data = waba_response.json()
@@ -364,10 +356,8 @@ class WhatsAppBusinessAPI:
                                 
                                 # Get phone numbers for this business account
                                 phones_url = f"{self.base_url}/{business_account_id}/phone_numbers"
-                                if proxy_service:
-                                    phones_response = proxy_service.get(phones_url, headers=headers, timeout=10)
-                                else:
-                                    phones_response = requests.get(phones_url, headers=headers, timeout=10)
+                                # Conexão direta removida funcionalidade de proxy
+                                phones_response = requests.get(phones_url, headers=headers, timeout=10)
                                 
                                 if phones_response.status_code == 200:
                                     phones_data = phones_response.json()
@@ -436,8 +426,8 @@ class WhatsAppBusinessAPI:
                 # Sometimes the phone numbers are directly accessible
                 try:
                     # Try to get WhatsApp Business accounts directly
-                    proxy_service = proxy_module.get_proxy_service()
-                    waba_response = proxy_service.get(f"{self.base_url}/me?fields=whatsapp_business_accounts", headers=headers, timeout=10)
+                    # Proxy removido - usando conexão direta
+                    waba_response = requests.get(f"{self.base_url}/me?fields=whatsapp_business_accounts", headers=headers, timeout=10)
                     if waba_response.status_code == 200:
                         waba_data = waba_response.json()
                         accounts = waba_data.get('whatsapp_business_accounts', {}).get('data', [])
@@ -453,8 +443,8 @@ class WhatsAppBusinessAPI:
                 if current_phone_id and len(current_phone_id) > 10:
                     # Try using it as business account ID
                     try:
-                        proxy_service = proxy_module.get_proxy_service()
-                        phones_response = proxy_service.get(f"{self.base_url}/{current_phone_id}/phone_numbers", headers=headers, timeout=10)
+                        # Proxy removido - usando conexão direta
+                        phones_response = requests.get(f"{self.base_url}/{current_phone_id}/phone_numbers", headers=headers, timeout=10)
                         if phones_response.status_code == 200:
                             phones_data = phones_response.json()
                             phone_numbers = phones_data.get('data', [])
@@ -471,8 +461,8 @@ class WhatsAppBusinessAPI:
                 return None
             
             # Now get phone numbers from business account
-            proxy_service = proxy_module.get_proxy_service()
-            phones_response = proxy_service.get(f"{self.base_url}/{business_account_id}/phone_numbers", headers=headers, timeout=10)
+            # Proxy removido - usando conexão direta
+            phones_response = requests.get(f"{self.base_url}/{business_account_id}/phone_numbers", headers=headers, timeout=10)
             if phones_response.status_code == 200:
                 phones_data = phones_response.json()
                 phone_numbers = phones_data.get('data', [])
@@ -661,21 +651,12 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"Sending text message payload: {payload}")
             
-            # Tentar primeiro via proxy com timeout baixo, depois direto se falhar
+            # Enviar diretamente (proxy removido)
             try:
-                response = self._send_via_proxy_only(url, payload, self._phone_number_id)
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
-                logging.warning(f"Proxy failed ({str(e)}), trying direct connection...")
-                # Fallback: conexão direta se proxy falhar
-                headers = {
-                    'Authorization': f'Bearer {self._access_token}',
-                    'Content-Type': 'application/json'
-                }
-                try:
-                    response = requests.post(url, json=payload, headers=headers, timeout=10)
-                except Exception as direct_error:
-                    logging.error(f"Both proxy and direct connection failed: {str(direct_error)}")
-                    return False, {'error': f'Erro de conexão: {str(direct_error)}'}
+                response = self._send_direct(url, payload, self._phone_number_id)
+            except Exception as e:
+                logging.error(f"Direct connection failed: {str(e)}")
+                return False, {'error': f'Erro de conexão: {str(e)}'}
             
             if response.status_code == 200:
                 data = response.json()
@@ -764,11 +745,8 @@ class WhatsAppBusinessAPI:
             headers = self.headers  # 🔒 Usar headers da sessão atualizada
             
             # 🔐 PROXY PROTEGIDO - Anti-ban da Meta
-            proxy_service = proxy_module.get_proxy_service()
-            if proxy_service:
-                response = proxy_service.get(url, headers=headers, timeout=10)
-            else:
-                response = requests.get(url, headers=headers, timeout=10)
+            # Proxy removido - usando conexão direta
+            response = requests.get(url, headers=headers, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
@@ -932,21 +910,12 @@ class WhatsAppBusinessAPI:
             
             logging.info(f"Payload tentativa: {payload}")
             
-            # Tentar primeiro via proxy com timeout baixo, depois direto se falhar
+            # Enviar diretamente (proxy removido)
             try:
-                response = self._send_via_proxy_only(url, payload, self._phone_number_id)
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
-                logging.warning(f"Proxy failed ({str(e)}), trying direct connection...")
-                # Fallback: conexão direta se proxy falhar
-                headers = {
-                    'Authorization': f'Bearer {self._access_token}',
-                    'Content-Type': 'application/json'
-                }
-                try:
-                    response = requests.post(url, json=payload, headers=headers, timeout=10)
-                except Exception as direct_error:
-                    logging.error(f"Both proxy and direct connection failed: {str(direct_error)}")
-                    return False, {'error': f'Erro de conexão: {str(direct_error)}'}
+                response = self._send_direct(url, payload, self._phone_number_id)
+            except Exception as e:
+                logging.error(f"Direct connection failed: {str(e)}")
+                return False, {'error': f'Erro de conexão: {str(e)}'}
             
             if response.status_code == 200:
                 data = response.json()
@@ -1090,21 +1059,12 @@ class WhatsAppBusinessAPI:
                 'template': template_payload
             }
             
-            # Tentar primeiro via proxy com timeout baixo, depois direto se falhar
+            # Enviar diretamente (proxy removido)
             try:
-                response = self._send_via_proxy_only(url, payload, self._phone_number_id)
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
-                logging.warning(f"Proxy failed ({str(e)}), trying direct connection...")
-                # Fallback: conexão direta se proxy falhar
-                headers = {
-                    'Authorization': f'Bearer {self._access_token}',
-                    'Content-Type': 'application/json'
-                }
-                try:
-                    response = requests.post(url, json=payload, headers=headers, timeout=10)
-                except Exception as direct_error:
-                    logging.error(f"Both proxy and direct connection failed: {str(direct_error)}")
-                    return False, {'error': f'Erro de conexão: {str(direct_error)}'}
+                response = self._send_direct(url, payload, self._phone_number_id)
+            except Exception as e:
+                logging.error(f"Direct connection failed: {str(e)}")
+                return False, {'error': f'Erro de conexão: {str(e)}'}
             
             if response.status_code == 200:
                 data = response.json()
@@ -1188,9 +1148,9 @@ class WhatsAppBusinessAPI:
                 }
             }
             
-            # Send via proxy pipeline
+            # Send via direct connection
             url_endpoint = f"{self.base_url}/{self.phone_number_id}/messages"
-            response = self._send_via_proxy_only(url_endpoint, payload, self._phone_number_id)
+            response = self._send_direct(url_endpoint, payload, self._phone_number_id)
             
             if response.status_code == 200:
                 data = response.json()
@@ -1246,9 +1206,9 @@ class WhatsAppBusinessAPI:
                 }
             }
             
-            # Send via proxy pipeline
+            # Send via direct connection
             url_endpoint = f"{self.base_url}/{self.phone_number_id}/messages"
-            response = self._send_via_proxy_only(url_endpoint, payload, self._phone_number_id)
+            response = self._send_direct(url_endpoint, payload, self._phone_number_id)
             
             if response.status_code == 200:
                 data = response.json()
@@ -1574,21 +1534,12 @@ class WhatsAppBusinessAPI:
                 
                 payload['template']['components'] = components
             
-            # Tentar primeiro via proxy com timeout baixo, depois direto se falhar
+            # Enviar diretamente (proxy removido)
             try:
-                response = self._send_via_proxy_only(url, payload, self._phone_number_id)
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
-                logging.warning(f"Proxy failed ({str(e)}), trying direct connection...")
-                # Fallback: conexão direta se proxy falhar
-                headers = {
-                    'Authorization': f'Bearer {self._access_token}',
-                    'Content-Type': 'application/json'
-                }
-                try:
-                    response = requests.post(url, json=payload, headers=headers, timeout=10)
-                except Exception as direct_error:
-                    logging.error(f"Both proxy and direct connection failed: {str(direct_error)}")
-                    return False, {'error': f'Erro de conexão: {str(direct_error)}'}
+                response = self._send_direct(url, payload, self._phone_number_id)
+            except Exception as e:
+                logging.error(f"Direct connection failed: {str(e)}")
+                return False, {'error': f'Erro de conexão: {str(e)}'}
             
             if response.status_code == 200:
                 data = response.json()
