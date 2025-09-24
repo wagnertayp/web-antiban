@@ -377,13 +377,13 @@ class WhatsAppWebhookHandler:
                 self.db.session.rollback()
     
     def _trigger_conversation_automation(self, phone_number: str, conversation_id: int, message_content: str, phone_number_id: str):
-        """Disparar automação de conversa se necessário"""
+        """🤖 Disparar sistema TOTALMENTE AUTÔNOMO com IA para automação de conversas"""
         try:
-            from services.conversation_automation import ConversationAutomation
+            from services.ai_orchestrator import AIOrchestrator
             from services.whatsapp_business_api import WhatsAppBusinessAPI
             from app import app
             
-            # Mapear botões interativos para texto padrão
+            # Mapear botões interativos para texto padrão (compatibilidade)
             if message_content.startswith("Botão clicado:"):
                 if "confirm_name_yes" in message_content or "✅ SIM" in message_content:
                     message_content = "SIM"
@@ -396,30 +396,76 @@ class WhatsAppWebhookHandler:
                 whatsapp_api = WhatsAppBusinessAPI()
                 
                 # FORÇAR uso do token válido armazenado globalmente
-                # O token da sessão já foi carregado na inicialização da app
                 valid_token = getattr(app, '_current_valid_token', None)
                 if valid_token:
-                    logging.info(f"🔑 Usando token válido armazenado: {valid_token[-6:]}")
+                    logging.info(f"🔑 Usando token válido para IA: {valid_token[-6:]}")
                     whatsapp_api._access_token = valid_token
                     whatsapp_api._headers = {'Authorization': f'Bearer {valid_token}', 'Content-Type': 'application/json'}
                     whatsapp_api._phone_number_id = phone_number_id
                 else:
-                    logging.warning("⚠️ Nenhum token válido encontrado, usando padrão")
+                    logging.warning("⚠️ Nenhum token válido encontrado para IA")
+                    return
                 
-                # Inicializar automação com nova sessão e phone_number_id correto
-                automation = ConversationAutomation(whatsapp_api, self.db, phone_number_id)
+                # 🤖 SISTEMA TOTALMENTE AUTÔNOMO COM IA
+                ai_orchestrator = AIOrchestrator(whatsapp_api, self.db)
                 
-                # Verificar se deve disparar automação
-                if automation.should_trigger_automation(phone_number, conversation_id):
-                    logging.info(f"🤖 DISPARANDO AUTOMAÇÃO para {phone_number}")
-                    automation.process_automation(phone_number, conversation_id, message_content, phone_number_id)
+                # Verificar se é primeira mensagem ou conversa de IA ativa
+                should_process_with_ai = ai_orchestrator.detect_first_message(phone_number, conversation_id)
+                
+                if should_process_with_ai:
+                    logging.info(f"🤖 IA AUTÔNOMA ATIVADA para {phone_number} - Processamento assíncrono")
+                    
+                    # ⚡ PROCESSAMENTO ASSÍNCRONO para não bloquear webhook (SLA <2s)
+                    ai_orchestrator.queue_message_for_processing(
+                        phone_number=phone_number,
+                        conversation_id=conversation_id,
+                        message_content=message_content,
+                        phone_number_id=phone_number_id
+                    )
+                    
+                    logging.info(f"✅ Mensagem enviada para processamento de IA: {phone_number}")
                 else:
-                    # Processar mensagem em conversa existente
-                    logging.info(f"🤖 Processando mensagem em conversa existente: {phone_number}")
-                    automation.process_automation(phone_number, conversation_id, message_content, phone_number_id)
-            
+                    # Verificar se tem estado ativo de IA na conversa
+                    from models import ConversationState
+                    normalized_phone = phone_number.replace('+', '').replace(' ', '').replace('-', '')
+                    conv_state = ConversationState.query.filter_by(phone_number=normalized_phone).first()
+                    
+                    if conv_state and conv_state.is_ai_conversation():
+                        logging.info(f"🤖 Continuando conversa de IA ativa para {phone_number}")
+                        ai_orchestrator.queue_message_for_processing(
+                            phone_number=phone_number,
+                            conversation_id=conversation_id,
+                            message_content=message_content,
+                            phone_number_id=phone_number_id
+                        )
+                    else:
+                        logging.info(f"💤 IA não ativa para {phone_number} - usando automação legada se necessário")
+                        # Fallback para automação legada (se necessário manter compatibilidade)
+                        self._fallback_to_legacy_automation(phone_number, conversation_id, message_content, phone_number_id, whatsapp_api)
+                
         except Exception as e:
-            logging.error(f"Erro na automação de conversa: {str(e)}")
+            logging.error(f"Erro na IA autônoma: {str(e)}")
+            # Fallback para automação legada em caso de erro
+            try:
+                self._fallback_to_legacy_automation(phone_number, conversation_id, message_content, phone_number_id, whatsapp_api)
+            except Exception as fallback_error:
+                logging.error(f"Erro no fallback: {fallback_error}")
+                # Não falhar o webhook mesmo com erros
+    
+    def _fallback_to_legacy_automation(self, phone_number: str, conversation_id: int, message_content: str, phone_number_id: str, whatsapp_api):
+        """Fallback para automação legada (se necessário manter compatibilidade)"""
+        try:
+            from services.conversation_automation import ConversationAutomation
+            
+            automation = ConversationAutomation(whatsapp_api, self.db, phone_number_id)
+            should_trigger = automation.should_trigger_automation(phone_number, conversation_id)
+            
+            if should_trigger:
+                logging.info(f"🔄 Usando automação legada para {phone_number}")
+                automation.process_automation(phone_number, conversation_id, message_content, phone_number_id)
+                
+        except Exception as e:
+            logging.error(f"Erro na automação legada: {str(e)}")
     
     def _save_status_to_db(self, status_data: Dict[str, Any]):
         """Atualizar status de mensagem usando novos modelos"""

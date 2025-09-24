@@ -182,13 +182,13 @@ class PendingClientTracker:
             success, result = self.whatsapp_api.send_interactive_cta_url_message(
                 client.phone_number,
                 message,
-                "💳 Finalizar Pagamento",
+                "💳 Pagar",
                 payment_link
             )
             
             if success:
                 # Salvar mensagem no histórico da conversa
-                self._save_followup_message(client, message + f"\n[Botão: Finalizar Pagamento - {payment_link}]")
+                self._save_followup_message(client, message + f"\n[Botão: Pagar - {payment_link}]")
                 return True
             else:
                 return False
@@ -220,13 +220,13 @@ class PendingClientTracker:
             success, result = self.whatsapp_api.send_interactive_cta_url_message(
                 client.phone_number,
                 message,
-                "🚨 FINALIZAR AGORA",
+                "🚨 Pagar Agora",
                 payment_link
             )
             
             if success:
                 # Salvar mensagem no histórico da conversa
-                self._save_followup_message(client, message + f"\n[Botão: FINALIZAR AGORA - {payment_link}]")
+                self._save_followup_message(client, message + f"\n[Botão: Pagar Agora - {payment_link}]")
                 return True
             else:
                 return False

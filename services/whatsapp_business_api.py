@@ -747,6 +747,119 @@ class WhatsAppBusinessAPI:
             logging.error(f"Error sending WhatsApp message: {str(e)}")
             return False, {'error': f'Erro de conexão: {str(e)}'}
     
+    def send_interactive_buttons(self, recipient: str, message_text: str, buttons: list) -> Tuple[bool, Dict]:
+        """
+        Envia mensagem com botões interativos de resposta rápida
+        """
+        try:
+            if not self._phone_number_id:
+                return False, {'error': 'Phone number ID não configurado'}
+            
+            # Validar botões (máximo 3)
+            if len(buttons) > 3:
+                buttons = buttons[:3]
+                logging.warning("⚠️ Limitando a 3 botões interativos")
+            
+            # Preparar payload para botões interativos
+            interactive_payload = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual", 
+                "to": recipient,
+                "type": "interactive",
+                "interactive": {
+                    "type": "button",
+                    "body": {
+                        "text": message_text
+                    },
+                    "action": {
+                        "buttons": []
+                    }
+                }
+            }
+            
+            # Adicionar botões ao payload
+            for i, button in enumerate(buttons):
+                button_data = {
+                    "type": "reply",
+                    "reply": {
+                        "id": button.get('id', f"btn_{i}"),
+                        "title": button.get('title', '')[:20]  # Máximo 20 caracteres
+                    }
+                }
+                interactive_payload["interactive"]["action"]["buttons"].append(button_data)
+            
+            logging.info(f"📱 Enviando botões interativos: {[b['title'] for b in buttons]}")
+            
+            # Enviar via API
+            url = f"https://graph.facebook.com/v23.0/{self._phone_number_id}/messages"
+            response = requests.post(url, json=interactive_payload, headers=self._headers, timeout=30)
+            
+            if response.status_code == 200:
+                response_data = response.json()
+                logging.info(f"✅ Botões interativos enviados com sucesso")
+                return True, response_data
+            else:
+                error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {'error': response.text}
+                logging.error(f"❌ Falha ao enviar botões: {response.status_code} - {error_data}")
+                return False, error_data
+                
+        except Exception as e:
+            logging.error(f"Erro ao enviar botões interativos: {str(e)}")
+            return False, {'error': f'Erro inesperado: {str(e)}'}
+    
+    def send_cta_url_button(self, recipient: str, message_text: str, button_text: str, url: str) -> Tuple[bool, Dict]:
+        """
+        Envia mensagem com botão de link CTA (Call to Action)
+        """
+        try:
+            if not self._phone_number_id:
+                return False, {'error': 'Phone number ID não configurado'}
+            
+            # Validar comprimento do texto do botão (máximo 20 caracteres)
+            if len(button_text) > 20:
+                button_text = button_text[:17] + "..."  # 17 + 3 = 20
+                logging.warning(f"⚠️ Texto do botão truncado para: {button_text}")
+            
+            # Preparar payload para botão CTA
+            cta_payload = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": recipient, 
+                "type": "interactive",
+                "interactive": {
+                    "type": "cta_url",
+                    "body": {
+                        "text": message_text
+                    },
+                    "action": {
+                        "name": "cta_url",
+                        "parameters": {
+                            "display_text": button_text,
+                            "url": url
+                        }
+                    }
+                }
+            }
+            
+            logging.info(f"🔗 Enviando botão CTA: {button_text} -> {url}")
+            
+            # Enviar via API
+            url_endpoint = f"https://graph.facebook.com/v23.0/{self._phone_number_id}/messages"
+            response = requests.post(url_endpoint, json=cta_payload, headers=self._headers, timeout=30)
+            
+            if response.status_code == 200:
+                response_data = response.json()
+                logging.info(f"✅ Botão CTA enviado com sucesso")
+                return True, response_data
+            else:
+                error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {'error': response.text}
+                logging.error(f"❌ Falha ao enviar CTA: {response.status_code} - {error_data}")
+                return False, error_data
+                
+        except Exception as e:
+            logging.error(f"Erro ao enviar botão CTA: {str(e)}")
+            return False, {'error': f'Erro inesperado: {str(e)}'}
+    
     def _get_template_structure(self, template_name: str) -> Optional[Dict]:
         """Busca estrutura e linguagem de um template específico via API"""
         try:

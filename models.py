@@ -287,14 +287,31 @@ class ChatMessage(db.Model):
         db.session.commit()
 
 class ConversationState(db.Model):
-    """Estado persistente de conversas para automação"""
+    """Estado persistente de conversas para automação com IA totalmente autônoma"""
     id = db.Column(db.Integer, primary_key=True)
     phone_number = db.Column(db.String(20), unique=True, nullable=False, index=True)
-    current_state = db.Column(db.String(50), default='initial')  # initial, waiting_cpf, confirming_name, pending_questions, approved_flow
+    
+    # Estados expandidos para IA autônoma
+    current_state = db.Column(db.String(50), default='initial')  
+    # Estados possíveis: initial, greeting_sent, intent_detected, information_gathering, 
+    # api_consulting, resolving_issue, waiting_user_response, human_handoff, closed
+    
+    # Dados do contexto conversacional
+    context_data = db.Column(db.Text)  # JSON com contexto da conversa para IA
     client_data = db.Column(db.Text)  # JSON com dados do cliente da API
+    intent_detected = db.Column(db.String(100))  # Intenção detectada pela IA
+    last_ai_action = db.Column(db.String(100))  # Última ação executada pela IA
+    last_user_message_at = db.Column(db.DateTime)  # Timestamp da última mensagem do usuário
+    
+    # Campos legados (mantidos para compatibilidade)
     cpf_status = db.Column(db.String(20))  # APPROVED ou PENDING da API Recoverify
     original_cpf = db.Column(db.String(20))  # CPF original digitado pelo usuário
     question_count = db.Column(db.Integer, default=0)  # Contador de perguntas OpenAI
+    
+    # Controle de IA
+    ai_enabled = db.Column(db.Boolean, default=True)  # Se IA está ativa para esta conversa
+    escalation_reason = db.Column(db.String(200))  # Motivo de transferência para humano
+    
     created_at = db.Column(db.DateTime, default=brasilia_now)
     updated_at = db.Column(db.DateTime, default=brasilia_now, onupdate=brasilia_now)
     
@@ -308,13 +325,51 @@ class ConversationState(db.Model):
             db.session.commit()
         return state
     
-    def update_state(self, new_state: str, client_data: str = None):
-        """Atualiza estado da conversa"""
+    def update_state(self, new_state: str, context_data: str = None, client_data: str = None):
+        """Atualiza estado da conversa com contexto de IA"""
         self.current_state = new_state
+        if context_data:
+            self.context_data = context_data
         if client_data:
             self.client_data = client_data
         self.updated_at = brasilia_now()
         db.session.commit()
+    
+    def set_ai_context(self, intent: str = None, action: str = None, context: dict = None):
+        """Define contexto de IA para a conversa"""
+        import json
+        
+        if intent:
+            self.intent_detected = intent
+        if action:
+            self.last_ai_action = action
+        if context:
+            self.context_data = json.dumps(context, ensure_ascii=False)
+        
+        self.last_user_message_at = brasilia_now()
+        self.updated_at = brasilia_now()
+        db.session.commit()
+    
+    def get_context_dict(self):
+        """Retorna contexto como dicionário"""
+        import json
+        try:
+            return json.loads(self.context_data) if self.context_data else {}
+        except:
+            return {}
+    
+    def disable_ai(self, reason: str = None):
+        """Desabilita IA e transfere para humano"""
+        self.ai_enabled = False
+        self.current_state = 'human_handoff'
+        if reason:
+            self.escalation_reason = reason
+        self.updated_at = brasilia_now()
+        db.session.commit()
+    
+    def is_ai_conversation(self) -> bool:
+        """Verifica se conversa deve ser processada por IA"""
+        return self.ai_enabled and self.current_state not in ['human_handoff', 'closed']
     
     def clear_state(self):
         """Limpa estado da conversa"""
