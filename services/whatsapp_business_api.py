@@ -272,13 +272,41 @@ class WhatsAppBusinessAPI:
                         self._business_account_id = bm_from_env
                         self._phone_number_id = phone_from_env
                         
-                        # Usar dados hardcoded conhecidos (sem API calls)
-                        self._available_phones = [{
-                            'id': phone_from_env,
-                            'display_phone_number': '15558234393',
-                            'quality_rating': 'GREEN',
-                            'verified_name': 'Alex da Hora'
-                        }]
+                        # Buscar dados reais via API do phone number
+                        try:
+                            import requests
+                            phone_url = f"https://graph.facebook.com/v23.0/{phone_from_env}"
+                            phone_response = requests.get(phone_url, headers=self._headers, timeout=10)
+                            
+                            if phone_response.status_code == 200:
+                                phone_data = phone_response.json()
+                                self._available_phones = [{
+                                    'id': phone_from_env,
+                                    'display_phone_number': phone_data.get('display_phone_number', 'Desconhecido'),
+                                    'quality_rating': phone_data.get('quality_rating', 'UNKNOWN'),
+                                    'verified_name': phone_data.get('verified_name', 'Nome não verificado')
+                                }]
+                                real_name = phone_data.get('verified_name', 'Nome não verificado')
+                                logging.info(f"✅ DADOS REAIS CARREGADOS VIA API: {real_name}")
+                            else:
+                                # Fallback se API falhar
+                                self._available_phones = [{
+                                    'id': phone_from_env,
+                                    'display_phone_number': 'Carregando...',
+                                    'quality_rating': 'UNKNOWN',
+                                    'verified_name': 'Carregando dados...'
+                                }]
+                                logging.warning(f"⚠️ Falha na API do phone: {phone_response.status_code}")
+                        except Exception as e:
+                            # Fallback se houver erro
+                            self._available_phones = [{
+                                'id': phone_from_env,
+                                'display_phone_number': 'Erro na conexão',
+                                'quality_rating': 'UNKNOWN',
+                                'verified_name': 'Erro ao carregar'
+                            }]
+                            logging.error(f"❌ Erro ao buscar dados do phone: {e}")
+                        
                         self._has_error_135000 = False
                         logging.info(f"✅ CREDENCIAIS CARREGADAS DAS SECRETS: BM e Phone configurados")
                     else:

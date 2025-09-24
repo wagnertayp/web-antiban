@@ -885,15 +885,39 @@ def get_phone_numbers():
         secret_business_id = os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID')
         
         if secret_phone_id and secret_business_id:
-            # Usar credentials das secrets (sempre prioritário)
-            formatted_phones = [{
-                'id': secret_phone_id,
-                'display_phone_number': '15558234393',  # Phone display conhecido
-                'quality_rating': 'GREEN',
-                'verified_name': 'Alex da Hora'  # Nome verificado conhecido
-            }]
-            
-            logging.info(f"✅ Usando credentials das secrets: {secret_phone_id} - Alex da Hora")
+            # Buscar dados reais via API do phone number
+            try:
+                phone_url = f"https://graph.facebook.com/v23.0/{secret_phone_id}"
+                phone_response = requests.get(phone_url, headers=headers, timeout=10)
+                
+                if phone_response.status_code == 200:
+                    phone_data = phone_response.json()
+                    formatted_phones = [{
+                        'id': secret_phone_id,
+                        'display_phone_number': phone_data.get('display_phone_number', 'Desconhecido'),
+                        'quality_rating': phone_data.get('quality_rating', 'UNKNOWN'),
+                        'verified_name': phone_data.get('verified_name', 'Nome não verificado')
+                    }]
+                    real_name = phone_data.get('verified_name', 'Nome não verificado')
+                    logging.info(f"✅ Usando dados reais da API: {secret_phone_id} - {real_name}")
+                else:
+                    # Fallback se API falhar
+                    formatted_phones = [{
+                        'id': secret_phone_id,
+                        'display_phone_number': 'Carregando...',
+                        'quality_rating': 'UNKNOWN',
+                        'verified_name': 'Carregando dados...'
+                    }]
+                    logging.warning(f"⚠️ Falha na API do phone, usando fallback: {phone_response.status_code}")
+            except Exception as e:
+                # Fallback se houver erro
+                formatted_phones = [{
+                    'id': secret_phone_id,
+                    'display_phone_number': 'Erro na conexão',
+                    'quality_rating': 'UNKNOWN',
+                    'verified_name': 'Erro ao carregar'
+                }]
+                logging.error(f"❌ Erro ao buscar dados do phone: {e}")
             
             result = {
                 'phone_numbers': formatted_phones,
