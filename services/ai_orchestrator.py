@@ -113,14 +113,18 @@ Orientar candidatos sobre o processo OBRIGATÓRIO de cadastro para entregadores 
    - Link: https://shopee.acesso.inc/treinamento
 
 🚨 REGRAS CRÍTICAS:
-- SEMPRE busque o CPF primeiro com fetch_customer_data
+- SEMPRE busque o CPF primeiro com fetch_customer_data (EXCETO se já foi fornecido)
 - Baseie toda conversa no status retornado
 - NUNCA mencione 2 taxas para quem está PENDENTE
 - Seja convincente transmitindo confiança técnica
 - SEMPRE enfatize que são processos OBRIGATÓRIOS
+- 💰 REEMBOLSOS: Se cliente pedir reembolso, use process_refund para: acalmar → motivo → PIX → banco → confirmar
 
-💬 JEITO DE FALAR PROFISSIONAL:
-- "Boa tarde! Sou a Zilma, consultora Shopee."
+💬 JEITO DE FALAR PROFISSIONAL (HORÁRIO BRASILEIRO):
+- 00:00-05:59: "Olá! Sou a Zilma, consultora Shopee."
+- 06:00-11:59: "Bom dia! Sou a Zilma, consultora Shopee."  
+- 12:00-17:59: "Boa tarde! Sou a Zilma, consultora Shopee."
+- 18:00-23:59: "Boa noite! Sou a Zilma, consultora Shopee."
 - "Para atuar como entregador, o kit EPI é obrigatório por lei."
 - "A taxa de R$64,90 é necessária para emissão."
 - "Sem o kit, não é possível trabalhar legalmente."
@@ -270,6 +274,28 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
                             }
                         },
                         "required": ["reason"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "process_refund",
+                    "description": "Processar reembolso para cliente insatisfeito",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "step": {
+                                "type": "string",
+                                "enum": ["calm_customer", "ask_reason", "request_pix", "ask_bank", "confirm_refund"],
+                                "description": "Etapa do processo de reembolso"
+                            },
+                            "data": {
+                                "type": "string",
+                                "description": "Dados da etapa (motivo, PIX, banco, etc)"
+                            }
+                        },
+                        "required": ["step"]
                     }
                 }
             }
@@ -460,10 +486,16 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
         # 💳 DETECTAR ESTADO DE PAGAMENTO ATUAL
         payment_status = self._get_payment_status(conv_state, current_message)
         
+        # 🔧 VERIFICAR SE CPF JÁ FOI FORNECIDO
+        ai_context = conv_state.get_ai_context() or {}
+        cpf_already_provided = ai_context.get('cpf_already_provided', False)
+        customer_cpf = ai_context.get('customer_cpf', '')
+        
         context = f"""MENSAGEM ATUAL DO CLIENTE: {current_message}
 
 ESTADO DA CONVERSA: {conv_state.current_state}
 DADOS DO CLIENTE: {conv_state.context_data or 'Nenhum dado ainda'}
+CPF JÁ FORNECIDO: {'Sim - ' + customer_cpf if cpf_already_provided else 'Não - deve solicitar'}
 
 🎯 ESTADO DE PAGAMENTO ATUAL:
 {payment_status}
@@ -609,8 +641,43 @@ INSTRUÇÕES ESPECÍFICAS:
             elif function_name == "escalate_human":
                 self._escalate_to_human(phone_number, args['reason'], conv_state)
                 
+            elif function_name == "process_refund":
+                self._handle_refund_process(phone_number, conversation_id, args.get('step'), args.get('data', ''), conv_state)
+                
         except Exception as e:
             logging.error(f"Erro ao executar tool call: {e}")
+    
+    def _handle_refund_process(self, phone_number: str, conversation_id: int, step: str, data: str, conv_state):
+        """Processa as etapas do reembolso"""
+        try:
+            if step == "calm_customer":
+                msg = "Entendo sua preocupação! Vamos resolver isso juntos. Me conte qual foi o problema específico que você teve?"
+                self._send_text_response(phone_number, msg, conversation_id)
+                
+            elif step == "ask_reason":
+                # Salvar motivo e pedir PIX
+                conv_state.set_ai_context(context={'refund_reason': data})
+                msg = "Obrigada por me explicar. Para processar seu reembolso, preciso da sua chave PIX. Pode me informar?"
+                self._send_text_response(phone_number, msg, conversation_id)
+                
+            elif step == "request_pix":
+                # Salvar PIX e pedir banco
+                context = conv_state.get_ai_context() or {}
+                context['pix_key'] = data
+                conv_state.set_ai_context(context=context)
+                msg = "Perfeito! Agora me informe qual é o seu banco para finalizarmos o processo."
+                self._send_text_response(phone_number, msg, conversation_id)
+                
+            elif step == "ask_bank":
+                # Salvar banco e confirmar
+                context = conv_state.get_ai_context() or {}
+                context['bank'] = data
+                conv_state.set_ai_context(context=context)
+                msg = "✅ Reembolso processado com sucesso! O valor será devolvido na sua chave PIX em até 7 dias úteis. Você receberá um comprovante por email."
+                self._send_text_response(phone_number, msg, conversation_id)
+                
+        except Exception as e:
+            logging.error(f"Erro no processo de reembolso: {e}")
 
     def _handle_customer_data_fetch(self, phone_number: str, conversation_id: int, cpf: str, conv_state):
         """Busca dados do cliente via Recoverify e reprocessa conversa com IA"""
@@ -630,6 +697,13 @@ INSTRUÇÕES ESPECÍFICAS:
                 })
                 conv_state.intent_detected = 'cpf_lookup_success'
                 conv_state.last_ai_action = f"fetch_customer_data:{cpf}"
+                
+                # 🔧 SALVAR CPF NO CONTEXTO PARA NÃO PERGUNTAR NOVAMENTE
+                context = conv_state.get_ai_context() or {}
+                context['customer_cpf'] = cpf
+                context['cpf_already_provided'] = True
+                conv_state.set_ai_context(context=context)
+                logging.info(f"💾 CPF {cpf} salvo no contexto - não será solicitado novamente")
                 
                 # Commit das mudanças
                 self.db.session.commit()
