@@ -395,15 +395,15 @@ class WhatsAppWebhookHandler:
                 # Inicializar WhatsApp API
                 whatsapp_api = WhatsAppBusinessAPI()
                 
-                # FORÇAR uso do token válido armazenado globalmente
-                valid_token = getattr(app, '_current_valid_token', None)
-                if valid_token:
-                    logging.info(f"🔑 Usando token válido para IA: {valid_token[-6:]}")
-                    whatsapp_api._access_token = valid_token
-                    whatsapp_api._headers = {'Authorization': f'Bearer {valid_token}', 'Content-Type': 'application/json'}
+                # 🔧 CORREÇÃO: Usar token das secrets diretamente
+                whatsapp_token = os.environ.get('WHATSAPP_ACCESS_TOKEN')
+                if whatsapp_token:
+                    logging.info(f"🔑 Usando token das secrets para IA: ...{whatsapp_token[-6:]}")
+                    whatsapp_api._access_token = whatsapp_token
+                    whatsapp_api._headers = {'Authorization': f'Bearer {whatsapp_token}', 'Content-Type': 'application/json'}
                     whatsapp_api._phone_number_id = phone_number_id
                 else:
-                    logging.warning("⚠️ Nenhum token válido encontrado para IA")
+                    logging.warning("⚠️ Token WHATSAPP_ACCESS_TOKEN não encontrado nas secrets")
                     return
                 
                 # 🤖 SISTEMA TOTALMENTE AUTÔNOMO COM IA

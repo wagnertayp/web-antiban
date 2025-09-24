@@ -6,6 +6,7 @@ Detecta primeira mensagem, processa automaticamente e responde como atendente hu
 import logging
 import json
 import os
+import re
 import threading
 import queue
 import time

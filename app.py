@@ -1930,8 +1930,12 @@ def whatsapp_webhook() -> tuple[str, int]:
             token = request.args.get('hub.verify_token')
             challenge = request.args.get('hub.challenge')
             
-            if mode == 'subscribe' and token == 'webhook_verify_token_12345_dev_only' and challenge:
+            # 🔧 CORREÇÃO: Usar token das secrets
+            webhook_verify_token = os.environ.get('WHATSAPP_WEBHOOK_VERIFY_TOKEN', 'webhook_verify_token_12345_dev_only')
+            if mode == 'subscribe' and token == webhook_verify_token and challenge:
+                logging.info(f"✅ Webhook verificado com sucesso com token: ...{token[-4:]}")
                 return str(challenge), 200
+            logging.error(f"❌ Falha na verificação: mode={mode}, token_received=...{token[-4:] if token else 'None'}")
             return "Forbidden", 403
                 
         # POST - mensagem recebida
@@ -1959,14 +1963,10 @@ def whatsapp_webhook() -> tuple[str, int]:
                                     msg_from = message.get('from', 'Unknown')
                                     logging.info(f"📱 MENSAGEM: '{msg_text}' de {msg_from}")
                         
-                        # ⚡ PROCESSAMENTO ULTRA-RÁPIDO (SALVAR INSTANTÂNEO)
-                        import threading
-                        def process_async():
-                            with app.app_context():
-                                webhook_handler.process_webhook(data)
-                        
-                        # Processar em background para resposta instantânea
-                        threading.Thread(target=process_async, daemon=True).start()
+                        # 🔧 CORREÇÃO: Processar diretamente (sem threading problemático)
+                        logging.info(f"🚀 PROCESSANDO WEBHOOK DIRETAMENTE")
+                        result = webhook_handler.process_webhook(data)
+                        logging.info(f"✅ Webhook processado: {result}")
                     else:
                         logging.info(f"📨 Webhook POST sem dados esperados")
                 except Exception as e:
