@@ -545,11 +545,13 @@ INSTRUÇÕES ESPECÍFICAS:
             
             history = []
             for msg in reversed(messages):
-                history.append({
-                    'role': 'user' if msg.direction == 'inbound' else 'assistant',
-                    'content': msg.message_text[:200] if msg.message_text else '',
-                    'timestamp': msg.created_at.isoformat()
-                })
+                # 🔧 CORREÇÃO: usar 'content' não 'message_text'
+                message_content = msg.content[:200] if msg.content else ''
+                if message_content:  # Só incluir mensagens com conteúdo
+                    history.append({
+                        'role': 'user' if msg.direction == 'inbound' else 'assistant',
+                        'content': message_content
+                    })
                 
             return history
             
@@ -562,13 +564,18 @@ INSTRUÇÕES ESPECÍFICAS:
         try:
             choice = response.choices[0]
             
+            # 🔍 DEBUG: Log da resposta completa da IA
+            logging.info(f"🤖 Resposta da IA: tool_calls={bool(choice.message.tool_calls)}, content={choice.message.content[:100] if choice.message.content else 'None'}")
+            
             # Verificar se IA quer usar ferramentas
             if choice.message.tool_calls:
+                logging.info(f"🔧 IA usando {len(choice.message.tool_calls)} ferramenta(s)")
                 for tool_call in choice.message.tool_calls:
                     self._execute_tool_call(tool_call, phone_number, conversation_id, conv_state)
             else:
                 # Resposta direta de texto
                 if choice.message.content:
+                    logging.warning(f"⚠️ IA usando texto direto ao invés de ferramentas: {choice.message.content[:100]}")
                     self._send_text_response(phone_number, choice.message.content, conversation_id)
                     
         except Exception as e:
