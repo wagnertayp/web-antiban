@@ -806,7 +806,8 @@ Responda como Zilma de forma natural e convincente."""
             
             success, result = self.whatsapp_api.send_cta_url_button(phone_number, message, button_text, url)
             if success:
-                self._save_outbound_message(conversation_id, f"{message} [LINK: {button_text}]", result.get('messageId'))
+                # 🎯 SALVAR SEM "[LINK: ...]" - mensagem limpa
+                self._save_outbound_message(conversation_id, message, result.get('messageId'))
                 logging.info(f"✅ IA enviou CTA: {button_text} -> {url}")
             else:
                 # Fallback para texto com link
