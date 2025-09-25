@@ -396,8 +396,6 @@ class ConversationAutomation:
         except Exception as e:
             logging.error(f"Erro no cadastro de entregador: {str(e)}")
             return False
-        
-        return False
     
     def _handle_personal_data_confirmation(self, conv_state, conversation_id: int, message_content: str, phone_number_id: str) -> bool:
         """Processa confirmação dos dados pessoais"""
@@ -453,6 +451,9 @@ class ConversationAutomation:
                             conv_state.update_state('waiting_vehicle_confirmation')
                             self._save_outbound_message(conversation_id, simple_message, result_simple.get('messageId'))
                             return True
+                        else:
+                            logging.error("❌ Falha ao enviar mensagem simples")
+                            return False
                 else:
                     logging.error("❌ Entregador não encontrado no banco")
                     return False
