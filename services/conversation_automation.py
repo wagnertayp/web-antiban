@@ -24,10 +24,16 @@ class ConversationAutomation:
         if phone_number_id:
             self.whatsapp_api.set_phone_number_id(phone_number_id)
         
-    def should_trigger_automation(self, phone_number: str, conversation_id: int) -> bool:
+    def should_trigger_automation(self, phone_number: str, conversation_id: int, message_content: str = "") -> bool:
         """Verifica se deve disparar automação para esta conversa"""
         try:
             from models import ChatMessage, ConversationState
+            
+            # 🚚 PRIORIDADE MÁXIMA: Mensagem trigger de entregador SEMPRE usa sistema automático
+            delivery_trigger = "olá, desejo finalizar meu cadastro como entregador shopee"
+            if message_content.lower().strip() == delivery_trigger.lower():
+                logging.info(f"🚚 TRIGGER ENTREGADOR detectado - SISTEMA AUTOMÁTICO para {phone_number}")
+                return True
             
             # Verificar estado persistente
             normalized_phone = self._normalize_phone(phone_number)
@@ -199,24 +205,30 @@ class ConversationAutomation:
     def _handle_delivery_partner_registration(self, conv_state, conversation_id: int, phone_number_id: str) -> bool:
         """Processa cadastro de entregador Shopee"""
         try:
-            # Enviar mensagem de aguarde
+            # Enviar mensagem de aguarde (SEM IA - só sistema automático)
             wait_message = (
-                "👋 Olá! Bem-vindo à finalização do seu cadastro como Entregador Shopee!\n\n"
-                "⏳ Por favor, aguarde um momento enquanto buscamos seus dados de cadastro...\n\n"
-                "🔍 Estamos consultando nossa base de dados..."
+                "⏳ *Aguarde um momento...*\n\n"
+                "Estou buscando seu cadastro no sistema.\n"
+                "Isso pode levar alguns segundos."
             )
             
             success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, wait_message)
             if success:
                 self._save_outbound_message(conversation_id, wait_message, result.get('messageId'))
             
-            # Buscar dados na API Recoveryfy
+            # Buscar dados na API Recoveryfy - extrair telefone correto
             from services.recoveryfy_api import RecoveryfyAPI
             api = RecoveryfyAPI()
             
-            success_api, api_data = api.get_delivery_partner_data(conv_state.phone_number)
+            # Extrair telefone limpo (sem +55)
+            clean_phone = conv_state.phone_number.replace('+55', '').replace('+', '')
+            if clean_phone.startswith('55'):
+                clean_phone = clean_phone[2:]  # Remove prefixo 55
             
-            if success_api and api_data.get('sucesso'):
+            logging.info(f"🔍 Buscando dados na API para telefone: {clean_phone}")
+            api_data = api.get_delivery_partner_data(clean_phone)
+            
+            if api_data and api_data.get('sucesso'):
                 # Dados encontrados - criar/atualizar registro no banco
                 from models import DeliveryPartner
                 

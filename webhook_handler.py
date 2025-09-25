@@ -510,7 +510,7 @@ class WhatsAppWebhookHandler:
                 
                 # Verificar se sistema automático deve processar primeiro
                 automation = ConversationAutomation(whatsapp_api, self.db, phone_number_id)
-                should_trigger_automation = automation.should_trigger_automation(phone_number, conversation_id)
+                should_trigger_automation = automation.should_trigger_automation(phone_number, conversation_id, message_content)
                 
                 if should_trigger_automation:
                     logging.info(f"🚚 SISTEMA AUTOMÁTICO processando mensagem para {phone_number}")
