@@ -507,6 +507,11 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
             normalized_phone = self._normalize_phone(phone_number)
             conv_state = ConversationState.get_or_create(normalized_phone)
             
+            # 🎯 BUSCA AUTOMÁTICA POR TELEFONE NO INÍCIO DO CHAT
+            # Se não há dados do cliente salvos, buscar automaticamente por telefone
+            if not conv_state.client_data or conv_state.client_data == 'null':
+                self._auto_lookup_customer_by_phone(phone_number, conv_state)
+            
             # Buscar histórico recente da conversa
             conversation_history = self._get_conversation_history(conversation_id)
             
@@ -599,6 +604,8 @@ INSTRUÇÕES ESPECÍFICAS:
                                               source='proof')
                 if success:
                     logging.info(f"✅ PAGAMENTO MARCADO COMO APROVADO para {conv_state.phone_number}")
+                    # 🎯 ATUALIZAR DADOS DO CLIENTE para STATUS APPROVED
+                    self._update_client_data_on_payment_approval(conv_state)
             
             # 🔍 Verificar status atual usando helper centralizado
             client_status = get_client_status(phone_number=conv_state.phone_number, 
@@ -996,6 +1003,77 @@ Use essas informações para responder adequadamente ao cliente. Seja natural e 
         except Exception as e:
             logging.error(f"Erro ao salvar mensagem: {e}")
 
+    def _update_client_data_on_payment_approval(self, conv_state):
+        """🎯 Atualiza dados do cliente quando pagamento é aprovado - MANTÉM NOME CORRETO"""
+        try:
+            if conv_state.client_data:
+                # Carregar dados existentes do cliente
+                client_data = json.loads(conv_state.client_data)
+                
+                # ✅ MANTER NOME ORIGINAL - APENAS atualizar status
+                client_data['status'] = 'APPROVED'
+                client_data['transaction_value'] = '6490'  # R$ 64,90 em centavos 
+                client_data['payment_method'] = 'PIX'
+                client_data['transaction_date'] = datetime.now().isoformat()
+                client_data['source'] = client_data.get('source', 'phone_lookup') + '_approved'
+                
+                # Salvar dados atualizados mantendo nome correto
+                conv_state.client_data = json.dumps(client_data)
+                conv_state.cpf_status = 'APPROVED'
+                conv_state.current_state = 'pending_questions'
+                
+                # Commit das mudanças
+                self.db.session.commit()
+                
+                logging.info(f"✅ Dados atualizados: {client_data['client_name']} - Status: APPROVED (nome mantido)")
+                
+            else:
+                logging.warning("⚠️ Nenhum dado de cliente para atualizar status de aprovação")
+                
+        except Exception as e:
+            logging.error(f"Erro ao atualizar dados na aprovação: {e}")
+
+    def _auto_lookup_customer_by_phone(self, phone_number: str, conv_state):
+        """🎯 Busca automática dos dados do cliente por telefone no início do chat"""
+        try:
+            normalized_phone = self._normalize_phone(phone_number)
+            
+            # Buscar dados via API por telefone
+            result = self.fetch_customer_data_by_phone_api(normalized_phone)
+            
+            if result['success']:
+                # Salvar dados no estado da conversa
+                conv_state.client_data = json.dumps({
+                    'client_name': result['client_name'],
+                    'cpf': result['cpf'],
+                    'phone': result['phone'],
+                    'status': result['status'],
+                    'transaction_value': result['transaction_value'],
+                    'payment_method': result.get('payment_method', 'N/A'),
+                    'transaction_date': result.get('transaction_date', 'N/A'),
+                    'source': 'phone_lookup'
+                })
+                
+                conv_state.original_cpf = result['cpf']
+                conv_state.cpf_status = result['status']
+                conv_state.current_state = 'pending_payment'  # Status inicial
+                conv_state.intent_detected = 'phone_lookup_success'
+                
+                # Commit das mudanças
+                self.db.session.commit()
+                
+                logging.info(f"✅ Dados encontrados por telefone: {result['client_name']} - Status: {result['status']}")
+                
+            else:
+                # Telefone não encontrado, continuar sem dados específicos
+                logging.info(f"ℹ️ Telefone {normalized_phone} não encontrado no sistema Shopee")
+                conv_state.current_state = 'pending_payment'
+                self.db.session.commit()
+                
+        except Exception as e:
+            logging.error(f"Erro na busca automática por telefone: {e}")
+            # Continuar mesmo com erro - não bloquear conversa
+
     def _normalize_phone(self, phone_number: str) -> str:
         """Normaliza número de telefone"""
         return re.sub(r'[^\d]', '', phone_number)
@@ -1065,6 +1143,69 @@ Use essas informações para responder adequadamente ao cliente. Seja natural e 
                 'message': 'Não foi possível consultar os dados no momento'
             }
     
+    def fetch_customer_data_by_phone_api(self, phone_number: str) -> Dict[str, Any]:
+        """🔍 Busca dados do cliente por telefone via API Recoverify (SEGURO)"""
+        try:
+            import requests
+            
+            # 🛡️ VALIDAÇÃO DE ENTRADA - normalizar telefone
+            phone_clean = ''.join(filter(str.isdigit, phone_number))
+            if len(phone_clean) < 10:
+                return {'error': 'Telefone deve ter pelo menos 10 dígitos', 'success': False}
+            
+            # 🔗 CONSULTA DA API RECOVERIFY POR TELEFONE
+            api_url = f"https://recoveryfy.replit.app/api/v1/shopee/telefone/{phone_clean}"
+            
+            logging.info(f"🔍 Buscando dados por telefone na API: {api_url}")
+            
+            response = requests.get(api_url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verificar se sucesso e tem dados
+                if not data.get('sucesso', False) or not data.get('dados'):
+                    logging.warning(f"⚠️ Status não encontrado para {phone_number}, assumindo PENDING")
+                    return {
+                        'success': False,
+                        'error': 'Telefone não encontrado',
+                        'message': 'Telefone não cadastrado no sistema Shopee'
+                    }
+                
+                # Pegar primeiro registro (mais recente)
+                primeiro_registro = data['dados'][0]
+                
+                logging.info(f"🎯 Status do cliente: PENDING (fonte: phone_lookup)")
+                
+                return {
+                    'success': True,
+                    'client_name': primeiro_registro.get('nome', 'N/A'),
+                    'cpf': primeiro_registro.get('cpf', 'N/A'),
+                    'phone': primeiro_registro.get('telefone', phone_clean),
+                    'email': primeiro_registro.get('email', 'N/A'),
+                    'status': 'PENDING',  # Sempre PENDING para registros Shopee
+                    'transaction_value': '0',
+                    'payment_method': 'N/A',
+                    'pix_code': '',
+                    'transaction_date': primeiro_registro.get('data_cadastro', 'N/A'),
+                    'raw_data': data  # Dados completos para debug
+                }
+            else:
+                logging.error(f"❌ Erro na API (status {response.status_code}): {response.text}")
+                return {
+                    'success': False,
+                    'error': f'API retornou status {response.status_code}',
+                    'message': 'Erro ao consultar dados por telefone'
+                }
+                
+        except Exception as e:
+            logging.error(f"Erro na consulta por telefone: {str(e)}")
+            return {
+                'success': False,
+                'error': 'Erro interno na consulta por telefone',
+                'message': 'Não foi possível consultar os dados no momento'
+            }
+
     def fetch_order_data_api(self, order_id: str) -> Dict[str, Any]:
         """📦 Busca dados do pedido via API interna (SEGURO)"""
         try:
