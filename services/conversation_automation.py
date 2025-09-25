@@ -215,9 +215,8 @@ class ConversationAutomation:
         try:
             # Enviar mensagem de aguarde (SEM IA - só sistema automático)
             wait_message = (
-                "⏳ *Aguarde um momento...*\n\n"
+                ""Aguarde um momento..."\n\n"
                 "Estou buscando seu cadastro no sistema.\n"
-                "Isso pode levar alguns segundos."
             )
             
             success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, wait_message)
@@ -227,10 +226,7 @@ class ConversationAutomation:
             # Buscar dados na API Recoveryfy - extrair telefone correto
             from services.recoveryfy_api import RecoveryfyAPI
             api = RecoveryfyAPI()
-            
-            # Extrair telefone limpo (sem prefixos) 
-            # Formato esperado na API: 61999114066 (11 dígitos)
-            # Seu telefone: 556199114066 (12 dígitos) = 55 + 61999114066
+
             clean_phone = conv_state.phone_number.replace('+', '').replace(' ', '').replace('-', '')
             
             # Remover apenas o código do país "55" se presente
@@ -270,12 +266,12 @@ class ConversationAutomation:
                 cidade = dados.get('cidade', 'Cidade não informada')
                 
                 confirmation_message = (
-                    f"✅ *Dados encontrados com sucesso!*\n\n"
-                    f"📋 Por favor, confirme seus dados pessoais:\n\n"
-                    f"👤 *Nome:* {nome}\n"
-                    f"📄 *CPF:* {cpf}\n"
-                    f"🏙️ *Cidade:* {cidade}\n\n"
-                    f"❓ Os dados estão corretos?"
+                    f"✅ *Cadastro encontrado com sucesso!*\n\n"
+                    f"Me confirme seus dados pessoais:\n\n"
+                    f"*Nome:* {nome}\n"
+                    f"*CPF:* {cpf}\n"
+                    f"*Cidade:* {cidade}\n\n"
+                    f"Se seus dados estão corretos clique no botão *SIM* abaixo:"
                 )
                 
                 # Enviar com botão SIM
@@ -451,13 +447,13 @@ class ConversationAutomation:
                         kit_message = (
                             f"🎉 *Cadastro aprovado com sucesso!*\n\n"
                             f"✅ Parabéns! Seu cadastro como Entregador Shopee foi aprovado!\n\n"
-                            f"📦 Para começar a realizar as entregas, você precisa receber:\n"
+                            f"Para começar a realizar as entregas, você precisa receber:\n"
                             f"• Kit EPI (Equipamentos de Proteção Individual)\n"
                             f"• Cartão salário\n\n"
-                            f"💰 A Shopee cobra uma taxa de entrega no valor de *R$ 64,90*\n\n"
-                            f"❗ Esta taxa existe porque antes era grátis e muitas pessoas fraudavam, recebendo o Kit EPI sem serem entregadores de verdade.\n\n"
-                            f"⏰ *Prazo de entrega:* até 5 dias úteis\n\n"
-                            f"📱 *Processo:* Após o pagamento, envie o comprovante que eu aprovo seu cadastro e passo todas as instruções!"
+                            f"A Shopee cobra uma taxa de entrega no valor de *R$ 64,90*\n\n"
+                            f"❗ Esta taxa existe porque muitas pessoas estavam se cadastrando apenas para receber os equipamentos gratuitamente, prejudicamento a nossa empresa. Após 15 dias realizando entregas com a nossa empresa vamos reembolsar este valor em seu Cartão Shopee.\n\n"
+                            f"*Prazo de entrega:* até 5 dias úteis\n\n"
+                            f"*Processo:* Após o pagamento, nos envie o comprovante que aprovaremos seu cadastro ainda hoje e passaremos todas as instruções!"
                         )
                         
                         # Enviar mensagem com botão de pagamento
