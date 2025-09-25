@@ -340,6 +340,11 @@ class ConversationAutomation:
                     partner.confirmed_personal_data = True
                     
                     # Enviar dados do veículo para confirmação
+                    # Verificar se o carro é alugado/emprestado
+                    carro_status = ""
+                    if partner.carro_alugado and partner.carro_alugado.lower() in ['true', 'sim', '1', 'yes']:
+                        carro_status = f"🔄 *Status:* Veículo alugado/emprestado\n"
+                    
                     vehicle_message = (
                         f"✅ *Dados pessoais confirmados!*\n\n"
                         f"🚗 Agora confirme os dados do seu veículo:\n\n"
@@ -348,8 +353,9 @@ class ConversationAutomation:
                         f"🎨 *Cor:* {partner.veiculo_cor or 'Não informada'}\n"
                         f"🏭 *Marca:* {partner.veiculo_marca or 'Não informada'}\n"
                         f"🚗 *Modelo:* {partner.veiculo_modelo or 'Não informado'}\n"
-                        f"📅 *Ano:* {partner.veiculo_ano or 'Não informado'}\n\n"
-                        f"❓ Os dados do veículo estão corretos?"
+                        f"📅 *Ano:* {partner.veiculo_ano or 'Não informado'}\n"
+                        f"{carro_status}"
+                        f"\n❓ Os dados do veículo estão corretos?"
                     )
                     
                     # Enviar com botão SIM
