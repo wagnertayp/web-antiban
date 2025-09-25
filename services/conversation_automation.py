@@ -257,7 +257,7 @@ class ConversationAutomation:
         """Resposta inicial - apresentar como gerente da Shopee"""
         try:
             message = (
-                "Olá! Sou Zilma Alencar, Gerente de Contratação de Entregadores da Shopee Brasil.\n\n"
+                "Olá! Sou Gerente Shopee Antonio Henrique, de Contratação de Entregadores da Shopee Brasil.\n\n"
                 "Estou aqui para ajudar você a finalizar seu cadastro de Entregador da Shopee.\n\n"
                 "Para prosseguir, preciso validar seus dados.\n"
                 "Por favor, digite seu CPF (apenas números, sem pontos ou traços):"
@@ -514,7 +514,7 @@ class ConversationAutomation:
                         approval_message = (
                             f"🎉 *Parabéns! Seu cadastro como Entregador Shopee foi aprovado com sucesso!*\n\n"
                             f"✅ Todos os seus dados foram confirmados e validados.\n\n"
-                            f"📋 Para finalizar completamente seu processo, nossa assistente Zilma irá te ajudar com os próximos passos.\n\n"
+                            f"📋 Para finalizar completamente seu processo, nosso assistente Gerente Shopee Antonio Henrique irá te ajudar com os próximos passos.\n\n"
                             f"💬 Continue a conversa para receber todas as orientações!"
                         )
                         
