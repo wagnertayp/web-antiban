@@ -1389,7 +1389,9 @@
             async updateMessagesInBackground(conversationId) {
                 try {
                     const cacheKey = `conv_${conversationId}`;
-                    const response = await fetch(`/api/conversations/${conversationId}/messages`);
+                    // 🚨 FORÇA CACHE BUST para evitar cache do navegador após restart
+                    const cacheBuster = new Date().getTime();
+                    const response = await fetch(`/api/conversations/${conversationId}/messages?_=${cacheBuster}`);
                     
                     if (response.ok) {
                         const data = await response.json();
@@ -1400,11 +1402,15 @@
                         
                         if (!cachedData || cachedData.messages.length !== data.messages.length) {
                             shouldUpdate = true;
+                            console.log(`🔄 Cache update: length changed ${cachedData?.messages?.length || 0} -> ${data.messages.length}`);
                         } else if (data.messages.length > 0 && cachedData.messages.length > 0) {
                             // Comparar ID da última mensagem para detectar mensagens novas
                             const lastCachedId = cachedData.messages[cachedData.messages.length - 1].id;
                             const lastApiId = data.messages[data.messages.length - 1].id;
-                            shouldUpdate = lastCachedId !== lastApiId;
+                            if (lastCachedId !== lastApiId) {
+                                shouldUpdate = true;
+                                console.log(`🔄 Cache update: last message ID changed ${lastCachedId} -> ${lastApiId}`);
+                            }
                         }
                         
                         if (shouldUpdate) {
@@ -1417,11 +1423,12 @@
                             if (this.currentConversationId === conversationId) {
                                 this.messages = data.messages;
                                 this.renderMessages(false);
+                                console.log(`✅ Messages updated! Showing ${data.messages.length} messages`);
                             }
                         }
                     }
                 } catch (error) {
-                    // ✅ SILENCIAR ERROS DE BACKGROUND
+                    console.error('❌ Error updating messages:', error);
                 }
             }
             
@@ -2195,7 +2202,7 @@
             }
             
             startPolling() {
-                // ✅ POLLING MAIS INTELIGENTE - 10 segundos para não sobrecarregar
+                // ✅ POLLING MAIS INTELIGENTE - 5 segundos para detectar mensagens rapidamente
                 this.pollingInterval = setInterval(() => {
                     // ✅ CARREGAR CONVERSAS APENAS SE NECESSÁRIO
                     const timeSinceLastUpdate = new Date() - this.lastUpdateTime;
@@ -2208,7 +2215,7 @@
                     if (this.currentConversationId) {
                         this.updateMessagesInBackground(this.currentConversationId);
                     }
-                }, 10000); // Reduzido para 10 segundos
+                }, 5000); // REDUZIDO para 5 segundos para detectar mensagens mais rápido
                 
                 // ✅ PRÉ-CARREGAR CONVERSAS RECENTES PARA VELOCIDADE MÁXIMA
                 setTimeout(() => this.preloadRecentConversations(), 2000);
