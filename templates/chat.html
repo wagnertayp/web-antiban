@@ -965,6 +965,7 @@
             }
             
             async init() {
+                console.log('🚀 INICIALIZANDO WHATSAPP CHAT');
                 this.bindEvents();
                 
                 // Primeiro, sincronizar estado de conexão com o backend
@@ -973,7 +974,10 @@
                 
                 this.loadConversations();
                 this.loadPhoneNumbers();
+                
+                console.log('🎯 Chamando startPolling()...');
                 this.startPolling();
+                console.log('✅ WhatsApp Chat inicializado');
             }
             
             bindEvents() {
@@ -2202,20 +2206,29 @@
             }
             
             startPolling() {
+                console.log('🚀 INICIANDO POLLING - 5 segundos');
                 // ✅ POLLING MAIS INTELIGENTE - 5 segundos para detectar mensagens rapidamente
                 this.pollingInterval = setInterval(() => {
+                    console.log('🔄 POLLING TICK - Conversa atual:', this.currentConversationId);
+                    
                     // ✅ CARREGAR CONVERSAS APENAS SE NECESSÁRIO
                     const timeSinceLastUpdate = new Date() - this.lastUpdateTime;
                     if (timeSinceLastUpdate > 8000) { // 8 segundos
+                        console.log('📋 Carregando conversas...');
                         this.loadConversations();
                         this.lastUpdateTime = new Date();
                     }
                     
                     // ✅ ATUALIZAR CONVERSA ATIVA EM BACKGROUND
                     if (this.currentConversationId) {
+                        console.log(`📨 Atualizando mensagens da conversa ${this.currentConversationId}...`);
                         this.updateMessagesInBackground(this.currentConversationId);
+                    } else {
+                        console.log('⚠️ Nenhuma conversa ativa para atualizar');
                     }
                 }, 5000); // REDUZIDO para 5 segundos para detectar mensagens mais rápido
+                
+                console.log('✅ Polling configurado com sucesso');
                 
                 // ✅ PRÉ-CARREGAR CONVERSAS RECENTES PARA VELOCIDADE MÁXIMA
                 setTimeout(() => this.preloadRecentConversations(), 2000);
