@@ -215,7 +215,7 @@ class ConversationAutomation:
         try:
             # Enviar mensagem de aguarde (SEM IA - só sistema automático)
             wait_message = (
-                ""Aguarde um momento..."\n\n"
+                "Aguarde um momento...\n\n"
                 "Estou buscando seu cadastro no sistema.\n"
             )
             
