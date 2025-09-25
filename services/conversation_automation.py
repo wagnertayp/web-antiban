@@ -116,19 +116,32 @@ class ConversationAutomation:
                 if self._is_automatic_flow_response(message_content, conv_state):
                     return self._handle_pending_questions(conv_state, conversation_id, message_content, phone_number_id)
                 else:
-                    # Habilitar IA para processar mensagem e persistir mudança
-                    if not conv_state.ai_enabled:
-                        conv_state.ai_enabled = True
+                    # Verificar controle de frequência da IA (evitar múltiplas respostas)
+                    if self._should_ai_respond(conv_state, message_content):
+                        # Habilitar IA para processar mensagem e persistir mudança
+                        if not conv_state.ai_enabled:
+                            conv_state.ai_enabled = True
+                            from datetime import datetime, timezone, timedelta
+                            brasilia_tz = timezone(timedelta(hours=-3))  # UTC-3 (Brasília)
+                            conv_state.updated_at = datetime.now(brasilia_tz)
+                            from app import db
+                            db.session.commit()  # Persistir para próxima verificação
+                            logging.info(f"🤖 IA habilitada e persistida para processar mensagem fora do fluxo: {message_content[:50]}")
+                        
+                        # Atualizar timestamp da resposta da IA (antes de retornar False para IA processar)
                         from datetime import datetime, timezone, timedelta
-                        brasilia_tz = timezone(timedelta(hours=-3))  # UTC-3 (Brasília)
-                        conv_state.updated_at = datetime.now(brasilia_tz)
+                        brasilia_tz = timezone(timedelta(hours=-3))
+                        conv_state.last_ai_response_at = datetime.now(brasilia_tz)
                         from app import db
-                        db.session.commit()  # Persistir para próxima verificação
-                        logging.info(f"🤖 IA habilitada e persistida para processar mensagem fora do fluxo: {message_content[:50]}")
-                    
-                    # Sinalizar que automação não processou - IA deve ser chamada
-                    logging.info(f"🤖 Mensagem fora do fluxo automático - deixando IA processar: {message_content[:50]}")
-                    return False
+                        db.session.commit()
+                        
+                        # Sinalizar que automação não processou - IA deve ser chamada
+                        logging.info(f"🤖 IA liberada para responder: {message_content[:50]}")
+                        return False
+                    else:
+                        # IA recentemente respondeu - ignorar mensagem
+                        logging.info(f"⏰ IA já respondeu recentemente - ignorando mensagem: {message_content[:50]}")
+                        return True  # Marca como processado para evitar IA
             
             return False
             
@@ -160,6 +173,84 @@ class ConversationAutomation:
             if response in message_lower:  # Mudança: usar 'in' em vez de '=='
                 return True
         
+        return False
+    
+    def _should_ai_respond(self, conv_state, message_content: str) -> bool:
+        """Controla quando a IA deve responder para evitar múltiplas respostas"""
+        try:
+            from datetime import datetime, timezone, timedelta
+            brasilia_tz = timezone(timedelta(hours=-3))
+            now = datetime.now(brasilia_tz)
+            
+            # 📝 ESPECIAL: Sempre responder para comprovantes de pagamento
+            if self._is_payment_proof(message_content):
+                logging.info(f"💳 Comprovante detectado - IA DEVE responder para agradecer")
+                return True
+            
+            # ⏰ CONTROLE DE FREQUÊNCIA: Limitar respostas da IA 
+            if conv_state.last_ai_response_at:
+                # Calcular tempo desde última resposta
+                time_since_last = now - conv_state.last_ai_response_at
+                
+                # Aguardar pelo menos 30 segundos entre respostas automáticas
+                min_interval = timedelta(seconds=30)
+                if time_since_last < min_interval:
+                    logging.info(f"⏰ IA respondeu há {time_since_last.total_seconds():.1f}s - aguardando {min_interval.total_seconds()}s")
+                    return False
+            
+            # 📊 REGRA: Permitir máximo 1 resposta por pergunta/assunto
+            # Se a última mensagem foi muito recente (menos de 5 minutos), ser mais conservador
+            if conv_state.last_ai_response_at:
+                time_since_last = now - conv_state.last_ai_response_at
+                if time_since_last < timedelta(minutes=5):
+                    # Ser mais seletivo - só responder para perguntas claras
+                    if not self._is_clear_question(message_content):
+                        logging.info(f"🤔 Mensagem não é pergunta clara - aguardando mais tempo")
+                        return False
+            
+            return True
+            
+        except Exception as e:
+            logging.error(f"Erro no controle de frequência da IA: {str(e)}")
+            return True  # Em caso de erro, permitir resposta
+    
+    def _is_payment_proof(self, message_content: str) -> bool:
+        """Detecta se a mensagem contém comprovante de pagamento"""
+        message_lower = message_content.lower().strip()
+        
+        # Palavras-chave que indicam comprovante
+        payment_keywords = [
+            'comprovante', 'paguei', 'pago', 'pagamento', 'transferencia', 'pix',
+            'boleto', 'deposito', 'cartao', 'débito', 'crédito', 'banco',
+            'extrato', 'recibo', 'invoice', 'fatura', 'cobrança'
+        ]
+        
+        # Detectar menções de pagamento
+        for keyword in payment_keywords:
+            if keyword in message_lower:
+                return True
+        
+        # Detectar anexos que podem ser comprovantes (via webhook)
+        if '[comprovante' in message_lower or 'enviou' in message_lower and ('anexo' in message_lower or 'arquivo' in message_lower):
+            return True
+            
+        return False
+    
+    def _is_clear_question(self, message_content: str) -> bool:
+        """Detecta se a mensagem é uma pergunta clara que merece resposta"""
+        message_lower = message_content.lower().strip()
+        
+        # Perguntas diretas
+        question_indicators = [
+            '?', 'como', 'quando', 'onde', 'por que', 'porque', 'qual', 'quanto',
+            'posso', 'pode', 'tem que', 'preciso', 'obrigatório', 'obrigatorio',
+            'é necessário', 'necessario', 'dúvida', 'duvida', 'ajuda'
+        ]
+        
+        for indicator in question_indicators:
+            if indicator in message_lower:
+                return True
+                
         return False
     
     def _handle_initial_contact(self, conv_state, conversation_id: int, phone_number_id: str) -> bool:

@@ -310,6 +310,7 @@ class ConversationState(db.Model):
     
     # Controle de IA
     ai_enabled = db.Column(db.Boolean, default=False)  # Se IA está ativa para esta conversa (inicialmente desabilitada)
+    last_ai_response_at = db.Column(db.DateTime)  # Timestamp da última resposta da IA (controle de frequência)
     escalation_reason = db.Column(db.String(200))  # Motivo de transferência para humano
     
     created_at = db.Column(db.DateTime, default=brasilia_now)
