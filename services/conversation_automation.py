@@ -69,7 +69,10 @@ class ConversationAutomation:
             
             logging.info(f"🤖 Processando automação - Estado: {current_state} - Mensagem: {message_content[:50]}")
             
-            if current_state == 'initial':
+            # 🚚 NOVO FLUXO ENTREGADOR: Detectar mensagem específica
+            if current_state == 'initial' and self._is_delivery_partner_message(message_content):
+                return self._handle_delivery_partner_registration(conv_state, conversation_id, phone_number_id)
+            elif current_state == 'initial':
                 return self._handle_initial_contact(conv_state, conversation_id, phone_number_id)
             elif current_state == 'waiting_cpf':
                 return self._handle_cpf_input(conv_state, conversation_id, message_content, phone_number_id)
@@ -77,6 +80,11 @@ class ConversationAutomation:
                 return self._handle_name_confirmation(conv_state, conversation_id, message_content, phone_number_id)
             elif current_state == 'pending_questions':
                 return self._handle_pending_questions(conv_state, conversation_id, message_content, phone_number_id)
+            # 🚚 NOVOS ESTADOS PARA ENTREGADOR
+            elif current_state == 'waiting_personal_confirmation':
+                return self._handle_personal_data_confirmation(conv_state, conversation_id, message_content, phone_number_id)
+            elif current_state == 'waiting_vehicle_confirmation':
+                return self._handle_vehicle_data_confirmation(conv_state, conversation_id, message_content, phone_number_id)
             
             return False
             
@@ -113,6 +121,264 @@ class ConversationAutomation:
         except Exception as e:
             logging.error(f"Erro na resposta inicial: {str(e)}")
             return False
+    
+    def _is_delivery_partner_message(self, message_content: str) -> bool:
+        """Verifica se a mensagem é de cadastro de entregador"""
+        message_lower = message_content.lower().strip()
+        delivery_keywords = [
+            "olá, desejo finalizar meu cadastro como entregador shopee",
+            "desejo finalizar meu cadastro como entregador shopee",
+            "finalizar meu cadastro como entregador shopee",
+            "cadastro como entregador shopee",
+            "entregador shopee"
+        ]
+        
+        for keyword in delivery_keywords:
+            if keyword in message_lower:
+                logging.info(f"🚚 MENSAGEM DE ENTREGADOR detectada: {message_content[:50]}")
+                return True
+        
+        return False
+    
+    def _handle_delivery_partner_registration(self, conv_state, conversation_id: int, phone_number_id: str) -> bool:
+        """Processa cadastro de entregador Shopee"""
+        try:
+            # Enviar mensagem de aguarde
+            wait_message = (
+                "👋 Olá! Bem-vindo à finalização do seu cadastro como Entregador Shopee!\n\n"
+                "⏳ Por favor, aguarde um momento enquanto buscamos seus dados de cadastro...\n\n"
+                "🔍 Estamos consultando nossa base de dados..."
+            )
+            
+            success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, wait_message)
+            if success:
+                self._save_outbound_message(conversation_id, wait_message, result.get('messageId'))
+            
+            # Buscar dados na API Recoveryfy
+            from services.recoveryfy_api import RecoveryfyAPI
+            api = RecoveryfyAPI()
+            
+            success_api, api_data = api.get_delivery_partner_data(conv_state.phone_number)
+            
+            if success_api and api_data.get('sucesso'):
+                # Dados encontrados - criar/atualizar registro no banco
+                from models import DeliveryPartner
+                
+                partner = DeliveryPartner.create_from_api_data(
+                    conv_state.phone_number, 
+                    conversation_id, 
+                    api_data
+                )
+                
+                # Enviar mensagem de confirmação dos dados pessoais
+                dados = api_data.get('dados', [{}])[0]
+                nome = dados.get('nome', 'Nome não informado')
+                cpf = dados.get('cpf', 'CPF não informado')
+                cidade = dados.get('cidade', 'Cidade não informada')
+                
+                confirmation_message = (
+                    f"✅ *Dados encontrados com sucesso!*\n\n"
+                    f"📋 Por favor, confirme seus dados pessoais:\n\n"
+                    f"👤 *Nome:* {nome}\n"
+                    f"📄 *CPF:* {cpf}\n"
+                    f"🏙️ *Cidade:* {cidade}\n\n"
+                    f"❓ Os dados estão corretos?"
+                )
+                
+                # Enviar com botão SIM
+                success_confirm, result_confirm = self.whatsapp_api.send_interactive_button(
+                    conv_state.phone_number,
+                    confirmation_message,
+                    "Confirmar",
+                    "SIM"
+                )
+                
+                if success_confirm:
+                    # Atualizar estado
+                    conv_state.update_state('waiting_personal_confirmation')
+                    self._save_outbound_message(conversation_id, confirmation_message + "\n[Botão: SIM]", result_confirm.get('messageId'))
+                    
+                    logging.info(f"✅ Dados do entregador enviados para confirmação: {nome}")
+                    return True
+                else:
+                    # Fallback sem botão
+                    simple_message = confirmation_message + "\n\nDigite *SIM* para confirmar."
+                    success_simple, result_simple = self.whatsapp_api.send_text_message(conv_state.phone_number, simple_message)
+                    if success_simple:
+                        conv_state.update_state('waiting_personal_confirmation')
+                        self._save_outbound_message(conversation_id, simple_message, result_simple.get('messageId'))
+                        return True
+            else:
+                # Dados não encontrados
+                error_message = (
+                    "❌ Não conseguimos encontrar seus dados de cadastro no sistema.\n\n"
+                    "🤔 Isso pode acontecer por alguns motivos:\n"
+                    "• Seu telefone não está cadastrado\n"
+                    "• Os dados ainda estão sendo processados\n"
+                    "• Há algum erro no sistema\n\n"
+                    "📞 Por favor, entre em contato com nosso suporte para verificação manual."
+                )
+                
+                success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, error_message)
+                if success:
+                    self._save_outbound_message(conversation_id, error_message, result.get('messageId'))
+                
+                return True
+                
+        except Exception as e:
+            logging.error(f"Erro no cadastro de entregador: {str(e)}")
+            return False
+        
+        return False
+    
+    def _handle_personal_data_confirmation(self, conv_state, conversation_id: int, message_content: str, phone_number_id: str) -> bool:
+        """Processa confirmação dos dados pessoais"""
+        try:
+            message_lower = message_content.lower().strip()
+            
+            if message_lower in ['sim', 's', 'yes', 'y', 'confirmo']:
+                # Dados confirmados - marcar no banco e enviar dados do veículo
+                from models import DeliveryPartner
+                
+                partner = DeliveryPartner.get_by_phone(conv_state.phone_number)
+                if partner:
+                    partner.confirmed_personal_data = True
+                    
+                    # Enviar dados do veículo para confirmação
+                    vehicle_message = (
+                        f"✅ *Dados pessoais confirmados!*\n\n"
+                        f"🚗 Agora confirme os dados do seu veículo:\n\n"
+                        f"🚙 *Tipo:* {partner.tipo_veiculo or 'Não informado'}\n"
+                        f"🏷️ *Placa:* {partner.placa or 'Não informada'}\n"
+                        f"🎨 *Cor:* {partner.veiculo_cor or 'Não informada'}\n"
+                        f"🏭 *Marca:* {partner.veiculo_marca or 'Não informada'}\n"
+                        f"🚗 *Modelo:* {partner.veiculo_modelo or 'Não informado'}\n"
+                        f"📅 *Ano:* {partner.veiculo_ano or 'Não informado'}\n\n"
+                        f"❓ Os dados do veículo estão corretos?"
+                    )
+                    
+                    # Enviar com botão SIM
+                    success_vehicle, result_vehicle = self.whatsapp_api.send_interactive_button(
+                        conv_state.phone_number,
+                        vehicle_message,
+                        "Confirmar Veículo",
+                        "SIM"
+                    )
+                    
+                    if success_vehicle:
+                        conv_state.update_state('waiting_vehicle_confirmation')
+                        self._save_outbound_message(conversation_id, vehicle_message + "\n[Botão: SIM]", result_vehicle.get('messageId'))
+                        return True
+                    else:
+                        # Fallback sem botão
+                        simple_message = vehicle_message + "\n\nDigite *SIM* para confirmar."
+                        success_simple, result_simple = self.whatsapp_api.send_text_message(conv_state.phone_number, simple_message)
+                        if success_simple:
+                            conv_state.update_state('waiting_vehicle_confirmation')
+                            self._save_outbound_message(conversation_id, simple_message, result_simple.get('messageId'))
+                            return True
+                else:
+                    logging.error("❌ Entregador não encontrado no banco")
+                    return False
+                    
+            else:
+                # Não confirmou - solicitar correção
+                error_message = (
+                    "❌ Para prosseguir, você precisa confirmar que seus dados pessoais estão corretos.\n\n"
+                    "📞 Se há algum erro nos dados, entre em contato com nosso suporte.\n\n"
+                    "✅ Digite *SIM* para confirmar que os dados estão corretos."
+                )
+                
+                success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, error_message)
+                if success:
+                    self._save_outbound_message(conversation_id, error_message, result.get('messageId'))
+                
+                return True
+                
+        except Exception as e:
+            logging.error(f"Erro na confirmação de dados pessoais: {str(e)}")
+            return False
+    
+    def _handle_vehicle_data_confirmation(self, conv_state, conversation_id: int, message_content: str, phone_number_id: str) -> bool:
+        """Processa confirmação dos dados do veículo"""
+        try:
+            message_lower = message_content.lower().strip()
+            
+            if message_lower in ['sim', 's', 'yes', 'y', 'confirmo']:
+                # Dados do veículo confirmados - finalizar cadastro
+                from models import DeliveryPartner
+                
+                partner = DeliveryPartner.get_by_phone(conv_state.phone_number)
+                if partner:
+                    partner.confirmed_vehicle_data = True
+                    partner.registration_approved = True
+                    
+                    # Verificar status na API de cliente
+                    from services.recoveryfy_api import RecoveryfyAPI
+                    api = RecoveryfyAPI()
+                    
+                    success_status, status_data = api.check_client_status(partner.cpf)
+                    
+                    if success_status and status_data.get('status') == 'PENDING':
+                        # Status PENDING - ativar IA
+                        approval_message = (
+                            f"🎉 *Parabéns! Seu cadastro como Entregador Shopee foi aprovado com sucesso!*\n\n"
+                            f"✅ Todos os seus dados foram confirmados e validados.\n\n"
+                            f"📋 Para finalizar completamente seu processo, nossa assistente Zilma irá te ajudar com os próximos passos.\n\n"
+                            f"💬 Continue a conversa para receber todas as orientações!"
+                        )
+                        
+                        success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, approval_message)
+                        if success:
+                            self._save_outbound_message(conversation_id, approval_message, result.get('messageId'))
+                        
+                        # Ativar IA para próximas interações
+                        conv_state.cpf_status = 'PENDING'
+                        conv_state.original_cpf = partner.cpf
+                        conv_state.ai_enabled = True
+                        conv_state.update_state('pending_questions')
+                        
+                        logging.info(f"✅ Cadastro de entregador aprovado - IA ativada para {conv_state.phone_number}")
+                        return True
+                    else:
+                        # Status não é PENDING - finalizar cadastro
+                        final_message = (
+                            f"🎉 *Cadastro finalizado com sucesso!*\n\n"
+                            f"✅ Você está agora oficialmente cadastrado como Entregador Shopee!\n\n"
+                            f"📱 Em breve você receberá mais informações sobre como começar a trabalhar.\n\n"
+                            f"🚀 Bem-vindo à equipe Shopee!"
+                        )
+                        
+                        success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, final_message)
+                        if success:
+                            self._save_outbound_message(conversation_id, final_message, result.get('messageId'))
+                        
+                        conv_state.update_state('completed')
+                        return True
+                        
+                else:
+                    logging.error("❌ Entregador não encontrado no banco")
+                    return False
+                    
+            else:
+                # Não confirmou - solicitar correção
+                error_message = (
+                    "❌ Para prosseguir, você precisa confirmar que os dados do veículo estão corretos.\n\n"
+                    "📞 Se há algum erro nos dados, entre em contato com nosso suporte.\n\n"
+                    "✅ Digite *SIM* para confirmar que os dados estão corretos."
+                )
+                
+                success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, error_message)
+                if success:
+                    self._save_outbound_message(conversation_id, error_message, result.get('messageId'))
+                
+                return True
+                
+        except Exception as e:
+            logging.error(f"Erro na confirmação de dados do veículo: {str(e)}")
+            return False
+        
+        return False
     
     def _handle_cpf_input(self, conv_state, conversation_id: int, message_content: str, phone_number_id: str) -> bool:
         """Processar CPF digitado pelo usuário"""

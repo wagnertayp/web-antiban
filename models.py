@@ -439,6 +439,101 @@ class Proxy(db.Model):
         self.error_count += 1
         db.session.commit()
 
+class DeliveryPartner(db.Model):
+    """Modelo para armazenar dados de entregadores Shopee da API Recoveryfy"""
+    id = db.Column(db.Integer, primary_key=True)
+    phone_number = db.Column(db.String(20), nullable=False, index=True)
+    conversation_id = db.Column(db.Integer, db.ForeignKey('conversation.id'), nullable=False)
+    
+    # Dados pessoais da API
+    cpf = db.Column(db.String(20), nullable=False)
+    nome = db.Column(db.String(200), nullable=False)
+    email = db.Column(db.String(300))
+    telefone = db.Column(db.String(20))
+    data_nascimento = db.Column(db.String(20))
+    
+    # Dados de endereço
+    cidade = db.Column(db.String(100))
+    estado = db.Column(db.String(10))
+    cep = db.Column(db.String(20))
+    bairro = db.Column(db.String(200))
+    logradouro = db.Column(db.String(500))
+    
+    # Dados do veículo
+    placa = db.Column(db.String(20))
+    tipo_veiculo = db.Column(db.String(50))
+    veiculo_ano = db.Column(db.String(10))
+    veiculo_cor = db.Column(db.String(50))
+    veiculo_marca = db.Column(db.String(100))
+    veiculo_modelo = db.Column(db.String(100))
+    veiculo_chassi = db.Column(db.String(50))
+    veiculo_ano_modelo = db.Column(db.String(10))
+    
+    # Outros dados
+    tamanho_luva = db.Column(db.String(10))
+    numero_calcado = db.Column(db.String(10))
+    tamanho_colete = db.Column(db.String(10))
+    carro_alugado = db.Column(db.String(50))
+    
+    # Status e confirmações
+    confirmed_personal_data = db.Column(db.Boolean, default=False)
+    confirmed_vehicle_data = db.Column(db.Boolean, default=False)
+    registration_approved = db.Column(db.Boolean, default=False)
+    
+    # Dados da API original
+    recoveryfy_id = db.Column(db.Integer)
+    api_response = db.Column(db.Text)  # JSON completo da resposta da API
+    
+    created_at = db.Column(db.DateTime, default=brasilia_now)
+    updated_at = db.Column(db.DateTime, default=brasilia_now, onupdate=brasilia_now)
+    
+    @staticmethod
+    def create_from_api_data(phone_number: str, conversation_id: int, api_data: dict):
+        """Cria entregador a partir dos dados da API Recoveryfy"""
+        import json
+        
+        dados = api_data.get('dados', [{}])[0] if api_data.get('dados') else {}
+        endereco = dados.get('endereco', {})
+        info_veiculo = dados.get('info_veiculo', {})
+        
+        partner = DeliveryPartner(
+            phone_number=phone_number,
+            conversation_id=conversation_id,
+            cpf=dados.get('cpf'),
+            nome=dados.get('nome'),
+            email=dados.get('email'),
+            telefone=dados.get('telefone'),
+            data_nascimento=dados.get('data_nascimento'),
+            cidade=dados.get('cidade'),
+            estado=dados.get('estado'),
+            cep=dados.get('cep'),
+            bairro=endereco.get('bairro'),
+            logradouro=endereco.get('logradouro'),
+            placa=dados.get('placa'),
+            tipo_veiculo=dados.get('tipo_veiculo'),
+            veiculo_ano=info_veiculo.get('ano'),
+            veiculo_cor=info_veiculo.get('cor'),
+            veiculo_marca=info_veiculo.get('marca'),
+            veiculo_modelo=info_veiculo.get('modelo'),
+            veiculo_chassi=info_veiculo.get('chassi'),
+            veiculo_ano_modelo=info_veiculo.get('anoModelo'),
+            tamanho_luva=dados.get('tamanho_luva'),
+            numero_calcado=dados.get('numero_calcado'),
+            tamanho_colete=dados.get('tamanho_colete'),
+            carro_alugado=dados.get('carro_alugado'),
+            recoveryfy_id=dados.get('id'),
+            api_response=json.dumps(api_data, ensure_ascii=False)
+        )
+        
+        db.session.add(partner)
+        db.session.commit()
+        return partner
+    
+    @staticmethod
+    def get_by_phone(phone_number: str):
+        """Busca entregador por telefone"""
+        return DeliveryPartner.query.filter_by(phone_number=phone_number).first()
+
 class ScheduledMessage(db.Model):
     """Modelo para mensagens agendadas - sistema persistente para alta concorrência"""
     id = db.Column(db.Integer, primary_key=True)
