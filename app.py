@@ -2644,25 +2644,24 @@ def send_message_to_conversation(conversation_id):
         # Verificar se conversa existe
         conversation = Conversation.query.get_or_404(conversation_id)
         
-        # Criar mensagem outbound
-        message = ChatMessage.create_outbound(
-            conversation_id=conversation_id,
-            content=message_content
-        )
-        
         # 🚀 ENVIO ASSÍNCRONO EM BACKGROUND THREAD (Solução Worker Timeout)
         def send_message_background():
             """Thread function para enviar mensagem sem bloquear worker"""
             # ✅ SOLUÇÃO APP CONTEXT - Corrigir "Working outside of application context"
             with app.app_context():
                 try:
-                    # 🔧 NOVA SESSÃO SQL - Recarregar objetos na thread
-                    thread_message = ChatMessage.query.get(message.id)
+                    # 🔧 CRIAR NOVA SESSÃO SQL - Evitar conflitos de sessão
+                    # Primeiro buscar a conversa novamente na thread
                     thread_conversation = Conversation.query.get(conversation_id)
-                    
-                    if not thread_message or not thread_conversation:
-                        logging.error("❌ Falha ao recarregar objetos na thread")
+                    if not thread_conversation:
+                        logging.error("❌ Conversa não encontrada na thread")
                         return
+                    
+                    # Criar mensagem outbound dentro da thread
+                    thread_message = ChatMessage.create_outbound(
+                        conversation_id=conversation_id,
+                        content=message_content
+                    )
                     
                     # Configurar phone number ID do seletor
                     whatsapp_service.set_phone_number_id(phone_number_id)
@@ -2679,7 +2678,7 @@ def send_message_to_conversation(conversation_id):
                         whatsapp_message_id = result.get('messageId', result.get('whatsAppId', ''))
                         thread_message.update_status('sent', whatsapp_message_id)
                         
-                        # Atualizar conversa com nova sessão
+                        # Atualizar conversa
                         thread_conversation.last_message_at = thread_message.created_at
                         thread_conversation.updated_at = thread_message.created_at
                         db.session.commit()
@@ -2690,14 +2689,12 @@ def send_message_to_conversation(conversation_id):
                         logging.error(f"❌ Falha no envio: {result.get('error', 'Erro desconhecido')}")
                         
                 except Exception as send_error:
-                    try:
-                        # Tentar atualizar com nova query
-                        error_message = ChatMessage.query.get(message.id)
-                        if error_message:
-                            error_message.update_status('failed')
-                    except Exception as update_error:
-                        logging.error(f"❌ Erro ao atualizar status: {update_error}")
                     logging.error(f"❌ Erro na thread de envio: {send_error}")
+                    # Fazer rollback em caso de erro
+                    try:
+                        db.session.rollback()
+                    except Exception as rollback_error:
+                        logging.error(f"❌ Erro no rollback: {rollback_error}")
         
         # Iniciar thread de background e retornar imediatamente
         try:
@@ -2708,12 +2705,11 @@ def send_message_to_conversation(conversation_id):
             return jsonify({
                 'success': True,
                 'message': 'Mensagem enviando...',
-                'message_id': message.id,
+                'message_id': 0,  # Será criado na thread
                 'status': 'sending'
             })
             
         except Exception as thread_error:
-            message.update_status('failed')
             logging.error(f"Erro ao criar thread: {thread_error}")
             return jsonify({'error': f'Erro no sistema: {str(thread_error)}'}), 500
         
