@@ -151,9 +151,13 @@ class ConversationAutomation:
         if re.match(r'^\d{11}$', message_content.strip()):
             return True
         
+        # Respostas de botão clicado (formato: "Botão clicado: SIM")
+        if 'botão clicado:' in message_lower or 'confirm_' in message_lower:
+            return True
+        
         # Respostas de botão/confirmação
         for response in expected_responses:
-            if message_lower == response:
+            if response in message_lower:  # Mudança: usar 'in' em vez de '=='
                 return True
         
         return False
@@ -325,7 +329,9 @@ class ConversationAutomation:
         try:
             message_lower = message_content.lower().strip()
             
-            if message_lower in ['sim', 's', 'yes', 'y', 'confirmo']:
+            # Detectar resposta SIM (incluindo botões clicados)
+            if (message_lower in ['sim', 's', 'yes', 'y', 'confirmo'] or 
+                'sim' in message_lower or 'confirm_yes' in message_lower):
                 # Dados confirmados - marcar no banco e enviar dados do veículo
                 from models import DeliveryPartner
                 
@@ -393,7 +399,9 @@ class ConversationAutomation:
         try:
             message_lower = message_content.lower().strip()
             
-            if message_lower in ['sim', 's', 'yes', 'y', 'confirmo']:
+            # Detectar resposta SIM (incluindo botões clicados)
+            if (message_lower in ['sim', 's', 'yes', 'y', 'confirmo'] or 
+                'sim' in message_lower or 'confirm_vehicle_yes' in message_lower):
                 # Dados do veículo confirmados - finalizar cadastro
                 from models import DeliveryPartner
                 
