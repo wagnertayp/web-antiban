@@ -187,25 +187,32 @@ class WhatsAppBusinessAPI:
     
     def _refresh_credentials(self):
         """Refresh credentials from environment variables with multi-BM support"""
-        # ✅ DETECÇÃO DE MUDANÇA DE TOKEN - Permitir atualização quando token muda
-        if self._credentials_from_session and self._access_token:
-            # Verificar se é a mesma conta/token da sessão - se sim, não atualizar
-            from flask import session
-            try:
-                session_token = session.get('whatsapp_access_token')
-                if session_token and self._access_token == session_token:
-                    logging.debug("🔒 Mantendo credenciais da sessão (mesmo token)")
-                    return
-                # Se tokens diferentes, permitir atualização
-                elif session_token and self._access_token != session_token:
-                    logging.info(f"🔄 MUDANÇA DE CONTA DETECTADA - Atualizando credenciais")
-                    self._credentials_from_session = False  # Reset para permitir atualização
-            except RuntimeError:
-                # Fora do contexto da sessão - continuar normalmente
-                pass
-            
-        # Só usar environment se não tiver credenciais da sessão
+        # 🚨 PRODUÇÃO: SEMPRE usar secrets - priorizar environment variables
         new_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
+        
+        # ✅ Se há token nas secrets, SEMPRE usar esse (produção)
+        if new_token:
+            # Reset session credentials se há token no ambiente
+            if self._credentials_from_session:
+                logging.info("🔄 SUBSTITUINDO credenciais da sessão por secrets do ambiente")
+                self._credentials_from_session = False
+        else:
+            # ✅ DETECÇÃO DE MUDANÇA DE TOKEN - só verificar sessão se não há secrets
+            if self._credentials_from_session and self._access_token:
+                # Verificar se é a mesma conta/token da sessão - se sim, não atualizar
+                from flask import session
+                try:
+                    session_token = session.get('whatsapp_access_token')
+                    if session_token and self._access_token == session_token:
+                        logging.debug("🔒 Mantendo credenciais da sessão (mesmo token)")
+                        return
+                    # Se tokens diferentes, permitir atualização
+                    elif session_token and self._access_token != session_token:
+                        logging.info(f"🔄 MUDANÇA DE CONTA DETECTADA - Atualizando credenciais")
+                        self._credentials_from_session = False  # Reset para permitir atualização
+                except RuntimeError:
+                    # Fora do contexto da sessão - continuar normalmente
+                    pass
         
         # ✅ FALLBACK: Se não há token no ambiente, carregar do banco
         if not new_token:
