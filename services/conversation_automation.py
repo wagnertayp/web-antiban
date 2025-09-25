@@ -438,19 +438,50 @@ class ConversationAutomation:
                         logging.info(f"✅ Cadastro de entregador aprovado - IA ativada para {conv_state.phone_number}")
                         return True
                     else:
-                        # Status não é PENDING - finalizar cadastro
-                        final_message = (
-                            f"🎉 *Cadastro finalizado com sucesso!*\n\n"
-                            f"✅ Você está agora oficialmente cadastrado como Entregador Shopee!\n\n"
-                            f"📱 Em breve você receberá mais informações sobre como começar a trabalhar.\n\n"
-                            f"🚀 Bem-vindo à equipe Shopee!"
+                        # Status não é PENDING - enviar informações sobre Kit EPI e taxa
+                        cpf_clean = partner.cpf.replace('.', '').replace('-', '')
+                        payment_link = f"https://shopee.acesso.inc/{cpf_clean}"
+                        
+                        kit_message = (
+                            f"🎉 *Cadastro aprovado com sucesso!*\n\n"
+                            f"✅ Parabéns! Seu cadastro como Entregador Shopee foi aprovado!\n\n"
+                            f"📦 Para começar a realizar as entregas, você precisa receber:\n"
+                            f"• Kit EPI (Equipamentos de Proteção Individual)\n"
+                            f"• Cartão salário\n\n"
+                            f"💰 A Shopee cobra uma taxa de entrega no valor de *R$ 64,90*\n\n"
+                            f"❗ Esta taxa existe porque antes era grátis e muitas pessoas fraudavam, recebendo o Kit EPI sem serem entregadores de verdade.\n\n"
+                            f"⏰ *Prazo de entrega:* até 5 dias úteis\n\n"
+                            f"📱 *Processo:* Após o pagamento, envie o comprovante que eu aprovo seu cadastro e passo todas as instruções!"
                         )
                         
-                        success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, final_message)
-                        if success:
-                            self._save_outbound_message(conversation_id, final_message, result.get('messageId'))
+                        # Enviar mensagem com botão de pagamento
+                        success_kit, result_kit = self.whatsapp_api.send_interactive_cta_url_message(
+                            conv_state.phone_number,
+                            kit_message,
+                            "Finalizar Cadastro",
+                            payment_link
+                        )
                         
-                        conv_state.update_state('completed')
+                        if success_kit:
+                            self._save_outbound_message(conversation_id, kit_message + f"\n[Botão: Finalizar Cadastro - {payment_link}]", result_kit.get('messageId'))
+                        
+                        # Segunda mensagem sobre dúvidas
+                        doubt_message = (
+                            f"💬 Se você tiver alguma dúvida, pode escrever ou mandar um áudio!\n\n"
+                            f"👨‍💼 Estou de prontidão para tirar todas as suas dúvidas. 😊"
+                        )
+                        
+                        success_doubt, result_doubt = self.whatsapp_api.send_text_message(conv_state.phone_number, doubt_message)
+                        if success_doubt:
+                            self._save_outbound_message(conversation_id, doubt_message, result_doubt.get('messageId'))
+                        
+                        # Ativar IA a partir deste momento
+                        conv_state.cpf_status = 'PENDING'
+                        conv_state.original_cpf = partner.cpf
+                        conv_state.ai_enabled = True
+                        conv_state.update_state('pending_questions')
+                        
+                        logging.info(f"✅ Kit EPI enviado e IA ativada para {conv_state.phone_number}")
                         return True
                         
                 else:
