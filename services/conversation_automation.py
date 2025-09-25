@@ -31,7 +31,9 @@ class ConversationAutomation:
             
             # 🚚 PRIORIDADE MÁXIMA: Mensagem trigger de entregador SEMPRE usa sistema automático
             delivery_trigger = "olá, desejo finalizar meu cadastro como entregador shopee"
-            if message_content.lower().strip() == delivery_trigger.lower():
+            # Remover pontuação para comparação mais flexível
+            clean_message = message_content.lower().strip().rstrip('.,!?;:')
+            if clean_message == delivery_trigger.lower():
                 logging.info(f"🚚 TRIGGER ENTREGADOR detectado - SISTEMA AUTOMÁTICO para {phone_number}")
                 return True
             
