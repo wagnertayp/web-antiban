@@ -927,26 +927,40 @@ class ConversationAutomation:
             return False
     
     def _fetch_client_data(self, cpf: str) -> Optional[Dict]:
-        """Buscar dados do cliente na API externa"""
+        """Buscar dados do cliente usando helper centralizado"""
         try:
-            api_url = f"https://recoveryfy.replit.app/api/v1/cliente/cpf/{cpf}"
+            from services.recoveryfy_api import get_client_status
             
             # Mascarar CPF para logs (mostrar apenas primeiros 3 e últimos 2 dígitos)
             cpf_masked = f"{cpf[:3]}.***.***-{cpf[-2:]}" if len(cpf) >= 5 else "***.***.***-**"
-            logging.info(f"🔍 Buscando CPF {cpf_masked} na API")
+            logging.info(f"🔍 Buscando CPF {cpf_masked} usando helper centralizado")
             
-            response = requests.get(api_url, timeout=15)
+            # 🎯 Usar helper centralizado que verifica override primeiro
+            client_status = get_client_status(cpf=cpf)
             
-            if response.status_code == 200:
-                data = response.json()
-                logging.info(f"✅ API response: {data}")
-                return data
+            if client_status.get('status') and client_status.get('status') != 'error':
+                logging.info(f"✅ Status obtido: {client_status.get('status')} (fonte: {client_status.get('source')})")
+                
+                # Converter para formato esperado pelo sistema
+                return {
+                    'sucesso': True,
+                    'cliente': {
+                        'nome': client_status.get('nome', 'Cliente'),
+                        'cpf': client_status.get('cpf'),
+                        'telefone': client_status.get('telefone'),
+                        'email': client_status.get('email')
+                    },
+                    'ultima_transacao': {
+                        'status': client_status.get('status'),
+                        'valor': '64.90' if client_status.get('status') == 'PENDING' else '0'
+                    }
+                }
             else:
-                logging.warning(f"❌ API retornou status {response.status_code}")
+                logging.warning(f"⚠️ Status não encontrado ou erro para CPF {cpf_masked}")
                 return None
                 
         except Exception as e:
-            logging.error(f"Erro ao buscar dados na API: {str(e)}")
+            logging.error(f"💥 Erro ao buscar cliente: {str(e)}")
             return None
     
     def _save_outbound_message(self, conversation_id: int, content: str, whatsapp_message_id: Optional[str] = None):

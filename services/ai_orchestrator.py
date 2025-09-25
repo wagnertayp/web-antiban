@@ -565,18 +565,18 @@ INSTRUÇÕES ESPECÍFICAS:
         return context
     
     def _get_payment_status(self, conv_state, current_message: str) -> str:
-        """Determina status atual do processo de pagamento"""
+        """Determina status atual do processo de pagamento usando helper centralizado"""
         try:
-            import json
-            context = conv_state.get_context_dict()
+            from services.recoveryfy_api import get_client_status, mark_payment_approved
             
-            # 🎯 DETECÇÃO ULTRA-RIGOROSA: Apenas confirmações EXPLÍCITAS de pagamento já feito
-            explicit_confirmations = [
-                'já paguei', 'acabei de pagar', 'pix enviado', 'pix realizado', 
-                'pagamento feito', 'transferência feita', 'dinheiro enviado',
-                'mandei o pix', 'fiz o pix', 'pago!', 'feito!'
-            ]
+            # 🎯 DETECTAR COMPROVANTES e marcar como aprovado IMEDIATAMENTE
+            payment_keywords = ['paguei', 'comprovante', 'transferência', 'pix', 'pagamento', 
+                               'fiz o pagamento', 'já paguei', 'acabei de pagar', 'pix enviado', 
+                               'pix realizado', 'pagamento feito', 'transferência feita', 
+                               '[comprovante enviado]', 'mandei o pix', 'fiz o pix']
+            
             message_lower = current_message.lower()
+            has_payment_proof = any(keyword in message_lower for keyword in payment_keywords)
             
             # 🚫 EVITAR FALSOS POSITIVOS: Ignorar perguntas, intenções futuras, dúvidas
             negatives = ['?', 'como', 'quando', 'onde', 'por que', 'porque', 'porquê', 'pois',
@@ -585,45 +585,35 @@ INSTRUÇÕES ESPECÍFICAS:
                         'vou enviar', 'vou mandar', 'depois', 'amanhã', 'mais tarde']
             has_negatives = any(neg in message_lower for neg in negatives)
             
-            # Só confirmar se: NÃO tem negativas E tem confirmação EXPLÍCITA passado
-            has_payment_confirmation = (not has_negatives and 
-                                      any(confirmation in message_lower for confirmation in explicit_confirmations))
-            first_payment_confirmed = context.get('first_payment_confirmed', False)
-            second_payment_confirmed = context.get('second_payment_confirmed', False)
+            # 🎯 Se detectou comprovante SEM negativas, marcar como aprovado IMEDIATAMENTE
+            if has_payment_proof and not has_negatives:
+                success = mark_payment_approved(conv_state.phone_number, 
+                                              conv_state.original_cpf, 
+                                              source='proof')
+                if success:
+                    logging.info(f"✅ PAGAMENTO MARCADO COMO APROVADO para {conv_state.phone_number}")
             
-            if second_payment_confirmed:
-                return """✅ AMBOS PAGAMENTOS CONFIRMADOS
-- Cliente completou todo o processo
-- Pode finalizar o cadastro
-- Parabenizar e dar próximos passos"""
-                
-            elif first_payment_confirmed and not has_payment_confirmation:
-                return """⚠️ PRIMEIRA TAXA PAGA - COBRE A SEGUNDA URGENTE!
-- Primeira taxa (R$64,90) já confirmada
-- AGORA seja INSISTENTE sobre treinamento (R$97,00)
-- URGÊNCIA: "Precisa pagar HOJE senão vaga será cancelada!"
-- SEMPRE peça: "Mande o comprovante para finalizar ainda hoje!"
+            # 🔍 Verificar status atual usando helper centralizado
+            client_status = get_client_status(phone_number=conv_state.phone_number, 
+                                            cpf=conv_state.original_cpf)
+            
+            status = client_status.get('status', 'PENDING')
+            source = client_status.get('source', 'unknown')
+            
+            logging.info(f"🎯 Status do cliente: {status} (fonte: {source})")
+            
+            if status == 'APPROVED':
+                # Cliente já pagou primeira taxa - focar no treinamento
+                return """⚠️ PRIMEIRA TAXA PAGA - EDUQUE SOBRE TREINAMENTO!
+- Primeira taxa já confirmada ✅
+- Agradeça: "Perfeito! Pagamento aprovado!"
+- Informe ativação: "Seu cadastro foi ativado com sucesso!"
+- Eduque sobre treinamento obrigatório (R$97,00)
+- Explique benefícios: rotas, app, segurança, ganhos  
+- Finalize: "Quando o EPI chegar, entre em contato neste número"
 - Link: https://shopee.acesso.inc/treinamento
-- AVISE: sem treinamento = vaga cancelada + sem reembolso"""
-                
-            elif first_payment_confirmed and has_payment_confirmation:
-                # Cliente confirmou segundo pagamento
-                context['second_payment_confirmed'] = True
-                conv_state.set_ai_context(context=context)
-                return """✅ SEGUNDO PAGAMENTO CONFIRMADO
-- Treinamento (R$97,00) confirmado
-- Processo completo!
-- Parabenizar e finalizar cadastro"""
-                
-            elif has_payment_confirmation and not first_payment_confirmed:
-                # Cliente confirmou primeiro pagamento
-                context['first_payment_confirmed'] = True
-                conv_state.set_ai_context(context=context)
-                return """✅ PRIMEIRA TAXA CONFIRMADA - REVELAR SEGUNDA
-- Taxa Kit EPI (R$64,90) confirmada
-- AGORA revele o treinamento obrigatório
-- Valor: R$97,00
-- Link: https://shopee.acesso.inc/treinamento"""
+- SEMPRE termine: "Tem alguma dúvida sobre o treinamento?"
+- Disponível para dúvidas: "Qualquer dúvida, é só me chamar!"""""
             else:
                 return """🎯 FOQUE NA PRIMEIRA TAXA - SEJA INSISTENTE!
 - Convença sobre Kit EPI + Cartão Salário (R$64,90)

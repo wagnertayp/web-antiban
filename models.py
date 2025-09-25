@@ -313,6 +313,11 @@ class ConversationState(db.Model):
     last_ai_response_at = db.Column(db.DateTime)  # Timestamp da última resposta da IA (controle de frequência)
     escalation_reason = db.Column(db.String(200))  # Motivo de transferência para humano
     
+    # Status de pagamento persistente (override sobre API externa)
+    first_payment_status = db.Column(db.String(20), default='unknown')  # unknown, pending, approved
+    first_payment_at = db.Column(db.DateTime)  # Timestamp do primeiro pagamento confirmado
+    payment_source = db.Column(db.String(20), default='api')  # api, proof (comprovante manual)
+    
     created_at = db.Column(db.DateTime, default=brasilia_now)
     updated_at = db.Column(db.DateTime, default=brasilia_now, onupdate=brasilia_now)
     

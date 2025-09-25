@@ -110,3 +110,139 @@ class RecoveryfyAPI:
         except Exception as e:
             logging.error(f"💥 Erro inesperado na verificação de status: {str(e)}")
             return False, {"error": f"Erro interno: {str(e)}"}
+
+
+def get_client_status(phone_number: str = None, cpf: str = None) -> Dict[str, Any]:
+    """
+    🎯 HELPER CENTRALIZADO - Resolve status do cliente com override persistente
+    
+    Verifica primeiro o override local (ConversationState), depois consulta API externa.
+    
+    Args:
+        phone_number: Número do telefone para consulta
+        cpf: CPF para consulta (opcional)
+        
+    Returns:
+        Dict com status, source, cpf, nome, etc.
+    """
+    try:
+        from models import ConversationState, db
+        from datetime import datetime
+        
+        # 🔍 Primeiro: Verificar override no ConversationState
+        if phone_number:
+            conv_state = ConversationState.query.filter_by(phone_number=phone_number).first()
+            
+            if conv_state and conv_state.first_payment_status == 'approved':
+                logging.info(f"✅ OVERRIDE: Cliente {phone_number} já tem pagamento APROVADO localmente")
+                return {
+                    'status': 'APPROVED',
+                    'source': 'override',
+                    'cpf': conv_state.original_cpf or 'unknown',
+                    'nome': 'Cliente Aprovado',
+                    'payment_at': conv_state.first_payment_at.isoformat() if conv_state.first_payment_at else None,
+                    'override_source': conv_state.payment_source
+                }
+        
+        # 🔍 Segundo: Consultar API externa se não há override
+        api = RecoveryfyAPI()
+        
+        if cpf:
+            # Consultar por CPF
+            success, data = api.check_client_status(cpf)
+            if success and data.get('sucesso'):
+                cliente = data.get('cliente', {})
+                transacao = data.get('ultima_transacao', {})
+                
+                status = transacao.get('status', 'PENDING')
+                logging.info(f"✅ API: Status do cliente CPF {cpf}: {status}")
+                
+                return {
+                    'status': status,
+                    'source': 'api',
+                    'cpf': cliente.get('cpf'),
+                    'nome': cliente.get('nome'),
+                    'telefone': cliente.get('telefone'),
+                    'email': cliente.get('email'),
+                    'transacao': transacao
+                }
+        
+        elif phone_number:
+            # Consultar por telefone (dados de entregador)
+            success, data = api.get_delivery_partner_data(phone_number)
+            if success and data.get('sucesso'):
+                registros = data.get('registros', [])
+                if registros:
+                    primeiro = registros[0]
+                    cpf_encontrado = primeiro.get('cpf')
+                    
+                    # Buscar status do cliente usando CPF encontrado
+                    if cpf_encontrado:
+                        return get_client_status(cpf=cpf_encontrado)
+        
+        # 🔍 Fallback: Status padrão PENDING
+        logging.warning(f"⚠️ Status não encontrado para {phone_number or cpf}, assumindo PENDING")
+        return {
+            'status': 'PENDING',
+            'source': 'default',
+            'cpf': cpf or 'unknown',
+            'nome': 'Cliente',
+            'telefone': phone_number
+        }
+        
+    except Exception as e:
+        logging.error(f"💥 Erro no get_client_status: {str(e)}")
+        return {
+            'status': 'PENDING',
+            'source': 'error',
+            'error': str(e)
+        }
+
+
+def mark_payment_approved(phone_number: str, cpf: str = None, source: str = 'proof') -> bool:
+    """
+    🎯 Marca pagamento como APROVADO no override local
+    
+    Args:
+        phone_number: Número do telefone
+        cpf: CPF do cliente (opcional)
+        source: Fonte da aprovação ('proof', 'api')
+        
+    Returns:
+        bool: True se salvou com sucesso
+    """
+    try:
+        from models import ConversationState, db
+        from datetime import datetime
+        
+        # Buscar ou criar ConversationState
+        conv_state = ConversationState.query.filter_by(phone_number=phone_number).first()
+        
+        if not conv_state:
+            conv_state = ConversationState(
+                phone_number=phone_number,
+                current_state='pending_questions',
+                ai_enabled=True
+            )
+            db.session.add(conv_state)
+        
+        # 🎯 Marcar pagamento como aprovado
+        conv_state.first_payment_status = 'approved'
+        conv_state.first_payment_at = datetime.now()
+        conv_state.payment_source = source
+        conv_state.current_state = 'pending_questions'  # Estado para dúvidas/treinamento
+        conv_state.ai_enabled = True
+        
+        if cpf:
+            conv_state.original_cpf = cpf
+            conv_state.cpf_status = 'APPROVED'
+        
+        db.session.commit()
+        
+        logging.info(f"✅ OVERRIDE SALVO: {phone_number} marcado como APPROVED (fonte: {source})")
+        return True
+        
+    except Exception as e:
+        logging.error(f"💥 Erro ao marcar pagamento aprovado: {str(e)}")
+        db.session.rollback()
+        return False
