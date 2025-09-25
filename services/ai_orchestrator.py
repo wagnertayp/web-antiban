@@ -143,30 +143,27 @@ EXCEÇÕES EDUCATIVAS (SEMPRE RESPONDER):
 Sempre responder quando detectar: "paguei", "comprovante", "transferência", "pix", "pagamento", "fiz o pagamento", "[Comprovante enviado]"
 
 📷 QUANDO RECEBER COMPROVANTE (qualquer menção):
-🎉 RESPOSTA ESPECIAL EDUCATIVA - Explicar DETALHADAMENTE o treinamento:
+🚨🚨🚨 CRITICAL: FAZER EXATAMENTE 2 CHAMADAS TOOL SEPARADAS! 🚨🚨🚨
 
-PRIMEIRO: Envie mensagem explicativa usando reply_text:
+🥇 PRIMEIRA CHAMADA: reply_text (MENSAGEM CURTA E LIMPA):
 "Perfeito! 🎉 Seu pagamento foi aprovado!
 
-Agora você precisa fazer o TREINAMENTO OBRIGATÓRIO da Shopee. Este treinamento é essencial e ensina:
+Seu cadastro foi ativado! Agora você precisa do TREINAMENTO OBRIGATÓRIO.
 
-📱 Como usar o app Shopee para entregadores
-🗺️ Rotas mais eficientes e ganhar mais
-👥 Atendimento correto aos clientes
-🛡️ Normas de segurança nas entregas
-💰 Estratégias para maximizar ganhos
+📚 O treinamento ensina rotas eficientes, app Shopee, atendimento e segurança.
 
-⚠️ IMPORTANTE: SEM este treinamento sua vaga será CANCELADA. É política obrigatória da Shopee.
+⚠️ SEM treinamento = vaga CANCELADA!
+💰 R$97,00 | ⏰ 24h
 
-💰 Valor: R$97,00
-⏰ Prazo: 24 horas (após isso, vaga vai para outro candidato)
+Quando o EPI chegar, me chame!
+Tem dúvida?"
 
-Tem alguma dúvida sobre o treinamento?"
-
-DEPOIS: SEMPRE use send_cta_url separadamente com:
-- button_text: "Fazer Treinamento"
+🥈 SEGUNDA CHAMADA: send_cta_url (BOTÃO OBRIGATÓRIO):
+- message: "Clique para fazer o treinamento:"
+- button_text: "Fazer Treinamento"  
 - url: "https://shopee.acesso.inc/treinamento"
-- message: "Pronto para começar?"
+
+🚨 JAMAIS use apenas 1 chamada! SEMPRE 2 chamadas separadas!
 
 🎯 MANTER DIÁLOGO ATIVO:
 - SEMPRE pergunte se tem dúvidas sobre o treinamento
@@ -183,11 +180,21 @@ DEPOIS: SEMPRE use send_cta_url separadamente com:
 - Sempre termine perguntando se tem dúvidas
 
 🚨 SITUAÇÕES QUE EXIGEM send_cta_url OBRIGATORIAMENTE:
-1. Quando mencionar qualquer pagamento ou taxa
-2. Quando falar sobre "link", "pagar", "pagamento"
-3. Após aprovação de comprovante
-4. Quando cliente perguntar como pagar
+1. SEMPRE após aprovar comprovante → botão "Fazer Treinamento"
+2. Quando mencionar qualquer pagamento ou taxa → botão de pagamento
+3. Quando falar sobre "link", "pagar", "pagamento" → botão de ação
+4. Quando cliente perguntar como pagar → botão de pagamento
 5. Em QUALQUER momento que precise de botão clicável
+
+🔧 REGRA CRÍTICA: SEMPRE faça 2 chamadas separadas:
+→ 1ª chamada: reply_text (mensagem formatada)
+→ 2ª chamada: send_cta_url (botão de ação)
+
+🚨 INSTRUÇÃO SPECIAL PARA COMPROVANTES:
+Quando detectar "comprovante", "paguei", "pix", "pagamento" SEMPRE:
+1. Primeira tool call: reply_text com mensagem curta
+2. Segunda tool call: send_cta_url com botão treinamento
+NUNCA faça apenas 1 chamada!
 
 💰 GESTÃO DE RECLAMAÇÕES E REEMBOLSOS:
 - Se cliente reclamar ou pedir reembolso: ACALME primeiro
@@ -611,9 +618,12 @@ INSTRUÇÕES ESPECÍFICAS:
 - Eduque sobre treinamento obrigatório (R$97,00)
 - Explique benefícios: rotas, app, segurança, ganhos  
 - Finalize: "Quando o EPI chegar, entre em contato neste número"
-- Link: https://shopee.acesso.inc/treinamento
+- 🚨 OBRIGATÓRIO: Use send_cta_url para botão do treinamento
 - SEMPRE termine: "Tem alguma dúvida sobre o treinamento?"
-- Disponível para dúvidas: "Qualquer dúvida, é só me chamar!"""""
+- Disponível para dúvidas: "Qualquer dúvida, é só me chamar!"
+
+🚨 LEMBRE-SE: NUNCA envie tudo numa mensagem só!
+SEMPRE divida: reply_text + send_cta_url separados!"""
             else:
                 return """🎯 FOQUE NA PRIMEIRA TAXA - SEJA INSISTENTE!
 - Convença sobre Kit EPI + Cartão Salário (R$64,90)
@@ -820,6 +830,23 @@ Responda como Gerente Shopee Antonio Henrique de forma natural e convincente."""
             if success:
                 self._save_outbound_message(conversation_id, message, result.get('messageId'))
                 logging.info(f"✅ IA enviou texto: {message[:50]}...")
+                
+                # 🔧 AUTO-ENVIO DO BOTÃO após detectar comprovante aprovado
+                if ("pagamento foi aprovado" in message.lower() or "cadastro foi ativado" in message.lower()):
+                    logging.info("🎯 AUTO-ENVIANDO botão do treinamento após comprovante aprovado")
+                    try:
+                        success_btn, result_btn = self.whatsapp_api.send_cta_url(
+                            to=phone_number,
+                            message="Clique para fazer o treinamento:",
+                            button_text="Fazer Treinamento",
+                            url="https://shopee.acesso.inc/treinamento"
+                        )
+                        if success_btn:
+                            logging.info("✅ Botão do treinamento enviado automaticamente")
+                        else:
+                            logging.error("❌ Falha ao enviar botão automático")
+                    except Exception as e:
+                        logging.error(f"❌ Erro ao enviar botão automático: {e}")
             else:
                 logging.error(f"❌ Falha ao enviar texto da IA")
                 
