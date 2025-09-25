@@ -504,15 +504,31 @@ class WhatsAppWebhookHandler:
                     logging.warning("⚠️ Token WHATSAPP_ACCESS_TOKEN não encontrado nas secrets")
                     return
                 
-                # 🤖 SISTEMA TOTALMENTE AUTÔNOMO COM IA - USAR SINGLETON
+                # 🚚 SISTEMA HÍBRIDO: Verificar primeiro sistema automático, depois IA
+                from services.conversation_automation import ConversationAutomation
                 from services.ai_orchestrator import get_singleton_orchestrator
-                ai_orchestrator = get_singleton_orchestrator(db=self.db)
                 
-                # Verificar se é primeira mensagem ou conversa de IA ativa
-                should_process_with_ai = ai_orchestrator.detect_first_message(phone_number, conversation_id)
+                # Verificar se sistema automático deve processar primeiro
+                automation = ConversationAutomation(whatsapp_api, self.db, phone_number_id)
+                should_trigger_automation = automation.should_trigger_automation(phone_number, conversation_id)
                 
-                # 🎯 ÚNICO CAMINHO: Sempre usar queue_message_for_processing (evita duplicação)
-                if should_process_with_ai:
+                if should_trigger_automation:
+                    logging.info(f"🚚 SISTEMA AUTOMÁTICO processando mensagem para {phone_number}")
+                    automation_handled = automation.process_automation(phone_number, conversation_id, message_content, phone_number_id)
+                    
+                    # Se automação não processou, deixar IA processar
+                    if not automation_handled:
+                        ai_orchestrator = get_singleton_orchestrator(db=self.db)
+                        logging.info(f"🤖 IA assumindo controle após automação não processar para {phone_number}")
+                        ai_orchestrator.queue_message_for_processing(
+                            phone_number=phone_number,
+                            conversation_id=conversation_id,
+                            message_content=message_content,
+                            phone_number_id=phone_number_id
+                        )
+                else:
+                    # IA tem prioridade
+                    ai_orchestrator = get_singleton_orchestrator(db=self.db)
                     logging.info(f"🤖 IA ATIVADA para {phone_number} - Processamento via QUEUE")
                     ai_orchestrator.queue_message_for_processing(
                         phone_number=phone_number,
@@ -521,8 +537,6 @@ class WhatsAppWebhookHandler:
                         phone_number_id=phone_number_id
                     )
                     logging.info(f"✅ Mensagem adicionada na queue: {phone_number}")
-                else:
-                    logging.info(f"💤 IA não ativa para {phone_number} - mensagem ignorada")
                 
         except Exception as e:
             logging.error(f"Erro na IA autônoma: {str(e)}")
