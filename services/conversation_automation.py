@@ -389,21 +389,9 @@ class ConversationAutomation:
                         self._save_outbound_message(conversation_id, simple_message, result_simple.get('messageId'))
                         return True
             else:
-                # Dados não encontrados
-                error_message = (
-                    "❌ Não conseguimos encontrar seus dados de cadastro no sistema.\n\n"
-                    "🤔 Isso pode acontecer por alguns motivos:\n"
-                    "• Seu telefone não está cadastrado\n"
-                    "• Os dados ainda estão sendo processados\n"
-                    "• Há algum erro no sistema\n\n"
-                    "📞 Por favor, entre em contato com nosso suporte para verificação manual."
-                )
-                
-                success, result = self.whatsapp_api.send_text_message(conv_state.phone_number, error_message)
-                if success:
-                    self._save_outbound_message(conversation_id, error_message, result.get('messageId'))
-                
-                return True
+                # Dados não encontrados - INICIAR FLUXO NORMAL pedindo CPF
+                logging.info(f"🔍 Telefone não encontrado na API - iniciando fluxo de coleta de CPF")
+                return self._handle_initial_contact(conv_state, conversation_id, phone_number_id)
                 
         except Exception as e:
             logging.error(f"Erro no cadastro de entregador: {str(e)}")
