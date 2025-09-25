@@ -238,23 +238,9 @@ class WhatsAppWebhookHandler:
                 
                 logging.critical(f"📝 MENSAGEM SALVA NO BANCO: {result.get('content', 'N/A')[:30]}... event_type={result.get('event_type')}")
                 
-                # 🤖 ATIVAR IA DIRETAMENTE AQUI - DIAGNÓSTICO COMPLETO
-                event_type_ok = result['event_type'] == 'message_received'
-                content_ok = bool(result.get('content'))
-                
-                logging.critical(f"🔍 DIAGNÓSTICO IA: event_type={result.get('event_type')} (ok={event_type_ok}), content_existe={content_ok}")
-                
-                if event_type_ok and content_ok:
-                    logging.critical(f"🎯 CONDIÇÃO ATENDIDA - CHAMANDO IA AGORA!")
-                    try:
-                        self._activate_ai_directly(result)
-                        logging.critical(f"✅ _activate_ai_directly EXECUTADO SEM ERRO")
-                    except Exception as e:
-                        logging.critical(f"❌ ERRO AO CHAMAR IA: {str(e)}")
-                        import traceback
-                        logging.critical(f"Traceback: {traceback.format_exc()}")
-                else:
-                    logging.critical(f"❌ CONDIÇÃO NÃO ATENDIDA: event_type_ok={event_type_ok}, content_ok={content_ok}")
+                # 🤖 IA SERÁ ATIVADA APENAS pelo _trigger_conversation_automation se necessário
+                # Removida ativação automática para evitar conflito com sistema automático
+                logging.info(f"📝 Mensagem salva - processamento via trigger_conversation_automation")
             
             return result
             
