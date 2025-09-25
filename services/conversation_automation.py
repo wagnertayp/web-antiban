@@ -223,10 +223,26 @@ class ConversationAutomation:
             from services.recoveryfy_api import RecoveryfyAPI
             api = RecoveryfyAPI()
             
-            # Extrair telefone limpo (sem +55)
-            clean_phone = conv_state.phone_number.replace('+55', '').replace('+', '')
-            if clean_phone.startswith('55'):
-                clean_phone = clean_phone[2:]  # Remove prefixo 55
+            # Extrair telefone limpo (sem prefixos) 
+            # Formato esperado na API: 61999114066 (11 dígitos)
+            # Seu telefone: 556199114066 (12 dígitos) = 55 + 61999114066
+            clean_phone = conv_state.phone_number.replace('+', '').replace(' ', '').replace('-', '')
+            
+            # Remover apenas o código do país "55" se presente
+            if clean_phone.startswith('55') and len(clean_phone) == 12:
+                # Seu caso: 556199114066
+                # 55 (código) + 61 (DDD) + 99114066 (número)
+                # Resultado: 61 + 9 + 99114066 = 61999114066
+                ddd = clean_phone[2:4]  # 61
+                numero = clean_phone[4:]  # 99114066  
+                clean_phone = ddd + '9' + numero  # 61 + 9 + 99114066 = 61999114066
+                logging.info(f"📱 Formato corrigido: {ddd} + 9 + {numero} = {clean_phone}")
+            elif clean_phone.startswith('55'):
+                # Caso geral - remover apenas 55
+                clean_phone = clean_phone[2:]
+            
+            logging.info(f"📱 Telefone original: {conv_state.phone_number}")
+            logging.info(f"📱 Telefone limpo para API: {clean_phone}")
             
             logging.info(f"🔍 Buscando dados na API para telefone: {clean_phone}")
             api_response = api.get_delivery_partner_data(clean_phone)
