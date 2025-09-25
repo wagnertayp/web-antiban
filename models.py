@@ -309,7 +309,7 @@ class ConversationState(db.Model):
     question_count = db.Column(db.Integer, default=0)  # Contador de perguntas OpenAI
     
     # Controle de IA
-    ai_enabled = db.Column(db.Boolean, default=True)  # Se IA está ativa para esta conversa
+    ai_enabled = db.Column(db.Boolean, default=False)  # Se IA está ativa para esta conversa (inicialmente desabilitada)
     escalation_reason = db.Column(db.String(200))  # Motivo de transferência para humano
     
     created_at = db.Column(db.DateTime, default=brasilia_now)

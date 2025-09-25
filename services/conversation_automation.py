@@ -33,12 +33,31 @@ class ConversationAutomation:
             normalized_phone = self._normalize_phone(phone_number)
             conv_state = ConversationState.query.filter_by(phone_number=normalized_phone).first()
             
-            # 🚨 GATING: Não processar se AIOrchestrator está ativo
+            # 🚨 NOVA LÓGICA: Sistema automático sempre tem prioridade
             if conv_state:
-                # Se AI está habilitada ou CPF foi processado pela IA, deixar AIOrchestrator trabalhar
-                if conv_state.ai_enabled or (conv_state.intent_detected and conv_state.intent_detected.startswith('cpf_lookup_success')):
-                    logging.info(f"🤖 ConversationAutomation DESABILITADA - AIOrchestrator ativo para {phone_number}")
-                    return False
+                # ✅ SEMPRE PROCESSAR se está em fluxo de entregador ou estados específicos
+                delivery_states = [
+                    'initial', 'waiting_personal_confirmation', 'waiting_vehicle_confirmation',
+                    'waiting_cpf', 'confirming_name'
+                ]
+                
+                if conv_state.current_state in delivery_states:
+                    logging.info(f"🚚 SISTEMA AUTOMÁTICO ativo - Estado: {conv_state.current_state} para {phone_number}")
+                    return True
+                
+                # ⚠️ ESTADOS HÍBRIDOS: Verificar se IA deve ter precedência
+                hybrid_states = ['pending_questions']
+                if conv_state.current_state in hybrid_states:
+                    if conv_state.ai_enabled:
+                        # IA habilitada - deixar IA processar
+                        logging.info(f"🤖 IA ativa para estado híbrido: {conv_state.current_state} para {phone_number}")
+                        return False
+                    else:
+                        # Sistema automático primeiro
+                        logging.info(f"🚚 SISTEMA AUTOMÁTICO primeiro para estado híbrido: {conv_state.current_state} para {phone_number}")
+                        return True
+                
+                # Para outros estados, processar pelo sistema automático
                 return True
             
             # Senão, verificar se é primeira mensagem
@@ -78,19 +97,56 @@ class ConversationAutomation:
                 return self._handle_cpf_input(conv_state, conversation_id, message_content, phone_number_id)
             elif current_state == 'confirming_name':
                 return self._handle_name_confirmation(conv_state, conversation_id, message_content, phone_number_id)
-            elif current_state == 'pending_questions':
-                return self._handle_pending_questions(conv_state, conversation_id, message_content, phone_number_id)
             # 🚚 NOVOS ESTADOS PARA ENTREGADOR
             elif current_state == 'waiting_personal_confirmation':
                 return self._handle_personal_data_confirmation(conv_state, conversation_id, message_content, phone_number_id)
             elif current_state == 'waiting_vehicle_confirmation':
                 return self._handle_vehicle_data_confirmation(conv_state, conversation_id, message_content, phone_number_id)
+            # 🤖 ESTADOS HÍBRIDOS: Sistema automático verifica primeiro, depois IA
+            elif current_state == 'pending_questions':
+                # Verificar se é uma resposta do fluxo automático
+                if self._is_automatic_flow_response(message_content, conv_state):
+                    return self._handle_pending_questions(conv_state, conversation_id, message_content, phone_number_id)
+                else:
+                    # Habilitar IA para processar mensagem e persistir mudança
+                    if not conv_state.ai_enabled:
+                        conv_state.ai_enabled = True
+                        conv_state.updated_at = conv_state.brasilia_now() if hasattr(conv_state, 'brasilia_now') else conv_state.updated_at
+                        from app import db
+                        db.session.commit()  # Persistir para próxima verificação
+                        logging.info(f"🤖 IA habilitada e persistida para processar mensagem fora do fluxo: {message_content[:50]}")
+                    
+                    # Sinalizar que automação não processou - IA deve ser chamada
+                    logging.info(f"🤖 Mensagem fora do fluxo automático - deixando IA processar: {message_content[:50]}")
+                    return False
             
             return False
             
         except Exception as e:
             logging.error(f"Erro na automação: {str(e)}")
             return False
+    
+    def _is_automatic_flow_response(self, message_content: str, conv_state) -> bool:
+        """Verifica se a mensagem é uma resposta esperada do fluxo automático"""
+        message_lower = message_content.lower().strip()
+        
+        # Respostas padrão esperadas no fluxo automático
+        expected_responses = [
+            'sim', 's', 'yes', 'y', 'confirmo', 'ok', 'certo', 'correto',
+            'não', 'nao', 'n', 'no', 'incorreto', 'errado'
+        ]
+        
+        # CPF (11 dígitos)
+        import re
+        if re.match(r'^\d{11}$', message_content.strip()):
+            return True
+        
+        # Respostas de botão/confirmação
+        for response in expected_responses:
+            if message_lower == response:
+                return True
+        
+        return False
     
     def _handle_initial_contact(self, conv_state, conversation_id: int, phone_number_id: str) -> bool:
         """Resposta inicial - apresentar como gerente da Shopee"""
@@ -332,10 +388,10 @@ class ConversationAutomation:
                         if success:
                             self._save_outbound_message(conversation_id, approval_message, result.get('messageId'))
                         
-                        # Ativar IA para próximas interações
+                        # Ativar IA para próximas interações, mas manter sistema automático disponível
                         conv_state.cpf_status = 'PENDING'
                         conv_state.original_cpf = partner.cpf
-                        conv_state.ai_enabled = True
+                        conv_state.ai_enabled = True  # IA habilitada apenas como backup
                         conv_state.update_state('pending_questions')
                         
                         logging.info(f"✅ Cadastro de entregador aprovado - IA ativada para {conv_state.phone_number}")
