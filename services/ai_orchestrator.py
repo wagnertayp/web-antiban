@@ -558,10 +558,22 @@ Seja TÉCNICA, CONFIÁVEL, DIRETA!"""
         # 💳 DETECTAR ESTADO DE PAGAMENTO ATUAL
         payment_status = self._get_payment_status(conv_state, current_message)
         
+        # 🎯 CARREGAR DADOS CORRETOS DO CLIENTE
+        client_info = "Nenhum dado ainda"
+        if conv_state.client_data:
+            try:
+                client_data = json.loads(conv_state.client_data)
+                client_name = client_data.get('client_name', 'Cliente')
+                client_cpf = client_data.get('cpf', 'N/A')
+                client_status = client_data.get('status', 'PENDING')
+                client_info = f"Nome: {client_name} | CPF: {client_cpf} | Status: {client_status}"
+            except:
+                client_info = "Dados inválidos"
+
         context = f"""MENSAGEM ATUAL DO CLIENTE: {current_message}
 
 ESTADO DA CONVERSA: {conv_state.current_state}
-DADOS DO CLIENTE: {conv_state.context_data or 'Nenhum dado ainda'}
+DADOS DO CLIENTE: {client_info}
 
 🎯 ESTADO DE PAGAMENTO ATUAL:
 {payment_status}
@@ -572,7 +584,8 @@ INSTRUÇÕES ESPECÍFICAS:
 - Use linguagem convincente mas natural
 - Busque CPF quando necessário para gerar links
 - SEMPRE use send_cta_url para links de pagamento
-- Mantenha fluxo: Primeira taxa → Confirmação → Segunda taxa"""
+- Mantenha fluxo: Primeira taxa → Confirmação → Segunda taxa
+- 🎯 SEMPRE use o NOME CORRETO do cliente nos dados acima"""
 
         return context
     
@@ -730,14 +743,31 @@ SEMPRE divida: reply_text + send_cta_url separados!"""
             result = self.fetch_customer_data_api(cpf, 'cpf')
             
             if result['success']:
-                # Atualizar estado da conversa com dados do cliente
+                # 🎯 PRESERVAR DADOS EXISTENTES - NÃO SOBRESCREVER nome já obtido por telefone
+                existing_data = {}
+                if conv_state.client_data:
+                    try:
+                        existing_data = json.loads(conv_state.client_data)
+                    except:
+                        existing_data = {}
+                
+                # Manter nome existente se source='phone_lookup' (mais confiável)
+                if existing_data.get('source') == 'phone_lookup':
+                    client_name = existing_data.get('client_name', result['client_name'])
+                    logging.info(f"🎯 PRESERVANDO nome do telefone: {client_name}")
+                else:
+                    client_name = result['client_name']
+                
+                # Atualizar estado da conversa com dados mesclados
                 conv_state.client_data = json.dumps({
-                    'client_name': result['client_name'],
+                    'client_name': client_name,  # Preserva nome do telefone se disponível
                     'cpf': result['cpf'],
+                    'phone': existing_data.get('phone', 'N/A'),
                     'status': result['status'],
                     'transaction_value': result['transaction_value'],
                     'payment_method': result.get('payment_method', 'N/A'),
-                    'transaction_date': result.get('transaction_date', 'N/A')
+                    'transaction_date': result.get('transaction_date', 'N/A'),
+                    'source': existing_data.get('source', 'cpf_lookup')
                 })
                 conv_state.intent_detected = 'cpf_lookup_success'
                 conv_state.last_ai_action = f"fetch_customer_data:{cpf}"
