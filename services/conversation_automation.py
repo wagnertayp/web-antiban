@@ -117,7 +117,10 @@ class ConversationAutomation:
                     # Habilitar IA para processar mensagem e persistir mudança
                     if not conv_state.ai_enabled:
                         conv_state.ai_enabled = True
-                        conv_state.updated_at = conv_state.brasilia_now() if hasattr(conv_state, 'brasilia_now') else conv_state.updated_at
+                        from datetime import datetime
+                        import pytz
+                        brasilia_tz = pytz.timezone('America/Sao_Paulo')
+                        conv_state.updated_at = datetime.now(brasilia_tz)
                         from app import db
                         db.session.commit()  # Persistir para próxima verificação
                         logging.info(f"🤖 IA habilitada e persistida para processar mensagem fora do fluxo: {message_content[:50]}")
@@ -226,20 +229,21 @@ class ConversationAutomation:
                 clean_phone = clean_phone[2:]  # Remove prefixo 55
             
             logging.info(f"🔍 Buscando dados na API para telefone: {clean_phone}")
-            api_data = api.get_delivery_partner_data(clean_phone)
+            api_response = api.get_delivery_partner_data(clean_phone)
             
-            if api_data and api_data.get('sucesso'):
+            # Verificar se retornou dados válidos
+            if api_response and isinstance(api_response, dict) and api_response.get('sucesso'):
                 # Dados encontrados - criar/atualizar registro no banco
                 from models import DeliveryPartner
                 
                 partner = DeliveryPartner.create_from_api_data(
-                    conv_state.phone_number, 
-                    conversation_id, 
-                    api_data
+                    phone_number=conv_state.phone_number, 
+                    conversation_id=conversation_id, 
+                    api_data=api_response
                 )
                 
                 # Enviar mensagem de confirmação dos dados pessoais
-                dados = api_data.get('dados', [{}])[0]
+                dados = api_response.get('dados', [{}])[0]
                 nome = dados.get('nome', 'Nome não informado')
                 cpf = dados.get('cpf', 'CPF não informado')
                 cidade = dados.get('cidade', 'Cidade não informada')
