@@ -119,9 +119,8 @@ class ConversationAutomation:
                     # Habilitar IA para processar mensagem e persistir mudança
                     if not conv_state.ai_enabled:
                         conv_state.ai_enabled = True
-                        from datetime import datetime
-                        import pytz
-                        brasilia_tz = pytz.timezone('America/Sao_Paulo')
+                        from datetime import datetime, timezone, timedelta
+                        brasilia_tz = timezone(timedelta(hours=-3))  # UTC-3 (Brasília)
                         conv_state.updated_at = datetime.now(brasilia_tz)
                         from app import db
                         db.session.commit()  # Persistir para próxima verificação
@@ -247,10 +246,10 @@ class ConversationAutomation:
             logging.info(f"📱 Telefone limpo para API: {clean_phone}")
             
             logging.info(f"🔍 Buscando dados na API para telefone: {clean_phone}")
-            api_response = api.get_delivery_partner_data(clean_phone)
+            success, api_response = api.get_delivery_partner_data(clean_phone)
             
             # Verificar se retornou dados válidos
-            if api_response and isinstance(api_response, dict) and api_response.get('sucesso'):
+            if success and api_response and api_response.get('sucesso'):
                 # Dados encontrados - criar/atualizar registro no banco
                 from models import DeliveryPartner
                 
@@ -276,11 +275,11 @@ class ConversationAutomation:
                 )
                 
                 # Enviar com botão SIM
-                success_confirm, result_confirm = self.whatsapp_api.send_interactive_button(
+                buttons = [{"id": "confirm_yes", "title": "SIM"}]
+                success_confirm, result_confirm = self.whatsapp_api.send_interactive_buttons(
                     conv_state.phone_number,
                     confirmation_message,
-                    "Confirmar",
-                    "SIM"
+                    buttons
                 )
                 
                 if success_confirm:
@@ -348,11 +347,11 @@ class ConversationAutomation:
                     )
                     
                     # Enviar com botão SIM
-                    success_vehicle, result_vehicle = self.whatsapp_api.send_interactive_button(
+                    buttons = [{"id": "confirm_vehicle_yes", "title": "SIM"}]
+                    success_vehicle, result_vehicle = self.whatsapp_api.send_interactive_buttons(
                         conv_state.phone_number,
                         vehicle_message,
-                        "Confirmar Veículo",
-                        "SIM"
+                        buttons
                     )
                     
                     if success_vehicle:
