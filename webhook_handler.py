@@ -248,6 +248,28 @@ class WhatsAppWebhookHandler:
                             result['local_file_path'] = filepath
                             
                             logging.info(f"✅ IMAGEM SALVA: {filepath} ({len(media_data)} bytes)")
+                            
+                            # 💰 MARCAR PAGAMENTO COMO APROVADO AUTOMATICAMENTE
+                            try:
+                                from models import PendingClient
+                                from app import db
+                                
+                                # Buscar cliente pelo telefone
+                                pending_client = PendingClient.query.filter_by(phone_number=from_number).first()
+                                if pending_client:
+                                    # Atualizar status para PAID
+                                    pending_client.payment_status = 'PAID'
+                                    pending_client.payment_proof_received = True
+                                    pending_client.payment_proof_path = filepath
+                                    db.session.commit()
+                                    
+                                    logging.critical(f"💰 PAGAMENTO APROVADO AUTOMATICAMENTE: {from_number} -> {pending_client.cpf}")
+                                    result['payment_approved'] = True
+                                else:
+                                    logging.warning(f"⚠️ Cliente não encontrado para aprovar pagamento: {from_number}")
+                                    
+                            except Exception as payment_error:
+                                logging.error(f"❌ Erro ao aprovar pagamento: {payment_error}")
                         else:
                             logging.error(f"❌ Falha ao baixar imagem {media_id}")
                             
