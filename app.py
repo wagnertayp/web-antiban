@@ -224,13 +224,14 @@ def media_viewer():
                     'url': f"/static/media/images/{filename}",
                     'phone': phone,
                     'size': f"{file_size/1024:.1f} KB",
-                    'date': modified_time.strftime("%d/%m/%Y %H:%M:%S")
+                    'date': modified_time.strftime("%d/%m/%Y %H:%M:%S"),
+                    'timestamp': file_stat.st_mtime  # Para ordenação
                 })
             except Exception as e:
                 logging.error(f"Erro ao processar arquivo {filepath}: {e}")
         
-        # Ordenar por timestamp (mais recentes primeiro) - CORRIGIDO
-        images_info.sort(key=lambda x: datetime.strptime(x['date'], "%d/%m/%Y %H:%M:%S"), reverse=True)
+        # Ordenar por timestamp real (mais recentes primeiro) - CORRIGIDO
+        images_info.sort(key=lambda x: x['timestamp'], reverse=True)
         
         # HTML simples para exibir as imagens
         html = """
