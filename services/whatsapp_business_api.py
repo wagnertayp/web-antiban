@@ -662,6 +662,62 @@ class WhatsAppBusinessAPI:
             logging.warning(f"Erro no simulador de digitação: {str(e)}")
             # Continua sem pausa se houver erro
 
+    def download_media(self, media_id: str) -> Tuple[bool, Optional[bytes], Optional[str]]:
+        """
+        🖼️ Baixa mídia (imagem/documento/audio) da API do WhatsApp Business
+        
+        Args:
+            media_id: ID da mídia recebido no webhook
+            
+        Returns:
+            Tuple[bool, Optional[bytes], Optional[str]]: (success, media_data, mime_type)
+        """
+        try:
+            # Step 1: Obter URL de download da mídia
+            media_url_endpoint = f"{self.base_url}/{media_id}"
+            
+            headers = {
+                'Authorization': f'Bearer {self._access_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            logging.info(f"🔍 Obtendo URL de download para mídia: {media_id}")
+            
+            response = self.session.get(media_url_endpoint, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                media_info = response.json()
+                download_url = media_info.get('url')
+                mime_type = media_info.get('mime_type', 'image/jpeg')
+                
+                if not download_url:
+                    logging.error(f"❌ URL de download não encontrada para mídia {media_id}")
+                    return False, None, None
+                
+                # Step 2: Baixar o arquivo da URL obtida
+                logging.info(f"📥 Baixando mídia de: {download_url[:50]}...")
+                
+                # Headers específicos para download de mídia
+                download_headers = {'Authorization': f'Bearer {self._access_token}'}
+                
+                media_response = self.session.get(download_url, headers=download_headers, timeout=60)
+                
+                if media_response.status_code == 200:
+                    media_data = media_response.content
+                    logging.info(f"✅ Mídia baixada com sucesso: {len(media_data)} bytes, tipo: {mime_type}")
+                    return True, media_data, mime_type
+                else:
+                    logging.error(f"❌ Falha ao baixar mídia: HTTP {media_response.status_code}")
+                    return False, None, None
+                    
+            else:
+                logging.error(f"❌ Falha ao obter URL da mídia: HTTP {response.status_code} - {response.text}")
+                return False, None, None
+                
+        except Exception as e:
+            logging.error(f"💥 Erro ao baixar mídia {media_id}: {str(e)}")
+            return False, None, None
+
     def send_text_message(self, phone: str, message: str, phone_number_id: str = None, lead_index: int = None) -> Tuple[bool, Dict]:
         """Send simple text message - OTIMIZADO PARA VELOCIDADE"""
         # SIMULAR INDICADOR DE DIGITAÇÃO

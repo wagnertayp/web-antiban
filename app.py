@@ -182,6 +182,136 @@ def load_session_credentials():
             except Exception as e:
                 logging.warning(f"Erro ao carregar credenciais da sessão: {e}")
 
+@app.route('/media-viewer')
+def media_viewer():
+    """📷 Interface para visualizar imagens recebidas dos clientes"""
+    try:
+        import os
+        import glob
+        from datetime import datetime
+        
+        # Buscar todas as imagens na pasta
+        images_dir = os.path.join('static', 'media', 'images')
+        
+        if not os.path.exists(images_dir):
+            os.makedirs(images_dir, exist_ok=True)
+            
+        # Buscar arquivos de imagem
+        image_files = []
+        for pattern in ['*.jpg', '*.jpeg', '*.png', '*.gif', '*.webp']:
+            image_files.extend(glob.glob(os.path.join(images_dir, pattern)))
+        
+        # Organizar por data (mais recentes primeiro)
+        images_info = []
+        for filepath in image_files:
+            try:
+                filename = os.path.basename(filepath)
+                file_stat = os.stat(filepath)
+                file_size = file_stat.st_size
+                modified_time = datetime.fromtimestamp(file_stat.st_mtime)
+                
+                # Extrair informações do nome do arquivo
+                parts = filename.split('_')
+                phone = 'Desconhecido'
+                if len(parts) >= 2:
+                    phone_raw = parts[1]
+                    # Formatar telefone
+                    if len(phone_raw) >= 10:
+                        phone = f"+{phone_raw[:2]} ({phone_raw[2:4]}) {phone_raw[4:9]}-{phone_raw[9:]}"
+                
+                images_info.append({
+                    'filename': filename,
+                    'url': f"/static/media/images/{filename}",
+                    'phone': phone,
+                    'size': f"{file_size/1024:.1f} KB",
+                    'date': modified_time.strftime("%d/%m/%Y %H:%M:%S")
+                })
+            except Exception as e:
+                logging.error(f"Erro ao processar arquivo {filepath}: {e}")
+        
+        # Ordenar por timestamp (mais recentes primeiro) - CORRIGIDO
+        images_info.sort(key=lambda x: datetime.strptime(x['date'], "%d/%m/%Y %H:%M:%S"), reverse=True)
+        
+        # HTML simples para exibir as imagens
+        html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>📷 Imagens Recebidas - WhatsApp Business</title>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+                h1 { color: #25D366; }
+                .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                .images-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+                .image-card { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+                .image-card img { width: 100%; height: 200px; object-fit: cover; cursor: pointer; }
+                .image-info { padding: 15px; }
+                .phone { color: #25D366; font-weight: bold; }
+                .date { color: #666; font-size: 0.9em; }
+                .size { color: #999; font-size: 0.8em; }
+                .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); }
+                .modal-content { margin: auto; display: block; max-width: 90%; max-height: 90%; }
+                .close { position: absolute; top: 15px; right: 35px; color: #f1f1f1; font-size: 40px; font-weight: bold; cursor: pointer; }
+                .refresh-btn { background: #25D366; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+                .no-images { text-align: center; padding: 50px; color: #666; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>📷 Imagens Recebidas dos Clientes</h1>
+                <p>Visualize todas as imagens enviadas pelos clientes via WhatsApp Business.</p>
+                <button class="refresh-btn" onclick="location.reload()">🔄 Atualizar</button>
+            </div>
+            
+            <div id="imageModal" class="modal" onclick="closeModal()">
+                <span class="close">&times;</span>
+                <img class="modal-content" id="modalImage">
+            </div>
+        """
+        
+        if images_info:
+            html += '<div class="images-grid">'
+            for img in images_info:
+                html += f"""
+                <div class="image-card">
+                    <img src="{img['url']}" alt="Imagem" onclick="openModal('{img['url']}')">
+                    <div class="image-info">
+                        <div class="phone">📱 {img['phone']}</div>
+                        <div class="date">🕐 {img['date']}</div>
+                        <div class="size">📊 {img['size']}</div>
+                    </div>
+                </div>
+                """
+            html += '</div>'
+        else:
+            html += '<div class="no-images">📷 Nenhuma imagem recebida ainda. Quando os clientes enviarem imagens, elas aparecerão aqui.</div>'
+        
+        html += """
+            <script>
+                function openModal(imageUrl) {
+                    document.getElementById('imageModal').style.display = 'block';
+                    document.getElementById('modalImage').src = imageUrl;
+                }
+                
+                function closeModal() {
+                    document.getElementById('imageModal').style.display = 'none';
+                }
+                
+                // Auto-refresh a cada 30 segundos
+                setTimeout(() => location.reload(), 30000);
+            </script>
+        </body>
+        </html>
+        """
+        
+        return html
+        
+    except Exception as e:
+        logging.error(f"Erro no media viewer: {e}")
+        return f"<h1>Erro</h1><p>Erro ao carregar imagens: {str(e)}</p>"
+
 @app.route('/')
 def index():
     """Redireciona automaticamente para o chat"""

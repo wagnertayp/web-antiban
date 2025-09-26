@@ -195,10 +195,64 @@ class WhatsAppWebhookHandler:
             elif message_type == 'image':
                 # 📷 IMAGEM RECEBIDA (COMPROVANTE!)
                 image_data = message.get('image', {})
-                result['media_url'] = image_data.get('id')  # ID da mídia para download
+                media_id = image_data.get('id')
+                result['media_url'] = media_id  # ID da mídia para download
                 result['content'] = '[Comprovante de pagamento recebido]'
                 result['mime_type'] = image_data.get('mime_type', 'image/jpeg')
-                logging.info(f"📷 IMAGEM RECEBIDA (COMPROVANTE): {image_data.get('id')} de {from_number}")
+                logging.info(f"📷 IMAGEM RECEBIDA (COMPROVANTE): {media_id} de {from_number}")
+                
+                # 🖼️ BAIXAR IMAGEM AUTOMATICAMENTE (usando serviço global)
+                if media_id:
+                    try:
+                        import os
+                        import hashlib
+                        from datetime import datetime
+                        
+                        # Obter serviço do contexto da aplicação
+                        from flask import current_app
+                        from services.whatsapp_business_api import WhatsAppBusinessAPI
+                        
+                        # Usar serviço compartilhado ou criar um leve
+                        try:
+                            whatsapp_api = current_app.whatsapp_service
+                        except:
+                            whatsapp_api = WhatsAppBusinessAPI()
+                        
+                        # Baixar a imagem
+                        success, media_data, mime_type = whatsapp_api.download_media(media_id)
+                        
+                        if success and media_data:
+                            # Gerar nome único para o arquivo
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            phone_clean = from_number.replace('+', '').replace(' ', '')
+                            file_hash = hashlib.md5(media_data[:1024]).hexdigest()[:8]
+                            
+                            # Determinar extensão baseada no mime_type
+                            extension = 'jpg'
+                            if 'png' in mime_type:
+                                extension = 'png'
+                            elif 'gif' in mime_type:
+                                extension = 'gif'
+                            elif 'webp' in mime_type:
+                                extension = 'webp'
+                            
+                            filename = f"{timestamp}_{phone_clean}_{file_hash}.{extension}"
+                            filepath = os.path.join('static', 'media', 'images', filename)
+                            
+                            # Salvar arquivo
+                            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+                            with open(filepath, 'wb') as f:
+                                f.write(media_data)
+                            
+                            # Salvar caminho no resultado
+                            result['local_file_path'] = filepath
+                            
+                            logging.info(f"✅ IMAGEM SALVA: {filepath} ({len(media_data)} bytes)")
+                        else:
+                            logging.error(f"❌ Falha ao baixar imagem {media_id}")
+                            
+                    except Exception as e:
+                        logging.error(f"💥 Erro ao processar imagem {media_id}: {str(e)}")
                 
             elif message_type == 'document':
                 # 📄 DOCUMENTO RECEBIDO (COMPROVANTE PDF!)
