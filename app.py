@@ -94,18 +94,24 @@ if database_url and database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url or "sqlite:///whatsapp_sender.db"
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_size": 10,          # Pool adequado para concorrência
-    "max_overflow": 20,       # Overflow generoso para picos
-    "pool_pre_ping": True,    # Test connections before use
-    "pool_recycle": 3600,     # Recycle connections every hour
-    "pool_timeout": 30,       # Connection timeout for high load
-    "isolation_level": "READ_COMMITTED",  # Evitar deadlocks
-    "connect_args": {
+if database_url and database_url.startswith("postgresql"):
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_size": 10,          # Pool adequado para concorrência
+        "max_overflow": 20,       # Overflow generoso para picos
+        "pool_pre_ping": True,    # Test connections before use
+        "pool_recycle": 3600,     # Recycle connections every hour
+        "pool_timeout": 30,       # Connection timeout for high load
+        "isolation_level": "READ_COMMITTED",  # Evitar deadlocks
+        "connect_args": {
         "connect_timeout": 10,
         "application_name": "whatsapp_concurrency_system"
-    } if database_url and "postgresql" in database_url else {}
-}
+        }
+    }
+else:
+    # SQLite não aceita opções de pool e isolamento específicas do PostgreSQL.
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_pre_ping": True
+    }
 
 # Initialize the app with the extension
 db.init_app(app)
